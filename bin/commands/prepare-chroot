@@ -1,0 +1,80 @@
+#!/usr/bin/env xonsh
+
+d=p"$XONSH_SOURCE".resolve().parent; source f'{d}/bootstrap.xsh'
+MINICLUSTER.ARGPARSE.add_argument('--handle', required=True)
+MINICLUSTER = MINICLUSTER.bootstrap_finished(MINICLUSTER)
+
+import logging
+import cluster.functions
+import os
+
+cwd = MINICLUSTER.CWD_START
+
+logger = logging.getLogger(__name__)
+handle = MINICLUSTER.ARGS.handle
+
+mountpoint = f"{cwd}/{handle}"
+
+$RAISE_SUBPROC_ERROR = True
+
+mkdir -p @(mountpoint)/var/cache/pacman/pkg/
+mkdir -p @(mountpoint)/var/lib/pacman/
+mkdir -p @(mountpoint)/etc/
+
+pacstrap -M -K -G @(mountpoint)/ pacman archlinux-keyring
+
+cp /etc/resolv.conf @(mountpoint)/etc/
+sed -i 's/^#Server = /Server = /g'  @(mountpoint)/etc/pacman.d/mirrorlist
+pacman --sysroot @(mountpoint) -Syy --noconfirm
+
+sys.exit(1)
+
+if os.path.exists(f"{mountpoint}/etc/resolv.conf.pacnew"):
+	rm @(mountpoint)/etc/resolv.conf.pacnew
+
+c=f"pacman --noconfirm -S base linux grub mkinitcpio qemu-guest-agent linux-headers linux-firmware audit qemu-base arch-install-scripts"
+arch-chroot @(mountpoint) bash -c @(c)
+
+cp -a @(MINICLUSTER.DIR_R)/bootstrap-overlay/* @(mountpoint)/
+
+genfstab -U @(mountpoint) | grep -vw swap | grep -vw '# ' | sed '/^$/d' > @(mountpoint)/etc/fstab
+
+
+#TODO: get values from minicluster spec
+tz="Europe/Vienna"
+locale="en_US.UTF-8 UTF-8"
+lang="en_US.UTF-8"
+hostname = handle
+nbd_dev = nbd_dev
+
+commands = [
+	f"ln -sf /usr/share/zoneinfo/{tz} /etc/localtime",
+	"hwclock --systohc",
+	f"echo '{locale}' > /etc/locale.gen",
+	"locale-gen",
+	f"echo '{lang}' > /etc/locale.conf",
+	f"echo {hostname} > /etc/hostname",
+
+	"mkinitcpio -P",
+
+	f"grub-install --target=i386-pc --recheck {nbd_dev}",
+	"grub-mkconfig -o /boot/grub/grub.cfg",
+
+	"rm -rf /etc/*.lock || true",
+	"passwd -d root",
+
+	"yes | pacman -S iptables-nft",
+
+	"systemctl enable serial-getty@ttyS0.service",
+	"systemctl enable systemd-networkd.service",
+	"systemctl enable systemd-resolved.service",
+	"systemctl enable auditd.service",
+
+	#TODO: list of additional packages
+	#TODO: list of additional commands
+	"sync"
+]
+
+for c in commands:
+	logger.info(f"executing chroot command {c}")
+	arch-chroot @(mountpoint) bash -c @(c)

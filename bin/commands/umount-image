@@ -1,0 +1,23 @@
+#!/usr/bin/env xonsh
+
+d=p"$XONSH_SOURCE".resolve().parent; source f'{d}/bootstrap.xsh'
+MINICLUSTER.ARGPARSE.add_argument('--handle')
+MINICLUSTER = MINICLUSTER.bootstrap_finished(MINICLUSTER)
+
+import logging
+import cluster.functions
+import json
+
+cwd = MINICLUSTER.CWD_START
+
+logger = logging.getLogger(__name__)
+handle = MINICLUSTER.ARGS.handle
+
+mountpoint = f"{cwd}/{handle}"
+
+pidfile = f"/tmp/guestmount-{handle}.pid"
+
+$RAISE_SUBPROC_ERROR = True
+
+# TODO use pidfile
+guestumount @(mountpoint)

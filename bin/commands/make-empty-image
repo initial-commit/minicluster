@@ -1,0 +1,110 @@
+#!/usr/bin/env xonsh
+
+d=p"$XONSH_SOURCE".resolve().parent; source f'{d}/bootstrap.xsh'
+MINICLUSTER.ARGPARSE.add_argument('--handle', required=True)
+MINICLUSTER = MINICLUSTER.bootstrap_finished(MINICLUSTER)
+
+import sys
+
+import os
+import time
+import json
+import logging
+import cluster.functions
+import re
+
+cwd = MINICLUSTER.CWD_START
+
+logger = logging.getLogger(__name__)
+handle = MINICLUSTER.ARGS.handle
+
+disk_file = f"{cwd}/{handle}.qcow2"
+mountpoint = f"{cwd}/{handle}"
+
+$RAISE_SUBPROC_ERROR = True
+
+rm -rf @(disk_file)
+
+import re
+def parse_size(size):
+	if not isinstance(size, str):
+		return size
+	units = {'B': 1, 'KB': 2**10, 'MB': 2**20, 'GB': 2**30, 'TB': 2**40}
+	size = size.upper()
+	if not re.match(r' ', size):
+		size = re.sub(r'([KMGT]?B)', r' \1', size)
+	number, unit = [string.strip() for string in size.split()]
+	return int(float(number)*units[unit])
+
+d = {
+	'type': 'mbr',
+	'size': '10GB',
+	'sector': 512,
+	'partitions': [
+		{'type': 'primary', 'start': '1MB', 'size': '199MB', 'bootable': True, 'fs': 'ext2', 'mountpoint': '/boot', },
+		{'type': 'primary', 'start': '200MB', 'size': -1, 'fs': 'ext4', 'mountpoint': '/', },
+	],
+}
+
+
+def calculate_disk_sectors(d):
+	parts = []
+	prev_end_sector = 0
+	size_covered = 0
+	size_total = parse_size(d['size'])
+	sector = d['sector']
+	sector_total = int(size_total / sector)
+	max_sector = sector_total - 1
+	logger.info(f"{sector_total=} {max_sector=}")
+	covered = 0
+	first = True
+	last = False
+	for i, p in enumerate(d['partitions']):
+		if i == len(d['partitions'])-1:
+			last = True
+		start_sector = int(parse_size(p['start']) / sector)
+		size_sector = int(parse_size(p['size']) / sector)
+		logger.info(f"{size_sector=}")
+		if size_sector < 1 and last:
+			end_sector = max_sector
+		else:
+			end_sector = start_sector + size_sector
+		if start_sector == prev_end_sector:
+			start_sector += 1
+		# sector calculation done
+
+		# before loop end
+		logger.info(f"====== {i=} {start_sector=} {end_sector=} {prev_end_sector=}")
+		prev_end_sector = end_sector
+		first = False
+	#assert size_covered == size_total
+
+calculate_disk_sectors(d)
+
+qemu-img create -f qcow2 @(disk_file) 10G
+import shlex
+
+commands = [
+	f"add-drive {disk_file}",
+	"run",
+	"part-init /dev/sda mbr",
+	"part-add /dev/sda primary 2048 409600",
+	"part-add /dev/sda primary 409601 20971519",
+	"part-set-bootable /dev/sda 1 true",
+	"mkfs ext2 /dev/sda1 blocksize:4096",
+	"mkfs ext4 /dev/sda2 blocksize:4096",
+	"sync",
+	"mount /dev/sda2 /",
+	"mkdir /boot",
+	"mount /dev/sda1 /boot",
+	"shutdown",
+	"quit",
+]
+
+guestfish_pid=$(guestfish --listen)
+guestfish_pid=re.findall(r'[0-9]+', guestfish_pid)
+guestfish_pid=int(guestfish_pid[0])
+
+for c in commands:
+	print(c)
+	guestfish @(f'--remote={guestfish_pid}') @(shlex.split(c))
