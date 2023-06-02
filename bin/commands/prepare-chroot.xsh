@@ -92,6 +92,7 @@ commands = [
 	["time", "sync"],
 	#["sleep", "60"],
 	["time", "drop-caches", "3"],
+	["copy-out", "/boot/initramfs-linux.img", "/boot/vmlinuz-linux", f"{cwd}/"],
 	["umount", "/boot"],
 	["-umount", "/"],
 	["-shutdown"],

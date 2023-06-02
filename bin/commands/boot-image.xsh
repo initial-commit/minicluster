@@ -22,7 +22,7 @@ logger.info(f"{image=} {name=}")
 generic = ['--enable-kvm', '-boot', 'menu=on', '-m', '2048', '-nic', 'user,model=virtio', '-drive', f'file={image}.qcow2,media=disk,if=virtio', '-nographic', '-vga', 'none']
 generic = ['--enable-kvm', '-boot', 'menu=on', '-m', '2048', '-nic', 'user,model=virtio', '-drive', f'file={image}.qcow2,media=disk,if=virtio', ]
 generic = ['--enable-kvm', '-boot', 'menu=on', '-m', '2048', '-nic', 'user,model=virtio', '-drive', f'file={image}.qcow2,media=disk,if=virtio', '-display', 'none', '-vga', 'none', '-nographic']
-kernel = ['-kernel', 'vmlinuz-linux', '-initrd', 'initramfs.img', '-append', 'console=ttyS0 root=/dev/vda2 rw nopat nokaslr norandmaps printk.devkmsg=on printk.time=y edd=off transparent_hugepage=never']
+kernel = ['-kernel', 'vmlinuz-linux', '-initrd', 'initramfs-linux.img', '-append', 'console=ttyS0 root=/dev/vda2 rw nopat nokaslr norandmaps printk.devkmsg=on printk.time=y edd=off transparent_hugepage=never']
 cpu = ['-cpu', 'host', '-smp', 'cores=4,threads=1,sockets=1', '-machine', 'virt,q35,vmport=off,kernel_irqchip=on,hpet=off']
 cpu = ['-cpu', 'host', '-smp', 'cores=4,threads=1,sockets=1', ]
 boot = ['-boot', 'order=c,strict=on']

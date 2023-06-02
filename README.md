@@ -36,3 +36,4 @@ pip install python-dateutil psutil
 #pacman -S qemu-base arch-install-scripts nbd udisks2
 pacman -S qemu-base arch-install-scripts libguestfs guestfs-tools
 
+fusermount: option allow_other only allowed if 'user_allow_other' is set in /etc/fuse.conf
