@@ -2,4 +2,4 @@
 
 d="d1"
 
-bin/commands/make-empty-image --handle @(d) && bin/commands/mount-image --handle @(d) && bin/commands/prepare-chroot --handle @(d)
+make-empty-image.xsh --handle @(d) && mount-image.xsh --handle @(d) && prepare-chroot.xsh --handle @(d)

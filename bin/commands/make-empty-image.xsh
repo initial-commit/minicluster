@@ -41,7 +41,7 @@ d = {
 	'size': '10GB',
 	'sector': 512,
 	'partitions': [
-		{'type': 'primary', 'start': '1MB', 'size': '199MB', 'bootable': True, 'fs': 'ext2', 'mountpoint': '/boot', },
+		{'type': 'primary', 'start': '1MB', 'size': '199MB', 'bootable': True, 'fs': 'ext4', 'mountpoint': '/boot', },
 		{'type': 'primary', 'start': '200MB', 'size': -1, 'fs': 'ext4', 'mountpoint': '/', },
 	],
 }
@@ -71,12 +71,20 @@ def calculate_disk_sectors(d):
 			end_sector = start_sector + size_sector
 		if start_sector == prev_end_sector:
 			start_sector += 1
+		if last:
+			end_sector = end_sector-33 # mbr to gpt conversion causes last 33 sectors to be needed by gpt (given size 512)
 		# sector calculation done
+		p['start_sector'] = start_sector
+		p['end_sector'] = end_sector
+		parts.append(p)
+		if p['mountpoint'] == '/':
+			d['root_part_index'] = i+1
 
 		# before loop end
 		logger.info(f"====== {i=} {start_sector=} {end_sector=} {prev_end_sector=}")
 		prev_end_sector = end_sector
 		first = False
+	d['partitions'] = parts
 	#assert size_covered == size_total
 
 calculate_disk_sectors(d)
@@ -87,19 +95,42 @@ import shlex
 commands = [
 	f"add-drive {disk_file}",
 	"run",
-	"part-init /dev/sda mbr",
-	"part-add /dev/sda primary 2048 409600",
-	"part-add /dev/sda primary 409601 20971519",
-	"part-set-bootable /dev/sda 1 true",
-	"mkfs ext2 /dev/sda1 blocksize:4096",
-	"mkfs ext4 /dev/sda2 blocksize:4096",
-	"sync",
-	"mount /dev/sda2 /",
-	"mkdir /boot",
-	"mount /dev/sda1 /boot",
-	"shutdown",
-	"quit",
+	f"part-init /dev/sda {d['type']}",
+	#"part-add /dev/sda primary 2048 409600",
+	#"part-add /dev/sda primary 409601 20971519",
+	#"part-set-bootable /dev/sda 1 true",
+	#"mkfs ext2 /dev/sda1 blocksize:4096",
+	#"mkfs ext4 /dev/sda2 blocksize:4096",
+	#"sync",
+	#"mount /dev/sda2 /",
+	#"mkdir /boot",
+	#"mount /dev/sda1 /boot",
+	#"shutdown",
+	#"quit",
 ]
+
+part_commands = []
+for i, p in enumerate(d['partitions']):
+	current_idx = i+1
+	c = f"part-add /dev/sda primary {p['start_sector']} {p['end_sector']}"
+	part_commands.append(c)
+	if 'bootable' in p and p['bootable']:
+		part_commands.append(f"part-set-bootable /dev/sda {current_idx} true")
+	c = f"mkfs {p['fs']} /dev/sda{current_idx} blocksize:4096"
+	part_commands.append(c)
+
+commands.extend(part_commands)
+commands.append(f"mount /dev/sda{d['root_part_index']} /")
+for i, p in enumerate(d['partitions']):
+	if p['mountpoint'] == '/':
+		continue
+	current_idx = i+1
+	c = f"mkdir {p['mountpoint']}"
+	commands.append(c)
+	c = f"mount /dev/sda{current_idx} {p['mountpoint']}"
+	commands.append(c)
+
+commands.extend(["sync", "shutdown", "quit"])
 
 guestfish_pid=$(guestfish --listen)
 guestfish_pid=re.findall(r'[0-9]+', guestfish_pid)
@@ -108,3 +139,18 @@ guestfish_pid=int(guestfish_pid[0])
 for c in commands:
 	print(c)
 	guestfish @(f'--remote={guestfish_pid}') @(shlex.split(c))
+
+raw=$(virt-filesystems --filesystems --uuids --long --csv -a @(disk_file)  | tail -n +2 | cut -d, -f1,3,7).splitlines()
+fstab_lines = []
+for i, uid_raw in enumerate(raw):
+	uid_raw=uid_raw.split(',')
+	p_data = d['partitions'][i]
+	mnt = p_data['mountpoint']
+	t=uid_raw[1]
+	uuid=uid_raw[2]
+	fsck_ord = 1 if mnt == '/' else 2
+	line = f"UUID={uuid}\t{mnt}\t{t}\trw,relatime\t0\t{fsck_ord}"
+	fstab_lines.append(line)
+
+with open(f"/tmp/fstab-{handle}", "w") as f:
+	f.write("\n".join(fstab_lines))

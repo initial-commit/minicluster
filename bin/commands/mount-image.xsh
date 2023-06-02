@@ -1,7 +1,7 @@
 #!/usr/bin/env xonsh
 
 d=p"$XONSH_SOURCE".resolve().parent; source f'{d}/bootstrap.xsh'
-MINICLUSTER.ARGPARSE.add_argument('--handle')
+MINICLUSTER.ARGPARSE.add_argument('--handle', required=True)
 MINICLUSTER = MINICLUSTER.bootstrap_finished(MINICLUSTER)
 
 import os
@@ -22,4 +22,15 @@ $RAISE_SUBPROC_ERROR = True
 uid=os.getuid()
 gid=os.getgid()
 
-guestmount -o allow_other -o @(f"uid={uid}") -o @(f"gid={gid}") --pid-file @(f"/tmp/guestmount-{handle}.pid") -a @(disk_file) -m /dev/sda2:/ -m /dev/sda1:/boot (mountpoint)
+mount_args = [
+	'-o', 'allow_other',
+	'-o', f'uid={uid}', '-o', f'gid={gid}',
+	'--pid-file', f'/tmp/guestmount-{handle}.pid',
+	#'--no-fork', '--verbose', '--trace',
+	'-a', disk_file,
+	'-m', '/dev/sda2:/',
+	'-m', '/dev/sda1:/boot',
+	mountpoint,
+]
+
+guestmount @(mount_args)
