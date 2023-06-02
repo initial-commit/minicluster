@@ -96,17 +96,6 @@ commands = [
 	f"add-drive {disk_file}",
 	"run",
 	f"part-init /dev/sda {d['type']}",
-	#"part-add /dev/sda primary 2048 409600",
-	#"part-add /dev/sda primary 409601 20971519",
-	#"part-set-bootable /dev/sda 1 true",
-	#"mkfs ext2 /dev/sda1 blocksize:4096",
-	#"mkfs ext4 /dev/sda2 blocksize:4096",
-	#"sync",
-	#"mount /dev/sda2 /",
-	#"mkdir /boot",
-	#"mount /dev/sda1 /boot",
-	#"shutdown",
-	#"quit",
 ]
 
 part_commands = []
