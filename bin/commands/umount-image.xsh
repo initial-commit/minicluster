@@ -2,15 +2,12 @@
 
 if __name__ == '__main__':
 	d=p"$XONSH_SOURCE".resolve().parent; source f'{d}/bootstrap.xsh'
-	MINICLUSTER.ARGPARSE.add_argument('--handle')
+	MINICLUSTER.ARGPARSE.add_argument('--handle', required=True)
 	MINICLUSTER = MINICLUSTER.bootstrap_finished(MINICLUSTER)
 
 import logging
-import cluster.functions
-import json
 import psutil
 import time
-import sys
 import os
 
 def command_umount_image_xsh(cwd, logger, handle):

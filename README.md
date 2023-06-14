@@ -3,12 +3,42 @@ Rules
 
 * commands in `bin/` document all actual commands being executed
 
+Tools
+=====
+
+Tools that can be used to debug or work with the underlying tech
+
+socat
+-----
+
+```
+socat unix-connect:/tmp/qga-t1.sock readline
+```
+
+for QMP commands to the agent inside the VM.
+
+guestfish
+---------
+
+Part of guestfs-tools, used to create and manipulate VM disks
+
+Provided commands
+-----------------
+
+Commands in `bin/commands/`
+
 TODOs
 =====
 
 Today
 -----
 
+* helper for transferring file in and out of VM
+* helper for transferring directory in and out of VM, recursively (preserve permissions, do not preserve timestamps and owners)
+* transfer the project itself into the VM and bootstrap
+* command to reset-image
+* remove files: /etc/machine-id /var/lib/systemd/random-seed /var/lib/dbus/machine-id /var/log/* /var/tmp/
+* Shell for QMP and qemu commands
 * contract all commands in only one: build-base-image
 * turn the cluster inside-out for invertion of control, i.e. turn it into a library
   * write the python code for the `minicluster` minicluster
@@ -16,6 +46,7 @@ Today
 
 Next
 ----
+
 
 * create the concept of a cluster "project" where files reside, instead of CWD
   * for fstab (instead of /tmp)
@@ -33,13 +64,28 @@ Next
 * move to btrfs
 * detect differences between layout spec and actual spec and issue commands
 
+Mid-term
+--------
+
+* create a shell bridge which can execute commands inside the vm interactively
+  * this bridge is also available as a library, reusable in other python code
+* create a connector for ansible to provision such systems (without sshd or the like)
+
 
 Bigger plans
 ------------
 
 * an architecture based on command pattern
-* the commands are submitted to a daemon, who takes care of the actual execution and error handling
+* the commands are submitted to a daemon (master), who takes care of the actual execution and error handling
 * connect clusters on different hardware machines and make them act as one
+* all commands are executed by the master process, and client libraries just generate commands to be submitted to it
+  * goal: have integrations in various languages: python, js, rust, zig, java, scala, php
+* easily wrap different open-source applications in their own appliances and ability to recombine them
+* easily write cluster-aware applications in these languages
+* generating the cluster artifacts also generates library code allowing the cluster to be steered in that programming language: specific to the concrete layout
+  * ability to say in code things like "for all worker servers in python, update the ML models"
+* have an UI
+  * plug parameters into cluster layouts and spin up customized clusters
 
 Dependencies
 -----------
@@ -50,3 +96,54 @@ fusermount: option allow_other only allowed if 'user_allow_other' is set in /etc
 
 
 python pip: xonsh and xpip autoxsh
+
+
+Cluster specs
+-------------
+
+Static top level keys:
+
+
+* disks
+* networking
+* machine-types (configurations of disks, cpu, ram, networking, provisioning)
+
+Dynamic:
+
+* boot up a machine of a machine-type
+* attach, detach: disks, networking (ram, cpu?)
+* interactive commands
+* migrate machines across hosts
+* generate ansible inventory
+
+Use Cases
+=========
+
+Self-Contained minicluster
+--------------------------
+
+Goal: the minicluster layout is able to manage itself in the whole lifecycle:
+
+* bootstrapping
+* testing
+* cleanup
+* promoting
+* automatically rebuild when new packages arrive
+* protocol all changes done to packages
+
+Goal: use the minicluster testing repositories
+
+* same as the minicluster layout, but use the testing repositories
+* TODO: evaluate first, should not lead to many breakages
+* chain this layout "minicluster-testing" to layout "minicluster", only once
+  "testing" passes, trigger a rebuild/etc of "minicluster"
+
+Repository builder
+------------------
+
+Goal: given a list of packages, cache all of them, test them, and make a
+repository for consumption by regular arch installations
+
+Goal: tests various installations and configurations
+
+Goal: builds and uses a "fat image" which does not require re-downloading the packages

@@ -1,5 +1,4 @@
 #!/usr/bin/env xonsh
-#
 
 d=p"$XONSH_SOURCE".resolve().parent; source f'{d}/bootstrap.xsh'
 MINICLUSTER.ARGPARSE.add_argument('--handle', required=True)
@@ -33,6 +32,7 @@ mkdir -p @(mountpoint)/etc/
 
 #pacstrap -N -M -K -G @(mountpoint)/ base linux mkinitcpio grub linux-headers linux-firmware arch-install-scripts fuse2 os-prober
 #pacstrap -N -M -K -G @(mountpoint)/ pacman archlinux-keyring base linux mkinitcpio grub linux-headers linux-firmware qemu-guest-agent audit qemu-base arch-install-scripts fuse2 os-prober
+#TODO: list of packages to install
 pacstrap -N -M -K -G @(mountpoint)/ base linux mkinitcpio syslinux linux-firmware qemu-guest-agent qemu-base arch-install-scripts
 
 cp -a @(MINICLUSTER.DIR_R)/bootstrap-overlay/* @(mountpoint)/
@@ -92,7 +92,9 @@ commands = [
 	["time", "sync"],
 	#["sleep", "60"],
 	["time", "drop-caches", "3"],
+	#TODO: copy to var path of project
 	["copy-out", "/boot/initramfs-linux.img", "/boot/vmlinuz-linux", f"{cwd}/"],
+	#TODO: umount based on the layout in the spec
 	["umount", "/boot"],
 	["-umount", "/"],
 	["-shutdown"],
