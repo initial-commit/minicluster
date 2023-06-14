@@ -7,7 +7,6 @@ if __name__ == '__main__':
 
 import os
 import logging
-#import cluster.functions
 
 def command_mount_image_xsh(cwd, logger, handle):
     disk_file = f"{cwd}/{handle}.qcow2"

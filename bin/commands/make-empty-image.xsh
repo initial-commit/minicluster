@@ -1,8 +1,9 @@
 #!/usr/bin/env xonsh
 
-d=p"$XONSH_SOURCE".resolve().parent; source f'{d}/bootstrap.xsh'
-MINICLUSTER.ARGPARSE.add_argument('--handle', required=True)
-MINICLUSTER = MINICLUSTER.bootstrap_finished(MINICLUSTER)
+if __name__ == '__main__':
+    d=p"$XONSH_SOURCE".resolve().parent; source @(f'{d}/bootstrap.xsh')
+    MINICLUSTER.ARGPARSE.add_argument('--handle', required=True)
+    MINICLUSTER = MINICLUSTER.bootstrap_finished(MINICLUSTER)
 
 import sys
 
@@ -12,20 +13,8 @@ import json
 import logging
 import cluster.functions
 import re
+import shlex
 
-cwd = MINICLUSTER.CWD_START
-
-logger = logging.getLogger(__name__)
-handle = MINICLUSTER.ARGS.handle
-
-disk_file = f"{cwd}/{handle}.qcow2"
-mountpoint = f"{cwd}/{handle}"
-
-$RAISE_SUBPROC_ERROR = True
-
-rm -rf @(disk_file)
-
-import re
 def parse_size(size):
 	if not isinstance(size, str):
 		return size
@@ -35,17 +24,6 @@ def parse_size(size):
 		size = re.sub(r'([KMGT]?B)', r' \1', size)
 	number, unit = [string.strip() for string in size.split()]
 	return int(float(number)*units[unit])
-
-d = {
-	'type': 'mbr',
-	'size': '10GB',
-	'sector': 512,
-	'partitions': [
-		{'type': 'primary', 'start': '1MB', 'size': '199MB', 'bootable': True, 'fs': 'ext4', 'mountpoint': '/boot', },
-		{'type': 'primary', 'start': '200MB', 'size': -1, 'fs': 'ext4', 'mountpoint': '/', },
-	],
-}
-
 
 def calculate_disk_sectors(d):
 	parts = []
@@ -85,61 +63,87 @@ def calculate_disk_sectors(d):
 		prev_end_sector = end_sector
 		first = False
 	d['partitions'] = parts
-	#assert size_covered == size_total
 
-calculate_disk_sectors(d)
+def command_make_empty_image_xsh(cwd, logger, handle, d):
+    disk_file = f"{cwd}/{handle}.qcow2"
+    mountpoint = f"{cwd}/{handle}"
+    rm -rf @(disk_file)
+    calculate_disk_sectors(d)
+    out=$(qemu-img create -f qcow2 @(disk_file) 10G).rstrip()
+    logger.info(out)
 
-qemu-img create -f qcow2 @(disk_file) 10G
-import shlex
+    guestfish_pid=$(guestfish --listen)
+    guestfish_pid=re.findall(r'[0-9]+', guestfish_pid)
+    guestfish_pid=int(guestfish_pid[0])
 
-commands = [
-	f"add-drive {disk_file}",
-	"run",
-	f"part-init /dev/sda {d['type']}",
-]
+    commands = create_bootstrap_guestfish_commands(disk_file, d)
 
-part_commands = []
-for i, p in enumerate(d['partitions']):
-	current_idx = i+1
-	c = f"part-add /dev/sda primary {p['start_sector']} {p['end_sector']}"
-	part_commands.append(c)
-	if 'bootable' in p and p['bootable']:
-		part_commands.append(f"part-set-bootable /dev/sda {current_idx} true")
-	c = f"mkfs {p['fs']} /dev/sda{current_idx} blocksize:4096"
-	part_commands.append(c)
+    for c in commands:
+        logger.info(c)
+        guestfish @(f'--remote={guestfish_pid}') @(shlex.split(c))
 
-commands.extend(part_commands)
-commands.append(f"mount /dev/sda{d['root_part_index']} /")
-for i, p in enumerate(d['partitions']):
-	if p['mountpoint'] == '/':
-		continue
-	current_idx = i+1
-	c = f"mkdir {p['mountpoint']}"
-	commands.append(c)
-	c = f"mount /dev/sda{current_idx} {p['mountpoint']}"
-	commands.append(c)
+    raw=$(virt-filesystems --filesystems --uuids --long --csv -a @(disk_file)  | tail -n +2 | cut -d, -f1,3,7).splitlines()
+    fstab_lines = []
+    for i, uid_raw in enumerate(raw):
+        uid_raw=uid_raw.split(',')
+        p_data = d['partitions'][i]
+        mnt = p_data['mountpoint']
+        t=uid_raw[1]
+        uuid=uid_raw[2]
+        fsck_ord = 1 if mnt == '/' else 2
+        line = f"UUID={uuid}\t{mnt}\t{t}\trw,relatime\t0\t{fsck_ord}"
+        fstab_lines.append(line)
 
-commands.extend(["sync", "shutdown", "quit"])
+    with open(f"/{cwd}/fstab-{handle}", "w") as f:
+        f.write("\n".join(fstab_lines))
 
-guestfish_pid=$(guestfish --listen)
-guestfish_pid=re.findall(r'[0-9]+', guestfish_pid)
-guestfish_pid=int(guestfish_pid[0])
 
-for c in commands:
-	print(c)
-	guestfish @(f'--remote={guestfish_pid}') @(shlex.split(c))
+def create_bootstrap_guestfish_commands(disk_file, d):
+    commands = [
+        f"add-drive {disk_file}",
+        "run",
+        f"part-init /dev/sda {d['type']}",
+    ]
 
-raw=$(virt-filesystems --filesystems --uuids --long --csv -a @(disk_file)  | tail -n +2 | cut -d, -f1,3,7).splitlines()
-fstab_lines = []
-for i, uid_raw in enumerate(raw):
-	uid_raw=uid_raw.split(',')
-	p_data = d['partitions'][i]
-	mnt = p_data['mountpoint']
-	t=uid_raw[1]
-	uuid=uid_raw[2]
-	fsck_ord = 1 if mnt == '/' else 2
-	line = f"UUID={uuid}\t{mnt}\t{t}\trw,relatime\t0\t{fsck_ord}"
-	fstab_lines.append(line)
+    part_commands = []
+    for i, p in enumerate(d['partitions']):
+        current_idx = i+1
+        c = f"part-add /dev/sda primary {p['start_sector']} {p['end_sector']}"
+        part_commands.append(c)
+        if 'bootable' in p and p['bootable']:
+            part_commands.append(f"part-set-bootable /dev/sda {current_idx} true")
+        c = f"mkfs {p['fs']} /dev/sda{current_idx} blocksize:4096"
+        part_commands.append(c)
 
-with open(f"/tmp/fstab-{handle}", "w") as f:
-	f.write("\n".join(fstab_lines))
+    commands.extend(part_commands)
+    commands.append(f"mount /dev/sda{d['root_part_index']} /")
+    for i, p in enumerate(d['partitions']):
+        if p['mountpoint'] == '/':
+            continue
+        current_idx = i+1
+        c = f"mkdir {p['mountpoint']}"
+        commands.append(c)
+        c = f"mount /dev/sda{current_idx} {p['mountpoint']}"
+        commands.append(c)
+
+    commands.extend(["sync", "shutdown", "quit"])
+    return commands
+
+if __name__ == '__main__':
+    cwd = MINICLUSTER.CWD_START
+    logger = logging.getLogger(__name__)
+    handle = MINICLUSTER.ARGS.handle
+
+
+    d = {
+        'type': 'mbr',
+        'size': '10GB',
+        'sector': 512,
+        'partitions': [
+            {'type': 'primary', 'start': '1MB', 'size': '199MB', 'bootable': True, 'fs': 'ext4', 'mountpoint': '/boot', },
+            {'type': 'primary', 'start': '200MB', 'size': -1, 'fs': 'ext4', 'mountpoint': '/', },
+        ],
+    }
+    $RAISE_SUBPROC_ERROR = True
+    command_make_empty_image_xsh(cwd, logger, handle, d)
+

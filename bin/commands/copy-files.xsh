@@ -8,7 +8,7 @@ if __name__ == '__main__':
 
 import logging
 import cluster.qmp
-import json
+import shutil
 
 def command_copy_files_xsh(cwd, logger, copy_from, copy_to):
     if ':' in copy_to:
@@ -17,6 +17,7 @@ def command_copy_files_xsh(cwd, logger, copy_from, copy_to):
         raise Exception("not implemented yet")
     s = f"/tmp/qga-{name}.sock"
     c = cluster.qmp.Connection(s)
+    f = shutil.make_archive()
     data_from = c.write_to_vm(data_from, copy_to)
 
 if __name__ == '__main__':

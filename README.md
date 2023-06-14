@@ -38,7 +38,6 @@ Today
 * transfer the project itself into the VM and bootstrap
 * command to reset-image
 * remove files: /etc/machine-id /var/lib/systemd/random-seed /var/lib/dbus/machine-id /var/log/* /var/tmp/
-* Shell for QMP and qemu commands
 * contract all commands in only one: build-base-image
 * turn the cluster inside-out for invertion of control, i.e. turn it into a library
   * write the python code for the `minicluster` minicluster

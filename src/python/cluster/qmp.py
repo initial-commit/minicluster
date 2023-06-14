@@ -81,6 +81,9 @@ class Connection(object):
             status['err-data'] = status['err-data'].decode(out_encoding)
         return status
 
+    def guest_read_file_out(self, vm_path):
+        resp = self._send_recv_rountrip()
+
     def guest_get_users(self):
         resp = self._send_recv_rountrip("guest-get-users")
         print(f"{resp=}")
