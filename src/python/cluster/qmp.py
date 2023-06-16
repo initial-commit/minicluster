@@ -4,14 +4,17 @@ import os
 import shlex
 import base64
 import time
+import pathlib
 
 
 class Connection(object):
     _socket = None
     _buf = None
     _info = None
+    logger = None
 
-    def __init__(self, sock):
+    def __init__(self, sock, logger):
+        self.logger = logger.getChild(self.__class__.__name__)
         self.sock_path = sock
         resp = self._send_recv_rountrip("guest-sync-delimited", id=os.getpid())
         if 'return' not in resp or resp['return'] != os.getpid():
@@ -53,18 +56,21 @@ class Connection(object):
             guest_args['input-data'] = input_data
         resp = self._send_recv_rountrip("guest-exec", **guest_args)
         if 'return' not in resp:
+            self.logger.debug(f"return not in response {resp=}")
             return False
         return resp['return']['pid']
 
     def guest_exec_status(self, pid):
         resp = self._send_recv_rountrip("guest-exec-status", pid=pid)
         if 'return' not in resp:
+            self.logger.debug(f"return not in response {resp=}", extra={'resp': resp})
             return None
         return resp['return']
 
     def guest_exec_wait(self, cmd, input_data=None, capture_output=True, env=[], interval=0.1, out_encoding='utf-8'):
         pid = self.guest_exec(cmd, input_data, capture_output, env)
         status = self.guest_exec_status(pid)
+        self.logger.debug("command returned", extra={'cmd': cmd, 'status': status})
         while not status['exited']:
             time.sleep(interval)
             status = self.guest_exec_status(pid)
@@ -80,6 +86,41 @@ class Connection(object):
             status['out-data'] = status['out-data'].decode(out_encoding)
             status['err-data'] = status['err-data'].decode(out_encoding)
         return status
+
+    def path_stat(self, vm_path):
+        prog = (
+            "import os\n"
+            "import json\n"
+            "import sys\n"
+            "import stat\n"
+            "try:\n"
+            f"  s_obj = os.stat('{vm_path}')\n"
+            "  modes = {k: getattr(stat, k) for k in dir(stat) if k.startswith(('S_IS', 'S_IMODE', 'S_IFMT', 'filemode')) and callable(getattr(stat, k)) }\n"
+            "  modes = {k: v(s_obj.st_mode) for k,v in modes.items()}\n"
+            "  props = {k: getattr(stat, k) for k in dir(stat) if k.startswith(('ST_', )) and isinstance(getattr(stat, k), int) }\n"
+            "  props = {k: s_obj[v] for k,v in props.items()}\n"
+            "  print(json.dumps({**modes, **props}))\n"
+            "except:\n"
+            "  print('{}')\n"
+            "  sys.exit(1)\n"
+        )
+        stat_result = self.guest_exec_wait(["python", "-c", prog])
+        if stat_result['exitcode']:
+            return None
+        return json.loads(stat_result['out-data'])
+
+    def write_to_vm(self, data, vm_path):
+        cwd = str(pathlib.Path(vm_path).parent)
+        resp = self.path_stat(vm_path)
+        data = base64.b64encode(data).decode('utf-8')
+        resp = self._send_recv_rountrip("guest-file-open", path=vm_path, mode='wb')
+        h = resp['return']
+        kwargs = {'handle': h, 'buf-b64': data}
+        resp = self._send_recv_rountrip("guest-file-write", **kwargs)
+        written = resp['return']['count']
+        resp = self._send_recv_rountrip("guest-file-close", handle=h)
+        resp = self.guest_exec_wait(["bash", "-c", f"cd {cwd} && tar xfz {vm_path} && rm {vm_path}"], env=[f"PWD={cwd}"])
+        return written
 
     def guest_read_file_out(self, vm_path):
         resp = self._send_recv_rountrip()
@@ -119,6 +160,7 @@ class Connection(object):
     def _send_raw(self, msg):
         s = self._get_socket()
         msg = json.dumps(msg).encode('utf-8')
+        self.logger.debug(msg, stack_info=True)
         return s.sendall(msg)
 
     def _get_raw(self):

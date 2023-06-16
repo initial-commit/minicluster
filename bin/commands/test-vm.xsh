@@ -22,7 +22,7 @@ def command_test_vm_xsh(cwd, logger, name):
     startup_finished = []
 
     s = f"/tmp/qga-{name}.sock"
-    c = cluster.qmp.Connection(s)
+    c = cluster.qmp.Connection(s, logger)
     status = c.guest_exec_wait('journalctl --boot --lines=all -o export --output=json')
     # TODO: assert partitions matching the disk spec
     lines = status['out-data'].splitlines()

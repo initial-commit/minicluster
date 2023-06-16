@@ -73,3 +73,7 @@ def get_current_nbd_mountpoints(blk_info, mountpoint):
                 if m and m.startswith(mountpoint):
                     mnt.append(m)
     return mnt
+
+
+def interpolate_string(s, MINICLUSTER):
+    return s.format(**MINICLUSTER._asdict())

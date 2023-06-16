@@ -33,20 +33,25 @@ TODOs
 Today
 -----
 
-* helper for transferring file in and out of VM
-* helper for transferring directory in and out of VM, recursively (preserve permissions, do not preserve timestamps and owners)
+* fix the terminal issue
+* embed the cache into the image so that no downloading is done at L1
+* parameterize boot-image with cpu and ram params
 * transfer the project itself into the VM and bootstrap
+* build and test itself at L1
+  * this makes sure that we really test what we have and not something else
 * command to reset-image
 * remove files: /etc/machine-id /var/lib/systemd/random-seed /var/lib/dbus/machine-id /var/log/* /var/tmp/
-* contract all commands in only one: build-base-image
-* turn the cluster inside-out for invertion of control, i.e. turn it into a library
-  * write the python code for the `minicluster` minicluster
-* make the whole image and test it
+* command to extract a pacman repository from an image
+* procedure to test from scratch
+  * install a new base system, and during the installation, point at the new repository to build itself
+  * document this procedure
 
 Next
 ----
 
 
+* turn the cluster inside-out for invertion of control, i.e. turn it into a library
+  * write the python code for the `minicluster` minicluster
 * create the concept of a cluster "project" where files reside, instead of CWD
   * for fstab (instead of /tmp)
   * for kernel and initramfs (instead of cmd)

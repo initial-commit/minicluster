@@ -26,14 +26,14 @@ generic = ['--enable-kvm', '-boot', 'menu=on', '-m', '2048', '-nic', 'user,model
 kernel_append = 'console=ttyS0 root=/dev/vda2 rw nopat nokaslr norandmaps printk.devkmsg=on printk.time=y edd=off transparent_hugepage=never systemd.journald.forward_to_kmsg'
 kernel = ['-kernel', 'vmlinuz-linux', '-initrd', 'initramfs-linux.img', '-append', kernel_append, ]
 cpu = ['-cpu', 'host', '-smp', 'cores=4,threads=1,sockets=1', '-machine', 'virt,q35,vmport=off,kernel_irqchip=on,hpet=off']
-cpu = ['-cpu', 'host', '-smp', 'cores=4,threads=1,sockets=1', ]
+cpu = ['-cpu', 'host', '-smp', 'cores=8,threads=1,sockets=1', ]
 boot = ['-boot', 'order=c,strict=on']
 devices = ['-device', 'virtio-serial',
-	'-chardev', f'socket,path=/tmp/qga-{name}.sock,server=on,wait=off,id=qga0',
+	'-chardev', f'socket,path={cwd}/qga-{name}.sock,server=on,wait=off,id=qga0',
 	'-device', 'virtserialport,chardev=qga0,name=org.qemu.guest_agent.0',
     ]
 #devices = []
-host = ['-pidfile', f'/tmp/minicluster-name-{name}.pid', '--name', name]
+host = ['-pidfile', f'{cwd}/qemu-{name}.pid', '--name', name]
 append = []
 
 qemu-system-x86_64 @(generic) @(kernel) @(cpu) @(boot) @(devices) @(host) @(append)
