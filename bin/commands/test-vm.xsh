@@ -82,6 +82,8 @@ def command_test_vm_xsh(cwd, logger, name):
     assert(len(finished) == 24)
     assert(len(started) == 31)
     assert(len(startup_finished) == 1)
+    #TODO: test for no .pacnew files in /etc
+    #TODO: test for all tmpfiles cleaned, see systemd-tmpfiles
     #status = c.guest_exec_wait('dmesg -x -k -J --time-format iso -T -c')
     #print(status['out-data'])
 

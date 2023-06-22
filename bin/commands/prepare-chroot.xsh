@@ -23,10 +23,7 @@ def command_prepare_chroot_xsh(cwd, logger, handle):
     mkdir -p @(mountpoint)/var/lib/pacman/
     mkdir -p @(mountpoint)/etc/
 
-    #pacstrap -N -M -K -G @(mountpoint)/ base linux mkinitcpio grub linux-headers linux-firmware arch-install-scripts fuse2 os-prober
-    #pacstrap -N -M -K -G @(mountpoint)/ pacman archlinux-keyring base linux mkinitcpio grub linux-headers linux-firmware qemu-guest-agent audit qemu-base arch-install-scripts fuse2 os-prober
-    #TODO: list of packages to install
-    pacstrap -N -M -K -G @(mountpoint)/ base linux mkinitcpio syslinux linux-firmware qemu-guest-agent qemu-base arch-install-scripts
+    pacstrap.xsh @(mountpoint) base linux mkinitcpio syslinux linux-firmware qemu-guest-agent qemu-base arch-install-scripts
 
     # TODO: overlays from the project
     cp -a @(MINICLUSTER.DIR_R)/bootstrap-overlay/* @(mountpoint)/
@@ -107,10 +104,4 @@ if __name__ == '__main__':
     handle = MINICLUSTER.ARGS.handle
     $RAISE_SUBPROC_ERROR = True
     command_prepare_chroot_xsh(cwd, logger, handle)
-
-    sys.exit(0)
-    # TODO: cleanup, reset image
-
-    if os.path.exists(f"{mountpoint}/etc/resolv.conf.pacnew"):
-        rm @(mountpoint)/etc/resolv.conf.pacnew
 

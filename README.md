@@ -30,22 +30,6 @@ Commands in `bin/commands/`
 TODOs
 =====
 
-Today
------
-
-* fix the terminal issue
-* embed the cache into the image so that no downloading is done at L1
-* parameterize boot-image with cpu and ram params
-* transfer the project itself into the VM and bootstrap
-* build and test itself at L1
-  * this makes sure that we really test what we have and not something else
-* command to reset-image
-* remove files: /etc/machine-id /var/lib/systemd/random-seed /var/lib/dbus/machine-id /var/log/* /var/tmp/
-* command to extract a pacman repository from an image
-* procedure to test from scratch
-  * install a new base system, and during the installation, point at the new repository to build itself
-  * document this procedure
-
 Next
 ----
 

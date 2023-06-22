@@ -23,7 +23,13 @@ logger.info(f"{image=} {name=}")
 generic = ['--enable-kvm', '-boot', 'menu=on', '-m', '2048', '-nic', 'user,model=virtio', '-drive', f'file={image}.qcow2,media=disk,if=virtio', '-nographic', '-vga', 'none']
 generic = ['--enable-kvm', '-boot', 'menu=on', '-m', '2048', '-nic', 'user,model=virtio', '-drive', f'file={image}.qcow2,media=disk,if=virtio', ]
 generic = ['--enable-kvm', '-boot', 'menu=on', '-m', '2048', '-nic', 'user,model=virtio', '-drive', f'file={image}.qcow2,media=disk,if=virtio', '-display', 'none', '-vga', 'none', '-nographic']
-kernel_append = 'console=ttyS0 root=/dev/vda2 rw nopat nokaslr norandmaps printk.devkmsg=on printk.time=y edd=off transparent_hugepage=never systemd.journald.forward_to_kmsg'
+generic = ['--enable-kvm', '-boot', 'menu=on', '-m', '2048', '-nic', 'user,model=virtio', '-drive', f'file={image}.qcow2,media=disk,if=virtio',
+    '-display', 'none', '-vga', 'none', '-nographic',
+    ]
+generic = ['--enable-kvm', '-boot', 'menu=on', '-m', '2048', '-nic', 'user,model=virtio', '-drive', f'file={image}.qcow2,media=disk,if=virtio',
+    '-nographic', '-serial', 'mon:stdio',
+    ]
+kernel_append = 'nomodeset console=tty0 console=ttyS0,38400 root=/dev/vda2 rw nopat nokaslr norandmaps printk.devkmsg=on printk.time=y edd=off transparent_hugepage=never systemd.journald.forward_to_kmsg'
 kernel = ['-kernel', 'vmlinuz-linux', '-initrd', 'initramfs-linux.img', '-append', kernel_append, ]
 cpu = ['-cpu', 'host', '-smp', 'cores=4,threads=1,sockets=1', '-machine', 'virt,q35,vmport=off,kernel_irqchip=on,hpet=off']
 cpu = ['-cpu', 'host', '-smp', 'cores=8,threads=1,sockets=1', ]
