@@ -16,21 +16,76 @@ import shlex
 def command_prepare_chroot_xsh(cwd, logger, handle):
     mountpoint = f"{cwd}/{handle}"
     disk_file = f"{cwd}/{handle}.qcow2"
+    unshare_pid=("--fork", "--pid", "--mount-proc",)
+    unshare_mount=("--mount", "--map-auto", "--map-root-user", "--setuid", "0", "--setgid", "0")
 
-    # TODO: mount here
+    if not pf"archlinux-bootstrap-x86_64.tar".exists():
+        #TODO: fetch the mirrors as json from archlinux and use that information
+        curl -o archlinux-bootstrap-x86_64.tar.gz -C - https://geo.mirror.pkgbuild.com/iso/latest/archlinux-bootstrap-x86_64.tar.gz
+        curl -o archlinux-bootstrap-x86_64.tar.gz.sig -C - https://geo.mirror.pkgbuild.com/iso/latest/archlinux-bootstrap-x86_64.tar.gz.sig
+        sq --force wkd get pierre@archlinux.org -o release-key.pgp
+        sq verify --signer-file release-key.pgp --detached archlinux-bootstrap-x86_64.tar.gz.sig archlinux-bootstrap-x86_64.tar.gz
+        gunzip archlinux-bootstrap-x86_64.tar.gz
+        # These symlinks just create problems. We just pick up some files from the bootstrap and use it to generate the archlinux keyring but we don't have much use for this image other than that
+        # This approach makes the whole system more self-contained and isolated
+        # Failed solution: playing with pacstrap's options to initialize the keyring does not work in the grand scheme of things because of bugs, hardcoded paths in pacman-key and the like
+        tar --delete -f archlinux-bootstrap-x86_64.tar 'root.x86_64/etc/ca-certificates/extracted/cadir/'
+        unshare @(unshare_pid) @(unshare_mount) tar hxf archlinux-bootstrap-x86_64.tar --no-same-owner --no-same-permissions --warning=no-unknown-keyword
 
-    mkdir -p @(mountpoint)/var/cache/pacman/pkg/
-    mkdir -p @(mountpoint)/var/lib/pacman/
-    mkdir -p @(mountpoint)/etc/
+    # START: prepare root
+    r=pf"{cwd}/root.x86_64"
+    if pf"{r}".exists():
+        rm -rf pf"{r}"
 
-    pacstrap.xsh @(mountpoint) base linux mkinitcpio syslinux linux-firmware qemu-guest-agent qemu-base arch-install-scripts
+    unshare @(unshare_pid) @(unshare_mount) tar hxf archlinux-bootstrap-x86_64.tar --no-same-owner --no-same-permissions --warning=no-unknown-keyword
+
+    sed -i 's/^#Server = /Server = /g' root.x86_64/etc/pacman.d/mirrorlist
+
+    unshare @(unshare_pid) @(unshare_mount) mount @(r) @(r) --bind
+    unshare @(unshare_pid) @(unshare_mount) mount proc @(pf"{r}/proc") -t proc -o nosuid,noexec,nodev
+    unshare @(unshare_pid) @(unshare_mount) mount /sys @(pf"{r}/sys") --rbind
+    ln -sf @(pf"{r}/proc/self/fd") @(pf"{r}/dev/fd")
+    ln -sf @(pf"{r}/proc/self/fd/0") @(pf"{r}/dev/stdin")
+    ln -sf @(pf"{r}/proc/self/fd/1") @(pf"{r}/dev/stout")
+    ln -sf @(pf"{r}/proc/self/fd/2") @(pf"{r}/dev/sterr")
+
+    cp -a @(MINICLUSTER.DIR_R)/bootstrap-overlay/tmp/bootstrap-rootimage.sh @(r)/
+    unshare --fork --pid --mount-proc --kill-child=SIGTERM --map-auto --map-root-user --setuid 0 --setgid 0 -w @(r) env -i ./bootstrap-rootimage.sh
+    # END: root prepared
+
+    cp -a @(MINICLUSTER.DIR_R)/bootstrap-overlay @(cwd)/
+    cp -a @(r)/etc/pacman.d/mirrorlist @(cwd)/bootstrap-overlay/etc/pacman.d/
+    cp -a @(r)/etc/pacman.conf @(cwd)/bootstrap-overlay/etc/
+    #cp -a @(cwd)/bootstrap-overlay/* @(cwd)/
+    gnupg_files_to_copy = [
+        'gpg-agent.conf',
+        'gpg.conf',
+        'openpgp-revocs.d',
+        'private-keys-v1.d',
+        'pubring.gpg',
+        'secring.gpg',
+        'tofu.db',
+        'trustdb.gpg',
+    ]
+    for f in gnupg_files_to_copy:
+        echo cp -a @(r)/etc/pacman.d/gnupg/@(f) @(cwd)/bootstrap-overlay/etc/pacman.d/gnupg/@(f)
+        cp -a @(r)/etc/pacman.d/gnupg/@(f) @(cwd)/bootstrap-overlay/etc/pacman.d/gnupg/@(f)
+
+    find @(cwd)/bootstrap-overlay/ -type f -name '.keep' -delete
+
+    # TODO: mount here instead of outside
 
     # TODO: overlays from the project
-    cp -a @(MINICLUSTER.DIR_R)/bootstrap-overlay/* @(mountpoint)/
+    echo cp -a @(cwd)/bootstrap-overlay/* @(mountpoint)/
+    cp -a @(cwd)/bootstrap-overlay/* @(mountpoint)/
+    echo ls -ltrah @(mountpoint)/etc/pacman.d/gnupg/
+    ls -ltrah @(mountpoint)/etc/pacman.d/gnupg/
     cp @(f"{cwd}/fstab-{handle}") @(mountpoint)/etc/fstab
 
     cp /etc/resolv.conf @(mountpoint)/etc/
-    sed -i 's/^#Server = /Server = /g'  @(mountpoint)/etc/pacman.d/mirrorlist
+    #unshare @(unshare_pid) @(unshare_mount) pacstrap.xsh @(mountpoint) archlinux-keyring
+    unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) pacstrap.xsh @(mountpoint) base linux mkinitcpio syslinux linux-firmware qemu-guest-agent qemu-base arch-install-scripts
+    #TODO: just base linux mkinitcpio linux-firmware qemu-guest-agent
 
     d=p"$XONSH_SOURCE".resolve().parent; source f'{d}/umount-image.xsh'
     command_umount_image_xsh(cwd, logger, handle)
