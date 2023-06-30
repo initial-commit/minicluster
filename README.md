@@ -27,6 +27,13 @@ Provided commands
 
 Commands in `bin/commands/`
 
+Terminal inside the guest
+--------------------------
+
+```
+stty rows 46 cols 189
+```
+
 TODOs
 =====
 
