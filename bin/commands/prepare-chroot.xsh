@@ -50,12 +50,14 @@ def command_prepare_chroot_xsh(cwd, logger, handle):
     ln -sf @(pf"{r}/proc/self/fd/2") @(pf"{r}/dev/sterr")
 
     cp -a @(MINICLUSTER.DIR_R)/bootstrap-overlay/tmp/bootstrap-rootimage.sh @(r)/
+    # TODO: copy packages from cache to cache
     unshare --fork --pid --mount-proc --kill-child=SIGTERM --map-auto --map-root-user --setuid 0 --setgid 0 -w @(r) env -i ./bootstrap-rootimage.sh
     # END: root prepared
 
     cp -a @(MINICLUSTER.DIR_R)/bootstrap-overlay @(cwd)/
     cp -a @(r)/etc/pacman.d/mirrorlist @(cwd)/bootstrap-overlay/etc/pacman.d/
     cp -a @(r)/etc/pacman.conf @(cwd)/bootstrap-overlay/etc/
+    cp -a @(r)/var/cache/pacman/pkg/* @(cwd)/var/cache/pacman/pkg/
     #cp -a @(cwd)/bootstrap-overlay/* @(cwd)/
     gnupg_files_to_copy = [
         'gpg-agent.conf',
@@ -84,7 +86,12 @@ def command_prepare_chroot_xsh(cwd, logger, handle):
 
     cp /etc/resolv.conf @(mountpoint)/etc/
     #unshare @(unshare_pid) @(unshare_mount) pacstrap.xsh @(mountpoint) archlinux-keyring
-    unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) pacstrap.xsh @(mountpoint) base linux mkinitcpio syslinux linux-firmware qemu-guest-agent qemu-base arch-install-scripts
+    unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) mkdir -p @(mountpoint)/var/cache/pacman/pkg/
+    unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) rsync -azp --progress /var/cache/pacman/pkg/ @(mountpoint)/var/cache/pacman/pkg/
+    unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) sync
+    unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) pacstrap.xsh @(mountpoint) archlinux-keyring
+    #unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) pacstrap.xsh @(mountpoint) base linux mkinitcpio syslinux linux-firmware qemu-guest-agent qemu-base arch-install-scripts
+    return False
     #TODO: just base linux mkinitcpio linux-firmware qemu-guest-agent
 
     d=p"$XONSH_SOURCE".resolve().parent; source f'{d}/umount-image.xsh'

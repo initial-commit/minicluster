@@ -69,7 +69,7 @@ def command_make_empty_image_xsh(cwd, logger, handle, d):
     mountpoint = f"{cwd}/{handle}"
     rm -rf @(disk_file)
     calculate_disk_sectors(d)
-    out=$(qemu-img create -f qcow2 @(disk_file) 10G).rstrip()
+    out=$(qemu-img create -f qcow2 @(disk_file) 20G).rstrip()
     logger.info(out)
 
     guestfish_pid=$(guestfish --listen)
@@ -137,7 +137,7 @@ if __name__ == '__main__':
 
     d = {
         'type': 'mbr',
-        'size': '10GB',
+        'size': '20GB',
         'sector': 512,
         'partitions': [
             {'type': 'primary', 'start': '1MB', 'size': '199MB', 'bootable': True, 'fs': 'ext4', 'mountpoint': '/boot', },

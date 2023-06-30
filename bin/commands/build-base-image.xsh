@@ -14,7 +14,7 @@ if __name__ == '__main__':
     handle = MINICLUSTER.ARGS.handle
     d = {
         'type': 'mbr',
-        'size': '10GB',
+        'size': '20GB',
         'sector': 512,
         'partitions': [
             {'type': 'primary', 'start': '1MB', 'size': '199MB', 'bootable': True, 'fs': 'ext4', 'mountpoint': '/boot', },
