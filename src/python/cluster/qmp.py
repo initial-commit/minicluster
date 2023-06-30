@@ -5,9 +5,24 @@ import shlex
 import base64
 import time
 import pathlib
+import fcntl
+import traceback
 
 
-class Connection(object):
+class CachedViaConstructorMeta(type):
+    _instances = {}
+
+    def __call__(cls, *args, **kwargs):
+        keys = [str(cls)]
+        keys.extend([str(k) for k in args])
+        keys.extend([str(k)+':'+str(v) for k, v in kwargs.items()])
+        keys = tuple(keys)
+        if keys not in cls._instances:
+            cls._instances[keys] = super(CachedViaConstructorMeta, cls).__call__(*args, **kwargs)
+        return cls._instances[keys]
+
+
+class Connection(object, metaclass=CachedViaConstructorMeta):
     _socket = None
     _buf = None
     _info = None
@@ -88,6 +103,7 @@ class Connection(object):
         return status
 
     def path_stat(self, vm_path):
+        # TODO: extract code automatically from functions.path_stat
         prog = (
             "import os\n"
             "import json\n"
@@ -109,18 +125,49 @@ class Connection(object):
             return None
         return json.loads(stat_result['out-data'])
 
-    def write_to_vm(self, data, vm_path):
-        cwd = str(pathlib.Path(vm_path).parent)
+    def write_to_vm(self, fp, vm_path):
+        pos = fp.tell()
+        fsize = fp.seek(0, os.SEEK_END)
+        read_perc = 0
+        read_perc_prev = 0
+        fp.seek(pos, os.SEEK_SET)
+
         resp = self.path_stat(vm_path)
-        data = base64.b64encode(data).decode('utf-8')
+        # TODO: create a temporary file, then move
         resp = self._send_recv_rountrip("guest-file-open", path=vm_path, mode='wb')
         h = resp['return']
-        kwargs = {'handle': h, 'buf-b64': data}
-        resp = self._send_recv_rountrip("guest-file-write", **kwargs)
-        written = resp['return']['count']
+        written = 0
+        read_size = 0
+        self.logger.info("starting read loop")
+        while True:
+            data = fp.read(16 * 1024 * 1024)
+            if not data:
+                self.logger.info(f"no more data {data=}")
+                break
+            read_size += len(data)
+            read_perc = int(read_size / fsize * 100)
+            if read_perc - read_perc_prev >= 1:
+                self.logger.info(f"read from file {read_perc=}")
+            read_perc_prev = read_perc
+            data = base64.b64encode(data).decode('utf-8')
+            kwargs = {'handle': h, 'buf-b64': data}
+            resp = self._send_recv_rountrip("guest-file-write", **kwargs)
+            written_chunk = resp['return']['count']
+            written += written_chunk
+        resp = self._send_recv_rountrip("guest-file-flush", handle=h)
+        assert ('return' in resp and not resp['return'])
+        # TODO: check that it was flushed properly
         resp = self._send_recv_rountrip("guest-file-close", handle=h)
-        resp = self.guest_exec_wait(["bash", "-c", f"cd {cwd} && tar xfz {vm_path} && rm {vm_path}"], env=[f"PWD={cwd}"])
+        assert ('return' in resp and not resp['return'])
+        # TODO: check that it was closed properly
+        assert (read_size == written)
         return written
+
+    def unarchive_in_vm(self, vm_path):
+        # TODO: detect command based on path
+        cwd = str(pathlib.Path(vm_path).parent)
+        resp = self.guest_exec_wait(["bash", "-c", f"cd {cwd} && tar xfz {vm_path} && rm {vm_path}"], env=[f"PWD={cwd}"])
+        # TODO: return success
 
     def guest_read_file_out(self, vm_path):
         resp = self._send_recv_rountrip()

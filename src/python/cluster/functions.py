@@ -1,7 +1,23 @@
+import os
+import stat
 import collections
 import psutil
 import logging
 import glob
+
+
+def path_stat(path, logger=None):
+    try:
+        s_obj = os.stat(path)
+        modes = {k: getattr(stat, k) for k in dir(stat) if k.startswith(('S_IS', 'S_IMODE', 'S_IFMT', 'filemode')) and callable(getattr(stat, k))}
+        modes = {k: v(s_obj.st_mode) for k, v in modes.items()}
+        props = {k: getattr(stat, k) for k in dir(stat) if k.startswith(('ST_', )) and isinstance(getattr(stat, k), int)}
+        props = {k: s_obj[v] for k, v in props.items()}
+        return {**modes, **props}
+    except:
+        if logger:
+            logger.debug(f"could not stat file {path=}", exc_info=True)
+        return {}
 
 
 def nbd_block_devices():

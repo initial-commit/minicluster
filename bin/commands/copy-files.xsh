@@ -8,39 +8,113 @@ if __name__ == '__main__':
 
 import logging
 import cluster.qmp
+import cluster.functions
 import shutil
 import os
 import base64
 import hashlib
 
-def command_copy_files_xsh(cwd, logger, copy_from, copy_to):
-    # TODO: deal with single files
+
+def parse_params(cwd, logger, copy_from, copy_to):
+    to_remote = False
+    from_remote = False
+    name_to = None
+    name_from = None
+    conn_to = None
+    conn_from = None
+
     if ':' in copy_to:
         (name_to, copy_to) = copy_to.split(':')
+        to_remote = True
+        s = f"{cwd}/qga-{name_to}.sock"
+        logger.debug(f"socket {s=}")
+        conn_to = cluster.qmp.Connection(s, logger)
     else:
         raise Exception("not implemented yet")
     if ':' in copy_from:
+        from_remote = True
         raise Exception("not implemented yet")
     else:
         (name_from, copy_from) = (None, copy_from)
     copy_from = copy_from.format(**MINICLUSTER._asdict())
+
+    is_dir = False
+    if from_remote:
+        raise Exception("not implemented yet")
+    else:
+        st = cluster.functions.path_stat(copy_from, logger)
+        if st['S_ISDIR']:
+            is_dir = True
+
+    return (copy_from, copy_to, name_from, name_to, from_remote, to_remote, conn_from, conn_to, is_dir)
+
+
+def copy_from_local_dir_to_remote_dir(logger, cwd, copy_from, copy_to, name_from, name_to, from_remote, to_remote, conn_from, conn_to):
+    logger.info(f"{copy_from=} {copy_to=} {from_remote=} {to_remote=}")
+    # TODO: fix below
     base_name = os.path.basename(os.path.realpath(copy_from))
     root_dir = str(pf"{copy_from}".resolve().parent)
     base_dir = pf"{copy_from}".resolve().name
-    s = f"{cwd}/qga-{name_to}.sock"
-    c = cluster.qmp.Connection(s, logger)
-    copy_to_stat = c.path_stat(copy_to)
     f = shutil.make_archive(base_name, "gztar", root_dir, base_dir, logger=logger)
+    logger.info(f"archive made: {f=}")
     f_size = os.stat(f).st_size
-    if copy_to_stat['S_ISDIR']:
-        f_basename = os.path.basename(f)
-        copy_to = f"{copy_to}/{f_basename}"
-    with open(f, mode='rb') as fp:
-        raw_data = fp.read()
-        md5 = hashlib.md5(raw_data).hexdigest()
-    written = c.write_to_vm(raw_data, copy_to)
-    assert(f_size == written), "transfering file correctly failed"
+    f_basename = os.path.basename(f)
+    copy_to = f"{name_to}:{copy_to}/{f_basename}"
+    logger.info(f"{copy_from=} {copy_to=} {f_size=}")
+    (copy_from, copy_to, name_from, name_to, from_remote, to_remote, conn_from, conn_to, is_dir) = parse_params(cwd, logger, f, copy_to)
+    written = copy_from_local_file_to_remote_file(logger, cwd, copy_from, copy_to, name_from, name_to, from_remote, to_remote, conn_from, conn_to)
+    #with open(f, mode='rb') as fp:
+    #    raw_data = fp.read()
+    #    md5 = hashlib.md5(raw_data).hexdigest()
+    #written = c.write_to_vm(raw_data, copy_to)
+    #assert(f_size == written), "transfering file correctly failed"
     os.remove(f)
+
+def copy_from_local_file_to_remote_file(logger, cwd, copy_from, copy_to, name_from, name_to, from_remote, to_remote, conn_from, conn_to):
+    logger.info(f"{copy_from=} {name_to=} {copy_to=}")
+    with open(copy_from, mode='rb', buffering=0) as fp:
+        written = conn_to.write_to_vm(fp, copy_to)
+        logger.info(f"{written=}")
+        return written
+    return None
+
+def copy_from_remote_dir_to_local_dir(logger, cwd, copy_from, copy_to, name_from, name_to, from_remote, to_remote, conn_from, conn_to):
+    logger.info(f"{copy_from=} {copy_to=} {from_remote=} {to_remote=}")
+
+def copy_from_remote_file_to_local_file(logger, cwd, copy_from, copy_to, name_from, name_to, from_remote, to_remote, conn_from, conn_to):
+    logger.info(f"{copy_from=} {copy_to=} {from_remote=} {to_remote=}")
+
+def copy_from_remote_file_to_remote_file(logger, cwd, copy_from, copy_to, name_from, name_to, from_remote, to_remote, conn_from, conn_to):
+    logger.info(f"{copy_from=} {copy_to=} {from_remote=} {to_remote=}")
+
+def copy_from_remote_dir_to_remote_dir(logger, cwd, copy_from, copy_to, name_from, name_to, from_remote, to_remote, conn_from, conn_to):
+    logger.info(f"{copy_from=} {copy_to=} {from_remote=} {to_remote=}")
+
+def command_copy_files_xsh(cwd, logger, copy_from, copy_to):
+    # TODO: deal with single files
+
+
+    (copy_from, copy_to, name_from, name_to, from_remote, to_remote, conn_from, conn_to, is_dir) = parse_params(cwd, logger, copy_from, copy_to)
+    if from_remote:
+        if to_remote:
+            if is_dir:
+                written = copy_from_remote_dir_to_remote_dir(logger, cwd, copy_from, copy_to, name_from, name_to, from_remote, to_remote, conn_from, conn_to)
+            else:
+                written = copy_from_remote_file_to_remote_file(logger, cwd, copy_from, copy_to, name_from, name_to, from_remote, to_remote, conn_from, conn_to)
+        else:
+            if is_dir:
+                written = copy_from_remote_dir_to_local_dir(logger, cwd, copy_from, copy_to, name_from, name_to, from_remote, to_remote, conn_from, conn_to)
+            else:
+                written = copy_from_remote_file_to_local_file(logger, cwd, copy_from, copy_to, name_from, name_to, from_remote, to_remote, conn_from, conn_to)
+    else:
+        if to_remote:
+            if is_dir:
+                written = copy_from_local_dir_to_remote_dir(logger, cwd, copy_from, copy_to, name_from, name_to, from_remote, to_remote, conn_from, conn_to)
+            else:
+                written = copy_from_local_file_to_remote_file(logger, cwd, copy_from, copy_to, name_from, name_to, from_remote, to_remote, conn_from, conn_to)
+        else:
+            raise Exception("Cannot copy from local to local")
+
     return written
 
 if __name__ == '__main__':
