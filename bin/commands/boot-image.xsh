@@ -26,21 +26,26 @@ generic = ['--enable-kvm', '-boot', 'menu=on', '-m', '2048', '-nic', 'user,model
 generic = ['--enable-kvm', '-boot', 'menu=on', '-m', '2048', '-nic', 'user,model=virtio', '-drive', f'file={image}.qcow2,media=disk,if=virtio',
     '-display', 'none', '-vga', 'none', '-nographic',
     ]
-generic = ['--enable-kvm', '-boot', 'menu=on', '-m', '2048', '-nic', 'user,model=virtio', '-drive', f'file={image}.qcow2,media=disk,if=virtio',
+generic = ['--enable-kvm', '-m', '2048', '-nic', 'user,model=virtio',
+    '-device', 'virtio-blk-pci,drive=disk1,bootindex=1,iommu_platform=true,disable-legacy=on',
+    '-drive', f'media=disk,if=none,id=disk1,file={image}.qcow2',
     '-nographic', '-serial', 'mon:stdio',
     ]
 kernel_append = 'nomodeset console=tty0 console=ttyS0,38400 root=/dev/vda2 rw nopat nokaslr norandmaps printk.devkmsg=on printk.time=y edd=off transparent_hugepage=never systemd.journald.forward_to_kmsg'
+kernel_append = 'nomodeset console=tty0 console=ttyS0,9600n8 root=/dev/vda2 rw nopat nokaslr norandmaps printk.devkmsg=on printk.time=y edd=off transparent_hugepage=never systemd.journald.forward_to_kmsg amd_iommu=on cgroup_memory=1 cgroup_enable=cpuset systemd.unified_cgroup_hierarchy=0'
 kernel = ['-kernel', 'vmlinuz-linux', '-initrd', 'initramfs-linux.img', '-append', kernel_append, ]
-cpu = ['-cpu', 'host', '-smp', 'cores=4,threads=1,sockets=1', '-machine', 'virt,q35,vmport=off,kernel_irqchip=on,hpet=off']
 cpu = ['-cpu', 'host', '-smp', 'cores=8,threads=1,sockets=1', ]
-boot = ['-boot', 'order=c,strict=on']
+cpu = ['-cpu', 'host', '-smp', 'cores=4,threads=1,sockets=1', '-machine', 'virt,q35,vmport=off,kernel_irqchip=on,hpet=off']
+cpu = ['-cpu', 'host', '-smp', 'cores=4,threads=1,sockets=1', '-machine', 'type=q35,accel=kvm']
+boot = ['-boot', 'order=d,strict=off,menu=on']
 devices = ['-device', 'virtio-serial',
 	'-chardev', f'socket,path={cwd}/qga-{name}.sock,server=on,wait=off,id=qga0',
 	'-device', 'virtserialport,chardev=qga0,name=org.qemu.guest_agent.0',
+	
     ]
 #devices = []
 host = ['-pidfile', f'{cwd}/qemu-{name}.pid', '--name', name]
 append = []
 
+echo qemu-system-x86_64 @(generic) @(kernel) @(cpu) @(boot) @(devices) @(host) @(append)
 qemu-system-x86_64 @(generic) @(kernel) @(cpu) @(boot) @(devices) @(host) @(append)
-
