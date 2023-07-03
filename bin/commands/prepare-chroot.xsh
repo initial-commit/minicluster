@@ -50,7 +50,6 @@ def command_prepare_chroot_xsh(cwd, logger, handle, cache):
     ln -sf @(pf"{r}/proc/self/fd/2") @(pf"{r}/dev/sterr")
 
     cp -a @(MINICLUSTER.DIR_R)/bootstrap-overlay/tmp/bootstrap-rootimage.sh @(r)/
-    # TODO: copy packages from cache to cache
     unshare --fork --pid --mount-proc --kill-child=SIGTERM --map-auto --map-root-user --setuid 0 --setgid 0 -w @(r) env -i ./bootstrap-rootimage.sh
     # END: root prepared
 
@@ -90,10 +89,7 @@ def command_prepare_chroot_xsh(cwd, logger, handle, cache):
     if cache:
         unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) rsync -azp --progress /var/cache/pacman/pkg/ @(mountpoint)/var/cache/pacman/pkg/
         unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) sync
-    #unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) pacstrap.xsh @(mountpoint) archlinux-keyring
-    unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) pacstrap.xsh @(mountpoint) base linux mkinitcpio syslinux linux-firmware qemu-guest-agent qemu-base arch-install-scripts
-    #return False
-    #TODO: just base linux mkinitcpio linux-firmware qemu-guest-agent
+    unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) pacstrap.xsh @(mountpoint) base linux mkinitcpio linux-firmware qemu-guest-agent
 
     d=p"$XONSH_SOURCE".resolve().parent; source f'{d}/umount-image.xsh'
     command_umount_image_xsh(cwd, logger, handle)
@@ -110,8 +106,8 @@ def command_prepare_chroot_xsh(cwd, logger, handle, cache):
     hostname = handle
 
     commands = [
-        ["set-memsize", "4096"],
-        ["set-smp", "4"],
+        ["set-memsize", "1024"],
+        ["set-smp", "2"],
         ["set-pgroup", "false"],
         ["time", "run"],
         ["mount", "/dev/sda2", "/"],

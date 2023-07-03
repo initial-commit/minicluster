@@ -37,6 +37,9 @@ stty rows 46 cols 189
 TODOs
 =====
 
+* add in /usr/lib/guestfs/supermin.d/excludefiles `-/var/cache/pacman/pkg/*` in bootstrap host
+* execute libguestfs-test-tool in bootstrapping
+
 Next
 ----
 

@@ -38,7 +38,6 @@ def bind_device(r, d):
 #mount @(r) @(r) --bind
 mount proc @(pf"{r}/proc") -t proc -o nosuid,noexec,nodev
 mount /sys @(pf"{r}/sys") --rbind
-ln -sf @(pf"{r}/proc/self/fd") @(pf"{r}/dev/fd")
 ln -sf @(pf"{r}/proc/self/fd/0") @(pf"{r}/dev/stdin")
 ln -sf @(pf"{r}/proc/self/fd/1") @(pf"{r}/dev/stout")
 ln -sf @(pf"{r}/proc/self/fd/2") @(pf"{r}/dev/sterr")
