@@ -16,17 +16,18 @@ cwd = MINICLUSTER.CWD_START
 logger = logging.getLogger(__name__)
 image = MINICLUSTER.ARGS.image
 name = MINICLUSTER.ARGS.name
+ram="2048"
 
 logger.info(f"{image=} {name=}")
 
-#qemu-system-x86_64 -enable-kvm -m 2048 -boot c -nic user,model=virtio -drive file=disk.qcow2,media=disk,if=virtio -nographic \
-generic = ['--enable-kvm', '-boot', 'menu=on', '-m', '2048', '-nic', 'user,model=virtio', '-drive', f'file={image}.qcow2,media=disk,if=virtio', '-nographic', '-vga', 'none']
-generic = ['--enable-kvm', '-boot', 'menu=on', '-m', '2048', '-nic', 'user,model=virtio', '-drive', f'file={image}.qcow2,media=disk,if=virtio', ]
-generic = ['--enable-kvm', '-boot', 'menu=on', '-m', '2048', '-nic', 'user,model=virtio', '-drive', f'file={image}.qcow2,media=disk,if=virtio', '-display', 'none', '-vga', 'none', '-nographic']
-generic = ['--enable-kvm', '-boot', 'menu=on', '-m', '2048', '-nic', 'user,model=virtio', '-drive', f'file={image}.qcow2,media=disk,if=virtio',
+#qemu-system-x86_64 -enable-kvm -m ram -boot c -nic user,model=virtio -drive file=disk.qcow2,media=disk,if=virtio -nographic \
+generic = ['--enable-kvm', '-boot', 'menu=on', '-m', ram, '-nic', 'user,model=virtio', '-drive', f'file={image}.qcow2,media=disk,if=virtio', '-nographic', '-vga', 'none']
+generic = ['--enable-kvm', '-boot', 'menu=on', '-m', ram, '-nic', 'user,model=virtio', '-drive', f'file={image}.qcow2,media=disk,if=virtio', ]
+generic = ['--enable-kvm', '-boot', 'menu=on', '-m', ram, '-nic', 'user,model=virtio', '-drive', f'file={image}.qcow2,media=disk,if=virtio', '-display', 'none', '-vga', 'none', '-nographic']
+generic = ['--enable-kvm', '-boot', 'menu=on', '-m', ram, '-nic', 'user,model=virtio', '-drive', f'file={image}.qcow2,media=disk,if=virtio',
     '-display', 'none', '-vga', 'none', '-nographic',
     ]
-generic = ['--enable-kvm', '-m', '2048', '-nic', 'user,model=virtio',
+generic = ['--enable-kvm', '-m', ram, '-nic', 'user,model=virtio',
     '-device', 'virtio-blk-pci,drive=disk1,bootindex=1,iommu_platform=true,disable-legacy=on',
     '-drive', f'media=disk,if=none,id=disk1,file={image}.qcow2',
     '-nographic', '-serial', 'mon:stdio',

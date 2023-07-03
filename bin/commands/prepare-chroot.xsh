@@ -13,7 +13,7 @@ import time
 import re
 import shlex
 
-def command_prepare_chroot_xsh(cwd, logger, handle):
+def command_prepare_chroot_xsh(cwd, logger, handle, cache):
     mountpoint = f"{cwd}/{handle}"
     disk_file = f"{cwd}/{handle}.qcow2"
     unshare_pid=("--fork", "--pid", "--mount-proc",)
@@ -57,7 +57,7 @@ def command_prepare_chroot_xsh(cwd, logger, handle):
     cp -a @(MINICLUSTER.DIR_R)/bootstrap-overlay @(cwd)/
     cp -a @(r)/etc/pacman.d/mirrorlist @(cwd)/bootstrap-overlay/etc/pacman.d/
     cp -a @(r)/etc/pacman.conf @(cwd)/bootstrap-overlay/etc/
-    cp -a @(r)/var/cache/pacman/pkg/* @(cwd)/var/cache/pacman/pkg/
+    cp -a @(r)/var/cache/pacman/pkg/* @(cwd)/bootstrap-overlay/var/cache/pacman/pkg/
     #cp -a @(cwd)/bootstrap-overlay/* @(cwd)/
     gnupg_files_to_copy = [
         'gpg-agent.conf',
@@ -87,11 +87,12 @@ def command_prepare_chroot_xsh(cwd, logger, handle):
     cp /etc/resolv.conf @(mountpoint)/etc/
     #unshare @(unshare_pid) @(unshare_mount) pacstrap.xsh @(mountpoint) archlinux-keyring
     unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) mkdir -p @(mountpoint)/var/cache/pacman/pkg/
-    unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) rsync -azp --progress /var/cache/pacman/pkg/ @(mountpoint)/var/cache/pacman/pkg/
-    unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) sync
-    unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) pacstrap.xsh @(mountpoint) archlinux-keyring
-    #unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) pacstrap.xsh @(mountpoint) base linux mkinitcpio syslinux linux-firmware qemu-guest-agent qemu-base arch-install-scripts
-    return False
+    if cache:
+        unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) rsync -azp --progress /var/cache/pacman/pkg/ @(mountpoint)/var/cache/pacman/pkg/
+        unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) sync
+    #unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) pacstrap.xsh @(mountpoint) archlinux-keyring
+    unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) pacstrap.xsh @(mountpoint) base linux mkinitcpio syslinux linux-firmware qemu-guest-agent qemu-base arch-install-scripts
+    #return False
     #TODO: just base linux mkinitcpio linux-firmware qemu-guest-agent
 
     d=p"$XONSH_SOURCE".resolve().parent; source f'{d}/umount-image.xsh'
@@ -141,7 +142,7 @@ def command_prepare_chroot_xsh(cwd, logger, handle):
         ["command", "systemctl enable systemd-resolved",],
         #["command", "systemctl enable auditd.service",],
         #["command", "findmnt",],
-        ["-time", "sh", "chown -R root:root /",],
+        #["-time", "sh", "chown -R root:root /",],
         ["time", "sync"],
         #["sleep", "60"],
         ["time", "drop-caches", "3"],

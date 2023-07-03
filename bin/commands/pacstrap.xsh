@@ -16,7 +16,6 @@ pkgs=$ARGS[2:]
 
 #TODO: turn into a reusable command
 
-
 mkdir -p @(pf"{r}/")
 mkdir -m 0755 -p pf"{r}/var/cache/pacman/pkg"
 mkdir -m 0755 -p pf"{r}/var/lib/pacman"

@@ -63,11 +63,8 @@ def copy_from_local_dir_to_remote_dir(logger, cwd, copy_from, copy_to, name_from
     logger.info(f"{copy_from=} {copy_to=} {f_size=}")
     (copy_from, copy_to, name_from, name_to, from_remote, to_remote, conn_from, conn_to, is_dir) = parse_params(cwd, logger, f, copy_to)
     written = copy_from_local_file_to_remote_file(logger, cwd, copy_from, copy_to, name_from, name_to, from_remote, to_remote, conn_from, conn_to)
-    #with open(f, mode='rb') as fp:
-    #    raw_data = fp.read()
-    #    md5 = hashlib.md5(raw_data).hexdigest()
-    #written = c.write_to_vm(raw_data, copy_to)
-    #assert(f_size == written), "transfering file correctly failed"
+    # TODO: better error handling
+    conn_to.unarchive_in_vm(copy_to)
     os.remove(f)
 
 def copy_from_local_file_to_remote_file(logger, cwd, copy_from, copy_to, name_from, name_to, from_remote, to_remote, conn_from, conn_to):

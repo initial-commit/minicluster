@@ -6,12 +6,14 @@ if __name__ == '__main__':
     source @(f'{d}/mount-image.xsh')
     source @(f'{d}/prepare-chroot.xsh')
     MINICLUSTER.ARGPARSE.add_argument('--handle', required=True)
+    MINICLUSTER.ARGPARSE.add_argument('--cache', action="store_true", default=False)
     MINICLUSTER = MINICLUSTER.bootstrap_finished(MINICLUSTER)
 
 if __name__ == '__main__':
     cwd = MINICLUSTER.CWD_START
     logger = logging.getLogger(__name__)
     handle = MINICLUSTER.ARGS.handle
+    cache = MINICLUSTER.ARGS.cache
     d = {
         'type': 'mbr',
         'size': '20GB',
@@ -24,4 +26,4 @@ if __name__ == '__main__':
     $RAISE_SUBPROC_ERROR = True
     command_make_empty_image_xsh(cwd, logger, handle, d)
     command_mount_image_xsh(cwd, logger, handle)
-    command_prepare_chroot_xsh(cwd, logger, handle)
+    command_prepare_chroot_xsh(cwd, logger, handle, cache)
