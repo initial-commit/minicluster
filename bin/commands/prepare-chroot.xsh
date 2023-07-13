@@ -138,7 +138,7 @@ def command_prepare_chroot_xsh(cwd, logger, handle, cache):
         ["command", "systemctl enable systemd-resolved",],
         #["command", "systemctl enable auditd.service",],
         #["command", "findmnt",],
-        #["-time", "sh", "chown -R root:root /",],
+        ["-time", "command", "bash", "-c", "chown -R root:root /!(proc|sys)",],
         ["time", "sync"],
         #["sleep", "60"],
         ["time", "drop-caches", "3"],
