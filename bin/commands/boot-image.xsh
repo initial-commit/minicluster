@@ -6,9 +6,10 @@ if __name__ == '__main__':
     MINICLUSTER.ARGPARSE.add_argument('--name', required=True)
     import psutil
     import math
+    from distutils.util import strtobool
     def_ram = 2**int(math.log2(psutil.virtual_memory().available // 2**20 * 2/3))
     MINICLUSTER.ARGPARSE.add_argument('--ram', default=def_ram)
-    MINICLUSTER.ARGPARSE.add_argument('--network', default=False, action="store_true")
+    MINICLUSTER.ARGPARSE.add_argument('--network', nargs='?', type=lambda b:bool(strtobool(b)), const=False, default=True, metavar='on|off')
     MINICLUSTER = MINICLUSTER.bootstrap_finished(MINICLUSTER)
 
 import logging
@@ -63,7 +64,12 @@ class GenericParameters(Handler):
 
 class NetworkingParameters(Handler):
     def handle(self):
-	p = ['-nic', 'user,model=virtio',]
+	has_network = self.cmd_args['network']
+	self.logger.info(f"{has_network=}")
+	if has_network:
+	    p = ['-nic', 'user,model=virtio',]
+	else:
+	    p = ['-nic', 'none']
 	return self.tail_call_next(p)
 
 class UiParameters(Handler):
