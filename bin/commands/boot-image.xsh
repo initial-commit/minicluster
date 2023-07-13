@@ -95,7 +95,7 @@ class KernelParameters(Handler):
     def handle(self):
 	p = self.next.handle()
 	# TODO: read root device from MediaParameters
-	kernel_append = 'nomodeset console=tty0 console=ttyS0,9600n8 root=/dev/vda2 rw nopat nokaslr norandmaps printk.devkmsg=on printk.time=y edd=off transparent_hugepage=never systemd.journald.forward_to_kmsg amd_iommu=on cgroup_memory=1 cgroup_enable=cpuset systemd.unified_cgroup_hierarchy=0'
+	kernel_append = 'nomodeset console=tty0 console=ttyS0,9600n8 root=/dev/vda2 rw norandmaps printk.devkmsg=on printk.time=y transparent_hugepage=never systemd.journald.forward_to_kmsg amd_iommu=on systemd.unified_cgroup_hierarchy=0'
 	kernel = ['-kernel', 'vmlinuz-linux', '-initrd', 'initramfs-linux.img', '-append', kernel_append, ]
 	p.extend(kernel)
 	return p
