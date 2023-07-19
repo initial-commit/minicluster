@@ -24,8 +24,9 @@ def command_prepare_chroot_xsh(cwd, logger, handle, cache):
         curl -o archlinux-bootstrap-x86_64.tar.gz -C - https://geo.mirror.pkgbuild.com/iso/latest/archlinux-bootstrap-x86_64.tar.gz
         curl -o archlinux-bootstrap-x86_64.tar.gz.sig -C - https://geo.mirror.pkgbuild.com/iso/latest/archlinux-bootstrap-x86_64.tar.gz.sig
         sq --force wkd get pierre@archlinux.org -o release-key.pgp
-        sq verify --signer-file release-key.pgp --detached archlinux-bootstrap-x86_64.tar.gz.sig archlinux-bootstrap-x86_64.tar.gz
-        gunzip archlinux-bootstrap-x86_64.tar.gz
+    sq verify --signer-file release-key.pgp --detached archlinux-bootstrap-x86_64.tar.gz.sig archlinux-bootstrap-x86_64.tar.gz
+    if not pf"archlinux-bootstrap-x86_64.tar".exists():
+        gunzip -c archlinux-bootstrap-x86_64.tar.gz > archlinux-bootstrap-x86_64.tar
         # These symlinks just create problems. We just pick up some files from the bootstrap and use it to generate the archlinux keyring but we don't have much use for this image other than that
         # This approach makes the whole system more self-contained and isolated
         # Failed solution: playing with pacstrap's options to initialize the keyring does not work in the grand scheme of things because of bugs, hardcoded paths in pacman-key and the like
@@ -89,7 +90,7 @@ def command_prepare_chroot_xsh(cwd, logger, handle, cache):
     if cache:
         unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) rsync -azp --progress /var/cache/pacman/pkg/ @(mountpoint)/var/cache/pacman/pkg/
         unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) sync
-    unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) pacstrap.xsh @(mountpoint) base linux mkinitcpio linux-firmware qemu-guest-agent syslinux
+    unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) pacstrap.xsh @(mountpoint) base linux mkinitcpio linux-firmware qemu-guest-agent python
 
     d=p"$XONSH_SOURCE".resolve().parent; source f'{d}/umount-image.xsh'
     command_umount_image_xsh(cwd, logger, handle)
@@ -128,7 +129,7 @@ def command_prepare_chroot_xsh(cwd, logger, handle, cache):
         ["write", "/etc/hostname", hostname],
         ["time", "command", "mkinitcpio -P"],
         #["time", "mkdir-p", "/boot/grub"],
-        ["time", "command", "syslinux-install_update -i -m -a"],
+        #["time", "command", "syslinux-install_update -i -m -a"],
         #["time", "command", "grub-install --target=i386-pc --recheck /dev/sda"],
         #["time", "command", "grub-mkconfig -o /boot/grub/grub.cfg"],
         ["command", "passwd -d root"],
@@ -141,6 +142,7 @@ def command_prepare_chroot_xsh(cwd, logger, handle, cache):
         #["command", "findmnt",],
         ["time", "sh", 'echo -e "shopt -s extglob\nchown -R root:root /!(sys|proc|run|boot)" | bash',],
         #TODO: do we need to exclude boot in the line above?
+        ["time", "systemd-tmpfiles --create --clean --remove --boot"],
         ["time", "sync"],
         #["sleep", "60"],
         ["time", "drop-caches", "3"],

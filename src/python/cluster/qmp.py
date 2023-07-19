@@ -20,6 +20,7 @@ class CachedViaConstructorMeta(type):
         keys = tuple(keys)
         if keys not in cls._instances:
             cls._instances[keys] = super(CachedViaConstructorMeta, cls).__call__(*args, **kwargs)
+
         return cls._instances[keys]
 
 
@@ -31,9 +32,11 @@ class Connection(object, metaclass=CachedViaConstructorMeta):
 
     def __init__(self, sock, logger):
         self.logger = logger.getChild(self.__class__.__name__)
-        self.sock_path = sock
-        exists = pathlib.Path(self.sock_path).exists()
-        self.logger.debug(f"starting for sock {exists=}")
+        sock = pathlib.Path(sock).absolute()
+        exists = sock.exists()
+        self.logger.debug(f"starting for sock {sock=} {exists=}")
+        assert exists, "Socket for qmp agent does not exist"
+        self.sock_path = str(sock)
         resp = self._send_recv_rountrip("guest-sync-delimited", id=os.getpid())
         if 'return' not in resp or resp['return'] != os.getpid():
             raise Exception("could not sync with guest agent upon connecting")
@@ -72,13 +75,14 @@ class Connection(object, metaclass=CachedViaConstructorMeta):
         if input_data:
             input_data = base64.b64encode(input_data)
             guest_args['input-data'] = input_data
+        self.logger.debug(f"executing command {cmd=}", extra=guest_args)
         resp = self._send_recv_rountrip("guest-exec", **guest_args)
         if 'return' not in resp:
             self.logger.debug(f"return not in response {resp=}")
             return False
         return resp['return']['pid']
 
-    def guest_exec_status(self, pid):
+    def guest_exec_status(self, pid: int):
         resp = self._send_recv_rountrip("guest-exec-status", pid=pid)
         if 'return' not in resp:
             self.logger.debug(f"return not in response {resp=}", extra={'resp': resp})
@@ -86,7 +90,9 @@ class Connection(object, metaclass=CachedViaConstructorMeta):
         return resp['return']
 
     def guest_exec_wait(self, cmd, input_data=None, capture_output=True, env=[], interval=0.1, out_encoding='utf-8'):
+        self.logger.debug(f"preparing to execute cmd {cmd=}", extra={'input_data': input_data})
         pid = self.guest_exec(cmd, input_data, capture_output, env)
+        assert isinstance(pid, int), "pid must be int"
         status = self.guest_exec_status(pid)
         self.logger.debug("command returned", extra={'cmd': cmd, 'status': status})
         while not status['exited']:

@@ -9,23 +9,36 @@ if __name__ == '__main__':
     source @(f'{d}/test-vm.xsh')
     source @(f'{d}/instance-shell.xsh')
     source @(f'{d}/poweroff-image.xsh')
+    source @(f'{d}/copy-files.xsh')
+    source @(f'{d}/network-cmd.xsh')
+    import math
+    import psutil
+    from cluster.functions import str2bool_exc as strtobool
     MINICLUSTER.ARGPARSE.add_argument('--handle', required=True)
-    MINICLUSTER.ARGPARSE.add_argument('--cache', action="store_true", default=False)
+    MINICLUSTER.ARGPARSE.add_argument('--cache', action="store_true", default=False, help="Use local package cache")
+    MINICLUSTER.ARGPARSE.add_argument('--initial_build', nargs='?', type=lambda b:bool(strtobool(b)), const=False, default=True, metavar='true|false')
+    MINICLUSTER.ARGPARSE.add_argument('--test_image', nargs='?', type=lambda b:bool(strtobool(b)), const=False, default=True, metavar='true|false')
+    MINICLUSTER.ARGPARSE.add_argument('--build_nested', nargs='?', type=lambda b:bool(strtobool(b)), const=False, default=True, metavar='true|false')
+    def_ram = 2**int(math.log2(psutil.virtual_memory().available // 2**20 * 2/3))
+    MINICLUSTER.ARGPARSE.add_argument('--ram', default=def_ram)
     MINICLUSTER = MINICLUSTER.bootstrap_finished(MINICLUSTER)
 
 import random
 import string
+import sys
 
 def get_random_name(handle):
     r = ''.join((''.join(random.choice(string.ascii_lowercase)) for i in range(8)) )
     return f"build-tmp-{handle}-{r}"
 
 if __name__ == '__main__':
-    do_initial_build = True
+    do_initial_build = MINICLUSTER.ARGS.initial_build
     # fixing image is not necessary with the latest changes done via guestfish in prepare-chroot
     do_fix_image = False
-    do_test_image = True
-    do_build_l2 = True
+    do_test_image = MINICLUSTER.ARGS.test_image
+    do_build_l2 = MINICLUSTER.ARGS.build_nested
+    vm_ram = MINICLUSTER.ARGS.ram
+    l2_ram = int(vm_ram / 2)
 
     cwd = MINICLUSTER.CWD_START
     logger = logging.getLogger(__name__)
@@ -50,7 +63,9 @@ if __name__ == '__main__':
 
     if do_fix_image:
         name = get_random_name(handle)
-        command_boot_image_xsh(cwd, logger, handle, name, 2048, True, False)
+        started = command_boot_image_xsh(cwd, logger, handle, name, 2048, True, False)
+        if not started:
+            sys.exit(1)
         commands = [
             "systemd-tmpfiles --create --clean --remove --boot",
         # echo -e "shopt -s extglob\nchown -R root:root /!(sys|proc|run)" | bash
@@ -67,26 +82,40 @@ if __name__ == '__main__':
             command_instance_shell_simple_xsh(cwd, logger, name, command, interval=interval)
             # TODO: error handling
 
+    image_started = False
     if do_test_image:
         name = get_random_name(handle)
-        # start the image without networking and execute tests, assert success
-        command_boot_image_xsh(cwd, logger, handle, name, 2048, True, False)
+        started = command_boot_image_xsh(cwd, logger, handle, name, vm_ram, True, False)
+        if not started:
+            sys.exit(1)
         command_test_vm_xsh(cwd, logger, name)
-        #command_instance_shell_simple_xsh(cwd, logger, name, "systemctl poweroff", interval=0.005)
         command_poweroff_image_xsh(cwd, logger, name)
-        #import pathlib
-        #p = pathlib.Path(f"{cwd}/qemu-{name}.pid")
-        #while p.exists():
-        #    logger.info(f"waiting for machine to power off gracefully")
-        #    time.sleep(0.1)
+
+    if not image_started and do_build_l2:
+        name = get_random_name(handle)
+        started = command_boot_image_xsh(cwd, logger, handle, name, l2_ram, True, False)
+        if not started:
+            sys.exit(1)
+        image_started = True
 
     if do_build_l2:
-        $XONSH_SHOW_TRACEBACK = True
-        name = get_random_name(handle)
-        command_boot_image_xsh(cwd, logger, handle, name, 4096, True, False)
-        # copy DIR_R into the image
+        cwd_inside = '/root/minic'
+        command_instance_shell_simple_xsh(cwd, logger, name, "pacman -Qi python >/dev/null || pacman -S --noconfirm --overwrite '*' python")
+        command_copy_files_xsh(cwd, logger, '{DIR_R}', f'{name}:/root')
+        command_instance_shell_simple_xsh(cwd, logger, name, "/root/minicluster/bin/commands/bootstrap-host.sh")
+        command_instance_shell_simple_xsh(cwd, logger, name, f"mkdir -p {cwd_inside}")
+        copy_cwd = [
+            'archlinux-bootstrap-x86_64.tar.gz',
+            'archlinux-bootstrap-x86_64.tar.gz.sig',
+            'release-key.pgp',
+        ]
+        for f in copy_cwd:
+            command_copy_files_xsh(cwd, logger, '{CWD_START}/{f}', '{name}:{cwd_inside}/', additional_env={'f': f, 'name': name, 'cwd_inside': cwd_inside})
+        # bootstrap L1 image as a minicluster host 
+        command_network_cmd_xsh(cwd, logger, name, False)
+        # build L2 image without networking
         # build itself with different parameters
-        # extract image from within
+        # promote embedded image from being an L2 image to being L1
         command_poweroff_image_xsh(cwd, logger, name)
         # boot the extracted image
         # test the extracted image

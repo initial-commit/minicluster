@@ -15,13 +15,16 @@ import base64
 import hashlib
 
 
-def parse_params(cwd, logger, copy_from, copy_to):
+def parse_params(cwd, logger, copy_from, copy_to, additional_env={}):
     to_remote = False
     from_remote = False
     name_to = None
     name_from = None
     conn_to = None
     conn_from = None
+    env = {**MINICLUSTER._asdict(), **additional_env}
+    copy_from = copy_from.format(**env)
+    copy_to = copy_to.format(**env)
 
     if ':' in copy_to:
         (name_to, copy_to) = copy_to.split(':')
@@ -36,7 +39,8 @@ def parse_params(cwd, logger, copy_from, copy_to):
         raise Exception("not implemented yet")
     else:
         (name_from, copy_from) = (None, copy_from)
-    copy_from = copy_from.format(**MINICLUSTER._asdict())
+
+    logger.info(f"{copy_from=} {copy_to=}")
 
     is_dir = False
     if from_remote:
@@ -68,6 +72,9 @@ def copy_from_local_dir_to_remote_dir(logger, cwd, copy_from, copy_to, name_from
     os.remove(f)
 
 def copy_from_local_file_to_remote_file(logger, cwd, copy_from, copy_to, name_from, name_to, from_remote, to_remote, conn_from, conn_to):
+    if copy_to.endswith('/'):
+        fname = str(pf"{copy_from}".name)
+        copy_to = f"{copy_to}{fname}"
     logger.info(f"{copy_from=} {name_to=} {copy_to=}")
     with open(copy_from, mode='rb', buffering=0) as fp:
         written = conn_to.write_to_vm(fp, copy_to)
@@ -87,11 +94,12 @@ def copy_from_remote_file_to_remote_file(logger, cwd, copy_from, copy_to, name_f
 def copy_from_remote_dir_to_remote_dir(logger, cwd, copy_from, copy_to, name_from, name_to, from_remote, to_remote, conn_from, conn_to):
     logger.info(f"{copy_from=} {copy_to=} {from_remote=} {to_remote=}")
 
-def command_copy_files_xsh(cwd, logger, copy_from, copy_to):
+def command_copy_files_xsh(cwd, logger, copy_from, copy_to, additional_env={}):
     # TODO: deal with single files
 
 
-    (copy_from, copy_to, name_from, name_to, from_remote, to_remote, conn_from, conn_to, is_dir) = parse_params(cwd, logger, copy_from, copy_to)
+    (copy_from, copy_to, name_from, name_to, from_remote, to_remote, conn_from, conn_to, is_dir) = parse_params(cwd, logger, copy_from, copy_to, additional_env)
+    logger.info(f"copying values: {copy_from=} {copy_to=} {name_from=} {name_to=} {from_remote=} {to_remote=} {is_dir=}")
     if from_remote:
         if to_remote:
             if is_dir:
@@ -120,4 +128,5 @@ if __name__ == '__main__':
     copy_from = MINICLUSTER.ARGS.from2
     copy_to = MINICLUSTER.ARGS.to
     $RAISE_SUBPROC_ERROR = True
+    $XONSH_SHOW_TRACEBACK = True
     command_copy_files_xsh(cwd, logger, copy_from, copy_to)

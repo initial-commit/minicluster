@@ -1,4 +1,8 @@
 def _bootstrap():
+    import warnings
+    w_ctx = warnings.catch_warnings(record=True)
+    w_list = w_ctx.__enter__()
+    warnings.simplefilter("always")
     import sys
     import os
     sys.pycache_prefix = os.getcwd() + "/tmp/__pycache__"
@@ -22,6 +26,8 @@ def _bootstrap():
         "ARGS", # named args
         "POS_ARGS", # positional args
         "bootstrap_finished", # function used to signal, must be called by each command
+	"w_ctx",
+	"w_list",
     ])
 
     ######################################################
@@ -96,6 +102,8 @@ def _bootstrap():
         args,
         pos_args,
         None,
+	w_ctx,
+	w_list,
     )
     return MINICLUSTER
 
@@ -104,6 +112,7 @@ MINICLUSTER = _bootstrap()
 ######################################################
 #create hook for bootstrap finished
 def bootstrap_finished(MINICLUSTER):
+    import logging
     t = MINICLUSTER.ARGPARSE.parse_known_args()
     MINICLUSTER = MINICLUSTER._replace(ARGS=t[0], POS_ARGS=t[1])
 
@@ -142,5 +151,11 @@ def bootstrap_finished(MINICLUSTER):
         logger = logging.getLogger(__name__)
         logger.info(f"{kwargs=}")
 
+    logger = logging.getLogger(__name__)
+    for w in MINICLUSTER.w_list:
+    	logger.info(f"BOOTSTRAP WARNING: {w=} {str(w)}")
+    logger.info(f"warnings created during bootstrap: {len(MINICLUSTER.w_list)}")
+    MINICLUSTER.w_ctx.__exit__(None, None, None)
+    assert len(MINICLUSTER.w_list) == 0, "Some warnings shown during bootstrap"
     return MINICLUSTER
 MINICLUSTER = MINICLUSTER._replace(bootstrap_finished = bootstrap_finished)

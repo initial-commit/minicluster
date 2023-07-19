@@ -6,11 +6,11 @@ if __name__ == '__main__':
     MINICLUSTER.ARGPARSE.add_argument('--name', required=True)
     import psutil
     import math
-    from distutils.util import strtobool
+    from cluster.functions import str2bool_exc as strtobool
     def_ram = 2**int(math.log2(psutil.virtual_memory().available // 2**20 * 2/3))
     MINICLUSTER.ARGPARSE.add_argument('--ram', default=def_ram)
-    MINICLUSTER.ARGPARSE.add_argument('--network', nargs='?', type=lambda b:bool(strtobool(b)), const=False, default=True, metavar='on|off')
-    MINICLUSTER.ARGPARSE.add_argument('--interactive', nargs='?', type=lambda b:bool(strtobool(b)), const=False, default=True, metavar='on|off')
+    MINICLUSTER.ARGPARSE.add_argument('--network', nargs='?', type=lambda b:bool(strtobool(b)), const=False, default=True, metavar='true|false')
+    MINICLUSTER.ARGPARSE.add_argument('--interactive', nargs='?', type=lambda b:bool(strtobool(b)), const=False, default=True, metavar='true|false')
     MINICLUSTER = MINICLUSTER.bootstrap_finished(MINICLUSTER)
 
 import logging
@@ -68,13 +68,18 @@ class NetworkingParameters(Handler):
 	has_network = self.cmd_args['network']
 	self.logger.info(f"{has_network=}")
 	if has_network:
-	    p = ['-nic', 'user,model=virtio',]
+	    p = [
+		'-netdev', 'user,id=mynet0',
+		'-device', 'virtio-net-pci-non-transitional,netdev=mynet0',
+	    ]
 	else:
 	    p = ['-nic', 'none']
 	return self.tail_call_next(p)
 
 class UiParameters(Handler):
     def handle(self):
+	# TODO: also use -nodefaults -no-user-config 
+
 	name = self.cmd_args['name']
 	cwd = self.cmd_args['cwd']
 	interactive = self.cmd_args['interactive']
@@ -88,7 +93,12 @@ class UiParameters(Handler):
 	    '-chardev', f'socket,path={cwd}/qga-{name}.sock,server=on,wait=off,id=qga0',
 	    '-device', 'virtserialport,chardev=qga0,name=org.qemu.guest_agent.0',
 	    '-pidfile', f'{cwd}/qemu-{name}.pid',
+	    #'-monitor', f'unix:{cwd}/qemu-monitor-{name}.sock,server,nowait',
+	    '-chardev', f'socket,path={cwd}/monitor-{name}.sock,server=on,wait=off,id=mon0',
+	    '-mon', 'chardev=mon0,mode=control,pretty=on',
 	    '--name', name,
+	    #-chardev socket,id=mon1,host=localhost,port=4444,server=on,wait=off
+	    #-mon chardev=mon1,mode=control,pretty=on
 	]
 	p.extend(interactive_p)
 	return self.tail_call_next(p)
@@ -108,6 +118,7 @@ class KernelParameters(Handler):
 	p = self.next.handle()
 	# TODO: read root device from MediaParameters
 	kernel_append = 'nomodeset console=tty0 console=ttyS0,9600n8 root=/dev/vda2 rw norandmaps printk.devkmsg=on printk.time=y transparent_hugepage=never systemd.journald.forward_to_kmsg amd_iommu=on systemd.unified_cgroup_hierarchy=0'
+	#console=ttyS0,115200n8 earlyprintk=ttyS0,115200 debug loglevel=0-7
 	kernel = ['-kernel', 'vmlinuz-linux', '-initrd', 'initramfs-linux.img', '-append', kernel_append, ]
 	p.extend(kernel)
 	return p
@@ -131,7 +142,14 @@ def command_boot_image_xsh(cwd, logger, image, name, ram, network, interactive):
     append = []
     params.extend(append)
     logger.info(f"{params=}")
-    qemu-system-x86_64 @(params)
+    prev_err = $RAISE_SUBPROC_ERROR
+    $RAISE_SUBPROC_ERROR = False
+    p=![qemu-system-x86_64 @(params)]
+    $RAISE_SUBPROC_ERROR = prev_err
+    exit_code = p.rtn
+    if exit_code != 0:
+	logger.error(f"failed to start qemu with {exit_code=}")
+	return False
     if not interactive:
 	s = f"{cwd}/qga-{name}.sock"
 	logger.info(f"establishing connection")
@@ -152,6 +170,7 @@ def command_boot_image_xsh(cwd, logger, image, name, ram, network, interactive):
 		    startup_finished = True
 		    break
 	    time.sleep(1)
+    return True
 
 
 if __name__ == '__main__':
