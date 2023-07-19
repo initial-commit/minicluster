@@ -100,6 +100,8 @@ def command_make_empty_image_xsh(cwd, logger, handle, d):
 
 def create_bootstrap_guestfish_commands(disk_file, d):
     commands = [
+        "set-trace false",
+        "set-verbose false",
         f"add-drive {disk_file}",
         "run",
         f"part-init /dev/sda {d['type']}",

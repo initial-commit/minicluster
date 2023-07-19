@@ -20,7 +20,7 @@ def command_mount_image_xsh(cwd, logger, handle):
     mount_args = [
         '-o', 'allow_other',
         '-o', f'uid={uid}', '-o', f'gid={gid}',
-        '--pid-file', f'/tmp/guestmount-{handle}.pid',
+        '--pid-file', f'{cwd}/guestmount-{handle}.pid',
         #'--no-fork', '--verbose', '--trace',
         '-a', disk_file,
         '-m', '/dev/sda2:/',

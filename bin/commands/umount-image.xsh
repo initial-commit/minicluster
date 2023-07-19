@@ -13,7 +13,7 @@ import os
 def command_umount_image_xsh(cwd, logger, handle):
 	mountpoint = f"{cwd}/{handle}"
 
-	pidfile = f"/tmp/guestmount-{handle}.pid"
+	pidfile = f"{cwd}/guestmount-{handle}.pid"
 
 	pid = None
 	if os.path.exists(pidfile):
