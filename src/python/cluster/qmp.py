@@ -7,6 +7,7 @@ import time
 import pathlib
 import fcntl
 import traceback
+import select
 
 
 class CachedViaConstructorMeta(type):
@@ -31,6 +32,8 @@ class Connection(object, metaclass=CachedViaConstructorMeta):
     def __init__(self, sock, logger):
         self.logger = logger.getChild(self.__class__.__name__)
         self.sock_path = sock
+        exists = pathlib.Path(self.sock_path).exists()
+        self.logger.debug(f"starting for sock {exists=}")
         resp = self._send_recv_rountrip("guest-sync-delimited", id=os.getpid())
         if 'return' not in resp or resp['return'] != os.getpid():
             raise Exception("could not sync with guest agent upon connecting")
@@ -200,14 +203,44 @@ class Connection(object, metaclass=CachedViaConstructorMeta):
 
     def _get_socket(self):
         if not self._socket:
+            self.logger.debug("connecting socket")
             self._socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-            self._socket.connect(self.sock_path)
+            connect_stat = self._socket.connect(self.sock_path)
+            poller = select.poll()
+            poller.register(self._socket)
+            not_ready = True
+            while not_ready:
+                self.logger.debug("polling for events")
+                events = poller.poll()
+                self.logger.debug(f"events received {events=}")
+                for sock, evt in events:
+                    if evt & select.POLLNVAL:
+                        self.logger.debug("POLLNVAL")
+                    if evt & select.POLLRDHUP:
+                        self.logger.debug("POLLRDHUP")
+                    if evt & select.POLLIN:
+                        self.logger.debug("POLLIN")
+                        not_ready = False
+                        break
+                    if evt & select.POLLOUT:
+                        self.logger.debug("POLLOUT")
+                        not_ready = False
+                        break
+                    if evt & select.POLLPRI:
+                        self.logger.debug("POLLPRI")
+                    if evt & select.POLLERR:
+                        self.logger.debug("POLLERR")
+                    if evt & select.POLLHUP:
+                        self.logger.debug("POLLHUP")
+                time.sleep(1)
+            self.logger.debug(f"connecting socket {connect_stat=}")
         return self._socket
 
     def _send_raw(self, msg):
         s = self._get_socket()
+        if 'execute' in msg and msg['execute'] in ['guest-sync-delimited', 'guest-sync']:
+            self.logger.info("doing a qga sync")
         msg = json.dumps(msg).encode('utf-8')
-        self.logger.debug(msg, stack_info=True)
         return s.sendall(msg)
 
     def _get_raw(self):
@@ -217,7 +250,9 @@ class Connection(object, metaclass=CachedViaConstructorMeta):
 
         c = None
         while c is None:
+            self.logger.debug(f"receiving one")
             c = s.recv(1)
+            self.logger.debug(f"received {c=}")
             op = 0
             if c in [b'{', b'\xff']:
                 if c == b'{':

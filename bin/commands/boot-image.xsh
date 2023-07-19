@@ -10,6 +10,7 @@ if __name__ == '__main__':
     def_ram = 2**int(math.log2(psutil.virtual_memory().available // 2**20 * 2/3))
     MINICLUSTER.ARGPARSE.add_argument('--ram', default=def_ram)
     MINICLUSTER.ARGPARSE.add_argument('--network', nargs='?', type=lambda b:bool(strtobool(b)), const=False, default=True, metavar='on|off')
+    MINICLUSTER.ARGPARSE.add_argument('--interactive', nargs='?', type=lambda b:bool(strtobool(b)), const=False, default=True, metavar='on|off')
     MINICLUSTER = MINICLUSTER.bootstrap_finished(MINICLUSTER)
 
 import logging
@@ -76,15 +77,20 @@ class UiParameters(Handler):
     def handle(self):
 	name = self.cmd_args['name']
 	cwd = self.cmd_args['cwd']
+	interactive = self.cmd_args['interactive']
+	if interactive:
+	    interactive_p = ['-nographic', '-serial', 'mon:stdio']
+	else:
+	    interactive_p = ['--daemonize']
 	p = [
-	    '-nographic',
-	    '-serial', 'mon:stdio',
+	    '-vnc', 'none',
 	    '-device', 'virtio-serial',
 	    '-chardev', f'socket,path={cwd}/qga-{name}.sock,server=on,wait=off,id=qga0',
 	    '-device', 'virtserialport,chardev=qga0,name=org.qemu.guest_agent.0',
 	    '-pidfile', f'{cwd}/qemu-{name}.pid',
 	    '--name', name,
 	]
+	p.extend(interactive_p)
 	return self.tail_call_next(p)
 
 class MediaParameters(Handler):
@@ -106,18 +112,15 @@ class KernelParameters(Handler):
 	p.extend(kernel)
 	return p
 
-if __name__ == '__main__':
-    cwd = MINICLUSTER.CWD_START
-
-    logger = logging.getLogger(__name__)
+def command_boot_image_xsh(cwd, logger, image, name, ram, network, interactive):
     cmd_args = {
-	'image': MINICLUSTER.ARGS.image,
-	'name': MINICLUSTER.ARGS.name,
-	'ram': MINICLUSTER.ARGS.ram,
+	'image': image,
+	'name': name,
+	'ram': ram,
 	'cwd': cwd,
-	'network': MINICLUSTER.ARGS.network,
+	'network': network,
+	'interactive': interactive,
     }
-
     generic = GenericParameters(logger, cmd_args)
     net = NetworkingParameters(logger, cmd_args, generic)
     ui = UiParameters(logger, cmd_args, net)
@@ -129,3 +132,35 @@ if __name__ == '__main__':
     params.extend(append)
     logger.info(f"{params=}")
     qemu-system-x86_64 @(params)
+    if not interactive:
+	s = f"{cwd}/qga-{name}.sock"
+	logger.info(f"establishing connection")
+	conn = cluster.qmp.Connection(s, logger)
+	logger.info(f"waiting to react to ping")
+	online = conn.ping()
+	assert online, "machine got online for qmp"
+	logger.info(f"waiting for machine {name=} to appear online {online=}")
+
+	startup_finished = False
+	while not startup_finished:
+	    status = conn.guest_exec_wait('journalctl --boot --lines=all -o export --output=json')
+	    lines = status['out-data'].splitlines()
+	    for idx, line in enumerate(lines):
+		line = json.loads(line)
+		if line['MESSAGE'].startswith('Startup finished '):
+		    logger.info(line['MESSAGE'])
+		    startup_finished = True
+		    break
+	    time.sleep(1)
+
+
+if __name__ == '__main__':
+    cwd = MINICLUSTER.CWD_START
+
+    logger = logging.getLogger(__name__)
+    image = MINICLUSTER.ARGS.image
+    name = MINICLUSTER.ARGS.name
+    ram = MINICLUSTER.ARGS.ram
+    network = MINICLUSTER.ARGS.network
+    interactive = MINICLUSTER.ARGS.interactive
+    command_boot_image_xsh(cwd, logger, image, name, ram, network, interactive)

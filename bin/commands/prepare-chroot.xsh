@@ -89,7 +89,7 @@ def command_prepare_chroot_xsh(cwd, logger, handle, cache):
     if cache:
         unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) rsync -azp --progress /var/cache/pacman/pkg/ @(mountpoint)/var/cache/pacman/pkg/
         unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) sync
-    unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) pacstrap.xsh @(mountpoint) base linux mkinitcpio linux-firmware qemu-guest-agent
+    unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) pacstrap.xsh @(mountpoint) base linux mkinitcpio linux-firmware qemu-guest-agent syslinux
 
     d=p"$XONSH_SOURCE".resolve().parent; source f'{d}/umount-image.xsh'
     command_umount_image_xsh(cwd, logger, handle)
@@ -136,9 +136,11 @@ def command_prepare_chroot_xsh(cwd, logger, handle, cache):
         ["command", "systemctl enable serial-getty@ttyS0.service",],
         ["command", "systemctl enable systemd-networkd.service",],
         ["command", "systemctl enable systemd-resolved",],
+        ["command", "systemctl enable qemu-guest-agent",],
         #["command", "systemctl enable auditd.service",],
         #["command", "findmnt",],
-        ["-time", "command", "bash", "-c", "chown -R root:root /!(proc|sys)",],
+        ["time", "sh", 'echo -e "shopt -s extglob\nchown -R root:root /!(sys|proc|run|boot)" | bash',],
+        #TODO: do we need to exclude boot in the line above?
         ["time", "sync"],
         #["sleep", "60"],
         ["time", "drop-caches", "3"],
@@ -154,7 +156,10 @@ def command_prepare_chroot_xsh(cwd, logger, handle, cache):
     for c in commands:
         logger.info(f"{c=}")
         time.sleep(1)
-        guestfish -x @(f'--remote={guestfish_pid}') -- @(c)
+        p=![guestfish -x @(f'--remote={guestfish_pid}') -- @(c)]
+        code = p.rtn
+        logger.info(f"{code=} {c=}")
+        #TODO: handle exit code
 
 if __name__ == '__main__':
     cwd = MINICLUSTER.CWD_START
