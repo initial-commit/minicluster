@@ -3,14 +3,19 @@
 if __name__ == '__main__':
     d=p"$XONSH_SOURCE".resolve().parent; source @(f'{d}/bootstrap.xsh')
     MINICLUSTER.ARGPARSE.add_argument('--handle', required=True)
+    MINICLUSTER.ARGPARSE.add_argument('--ro', action='store', type=str, default=None)
     MINICLUSTER = MINICLUSTER.bootstrap_finished(MINICLUSTER)
 
 import os
 import logging
 
-def command_mount_image_xsh(cwd, logger, handle):
+def command_mount_image_xsh(cwd, logger, handle, readonly=None):
     disk_file = f"{cwd}/{handle}.qcow2"
     mountpoint = f"{cwd}/{handle}"
+    pidfile = f'{cwd}/guestmount-{handle}.pid'
+    if readonly:
+        mountpoint = f"{cwd}/{handle}-{readonly}"
+        pidfile = f'{cwd}/guestmount-{handle}-{readonly}-ro.pid'
 
     mkdir -p @(mountpoint)
 
@@ -20,13 +25,16 @@ def command_mount_image_xsh(cwd, logger, handle):
     mount_args = [
         '-o', 'allow_other',
         '-o', f'uid={uid}', '-o', f'gid={gid}',
-        '--pid-file', f'{cwd}/guestmount-{handle}.pid',
+        '--pid-file', pidfile,
         #'--no-fork', '--verbose', '--trace',
         '-a', disk_file,
+        # TODO: get disk layout from disk specification
         '-m', '/dev/sda2:/',
         '-m', '/dev/sda1:/boot',
-        mountpoint
     ]
+    if readonly:
+        mount_args.append('--ro')
+    mount_args.append(mountpoint)
 
     guestmount @(mount_args)
 
@@ -34,5 +42,6 @@ if __name__ == '__main__':
     cwd = MINICLUSTER.CWD_START
     logger = logging.getLogger(__name__)
     handle = MINICLUSTER.ARGS.handle
+    readonly = MINICLUSTER.ARGS.ro
     $RAISE_SUBPROC_ERROR = True
-    command_mount_image_xsh(cwd, logger, handle)
+    command_mount_image_xsh(cwd, logger, handle, readonly)

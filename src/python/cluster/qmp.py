@@ -113,6 +113,7 @@ class Connection(object, metaclass=CachedViaConstructorMeta):
 
     def path_stat(self, vm_path):
         # TODO: extract code automatically from functions.path_stat
+        self.logger.debug(f"get stat of {vm_path=}")
         prog = (
             "import os\n"
             "import json\n"
@@ -131,6 +132,7 @@ class Connection(object, metaclass=CachedViaConstructorMeta):
         )
         stat_result = self.guest_exec_wait(["python", "-c", prog])
         if stat_result['exitcode']:
+            self.logger.warning(f"could not get path stat: {stat_result=}")
             return None
         return json.loads(stat_result['out-data'])
 
@@ -171,6 +173,29 @@ class Connection(object, metaclass=CachedViaConstructorMeta):
         # TODO: check that it was closed properly
         assert (read_size == written)
         return written
+
+    def read_from_vm(self, fp, vm_path):
+        resp = self._send_recv_rountrip("guest-file-open", path=vm_path, mode='rb')
+        h = resp['return']
+        seekinfo = self._send_recv_rountrip("guest-file-seek", handle=h, offset=0, whence=2)
+        fsize = seekinfo['return']['position']
+        self._send_recv_rountrip("guest-file-seek", handle=h, offset=0, whence=0)
+        written = 0
+        read_size = 0
+        eof = False
+        while not eof:
+            resp = self._send_recv_rountrip("guest-file-read", handle=h, count=48 * 1024 * 1024)
+            read_size += resp['return']['count']
+            eof = resp['return']['eof']
+            if not eof:
+                data = base64.b64decode(resp['return']['buf-b64'])
+                fp.write(data)
+            read_perc = int(read_size / fsize * 100)
+            self.logger.info(f"{read_perc=} {fsize=} {read_size=}")
+        resp = self._send_recv_rountrip("guest-file-close", handle=h)
+        assert ('return' in resp and not resp['return'])
+        self.logger.info(f"{h=}")
+        #guest-file-seek handle: offset: o whence: 2
 
     def unarchive_in_vm(self, vm_path):
         # TODO: detect command based on path

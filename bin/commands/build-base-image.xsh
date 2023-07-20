@@ -4,6 +4,7 @@ if __name__ == '__main__':
     d=p"$XONSH_SOURCE".resolve().parent; source @(f'{d}/bootstrap.xsh')
     source @(f'{d}/make-empty-image.xsh')
     source @(f'{d}/mount-image.xsh')
+    source @(f'{d}/umount-image.xsh')
     source @(f'{d}/prepare-chroot.xsh')
     source @(f'{d}/boot-image.xsh')
     source @(f'{d}/test-vm.xsh')
@@ -118,8 +119,36 @@ if __name__ == '__main__':
         command_instance_shell_simple_xsh(cwd, logger, name, f"bash -c 'cd {cwd_inside}; /root/minicluster/bin/commands/build-base-image.xsh --cache --handle nested-{handle} --build_nested false'")
         # promote embedded image from being an L2 image to being L1
         command_poweroff_image_xsh(cwd, logger, name)
+    do_extract = True
+    if do_extract:
+        cwd_inside = '/root/minic'
+        name = get_random_name(handle)
+        started = command_boot_image_xsh(cwd, logger, handle, name, l2_ram, True, False)
+        if not started:
+            sys.exit(1)
+        # copying over qga is implemented but terribly slow (2G - 30 mins), mounting as RO instead is fast (2G - 10 secs)
+        command_mount_image_xsh(cwd, logger, handle, "ro-build")
+        files_to_copy = [
+            f"{cwd}/{handle}-ro-build/{cwd_inside}/nested-{handle}.qcow2",
+            f"{cwd}/{handle}-ro-build/{cwd_inside}/nested-{handle}-initramfs-linux.img",
+            f"{cwd}/{handle}-ro-build/{cwd_inside}/nested-{handle}-vmlinuz-linux",
+            f"{cwd}/{handle}-ro-build/{cwd_inside}/fstab-nested-{handle}",
+        ]
+        for f in files_to_copy:
+            cp @(f) @(f"{cwd}/")
+        command_umount_image_xsh(cwd, logger, f"{handle}-ro-build")
+        # mount-image.xsh --handle nested-d1
+        command_poweroff_image_xsh(cwd, logger, name)
         # boot the extracted image
+        # extract pacman repository to a protected storage
         # clean the extracted image
         # test the extracted image
         # clean the extracted image
         # poweroff the extracted image
+        # TODO: md5sum and compare the kernel and the initramfs, should be pairwise identical
+        # TODO: mount images and extract pacman repositories
+        # TODO: clean directories /root, /tmp, /var/log, pacman cache, machine-id, /etc/*.pacnew
+        # TODO: make image smaller with: qemu-img convert -O qcow2 d1.qcow2  d1-small.qcow2
+        # TODO: compare versions of packages, should be pairwise identical (no lines different, just lines added)
+        # TODO: move repositories, images and other assets to a "promoted" area
+        # TODO: remove all files in cwd

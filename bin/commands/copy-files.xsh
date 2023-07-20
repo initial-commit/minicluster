@@ -33,18 +33,25 @@ def parse_params(cwd, logger, copy_from, copy_to, additional_env={}):
         logger.debug(f"socket {s=}")
         conn_to = cluster.qmp.Connection(s, logger)
     else:
-        raise Exception("not implemented yet")
+        (name_to, copy_to) = (None, copy_to)
     if ':' in copy_from:
         from_remote = True
-        raise Exception("not implemented yet")
+        (name_from, copy_from) = copy_from.split(':')
+        from_remote = True
+        s = f"{cwd}/qga-{name_from}.sock"
+        logger.debug(f"socket {s=}")
+        conn_from = cluster.qmp.Connection(s, logger)
     else:
         (name_from, copy_from) = (None, copy_from)
 
-    logger.info(f"{copy_from=} {copy_to=}")
+    logger.info(f"{copy_from=} {copy_to=} {name_from=} {name_to=}")
 
     is_dir = False
     if from_remote:
-        raise Exception("not implemented yet")
+        logger.info(f"copy from remote {copy_from=}")
+        st = conn_from.path_stat(copy_from)
+        if st['S_ISDIR']:
+            is_dir = True
     else:
         st = cluster.functions.path_stat(copy_from, logger)
         if st['S_ISDIR']:
@@ -86,7 +93,15 @@ def copy_from_remote_dir_to_local_dir(logger, cwd, copy_from, copy_to, name_from
     logger.info(f"{copy_from=} {copy_to=} {from_remote=} {to_remote=}")
 
 def copy_from_remote_file_to_local_file(logger, cwd, copy_from, copy_to, name_from, name_to, from_remote, to_remote, conn_from, conn_to):
-    logger.info(f"{copy_from=} {copy_to=} {from_remote=} {to_remote=}")
+    st = cluster.functions.path_stat(copy_to, logger)
+    if st['S_ISDIR']:
+        fname = str(pf"{copy_from}".name)
+        copy_to = f"{copy_to}/{fname}"
+    with open(copy_to, mode='wb', buffering=0) as fp:
+        read = conn_from.read_from_vm(fp, copy_from)
+        logger.info(f"{read=}")
+        return read
+    #logger.info(f"{copy_from=} {copy_to=} {from_remote=} {to_remote=}")
 
 def copy_from_remote_file_to_remote_file(logger, cwd, copy_from, copy_to, name_from, name_to, from_remote, to_remote, conn_from, conn_to):
     logger.info(f"{copy_from=} {copy_to=} {from_remote=} {to_remote=}")
