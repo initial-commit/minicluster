@@ -14,6 +14,8 @@ if $ARG2 == '--cache':
     cache = True
     pkgs=$ARGS[3:]
 
+pkgs = list(filter(len, pkgs))
+
 #$RAISE_SUBPROC_ERROR = True
 #XONSH_TRACE_SUBPROC = True
 #trace on
@@ -55,9 +57,6 @@ bind_device(r, "urandom")
 bind_device(r, "zero")
 mount run @(pf"{r}/run") -t tmpfs -o nosuid,nodev,mode=0755
 mount tmp @(pf"{r}/tmp") -t tmpfs -o mode=1777,strictatime,nodev,nosuid
-
-ls -ltrah etc/pacman.d/
-ls -ltrah etc/pacman.d/gnupg/
 
 if not cache:
     pacman --verbose -Syy --overwrite "*" -r @(r) --noconfirm --cachedir @(pf"{r}/var/cache/pacman/pkg") --hookdir @(pf"{r}/usr/share/libalpm/hooks") --gpgdir @(pf"{r}/etc/pacman.d/gnupg") --config @(pf"{r}/etc/pacman.conf")

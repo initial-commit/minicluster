@@ -93,10 +93,7 @@ def command_prepare_chroot_xsh(cwd, logger, handle, cache):
     # TODO: mount here instead of outside
 
     # TODO: overlays from the project
-    echo cp -a @(cwd)/bootstrap-overlay/* @(mountpoint)/
     cp -a @(cwd)/bootstrap-overlay/* @(mountpoint)/
-    echo ls -ltrah @(mountpoint)/etc/pacman.d/gnupg/
-    ls -ltrah @(mountpoint)/etc/pacman.d/gnupg/
     cp @(f"{cwd}/fstab-{handle}") @(mountpoint)/etc/fstab
 
     cp /etc/resolv.conf @(mountpoint)/etc/
@@ -104,7 +101,8 @@ def command_prepare_chroot_xsh(cwd, logger, handle, cache):
     unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) mkdir -p @(mountpoint)/var/cache/pacman/pkg/
     pacstrap_flags = ''
     if cache:
-        unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) rsync -azp --progress /var/cache/pacman/pkg/ @(mountpoint)/var/cache/pacman/pkg/
+        unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) rsync -az /var/cache/pacman/pkg/ @(mountpoint)/var/cache/pacman/pkg/
+        #unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) rsync -azp --progress /var/cache/pacman/pkg/ @(mountpoint)/var/cache/pacman/pkg/
         unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) sync
         pacstrap_flags = '--cache'
     else:

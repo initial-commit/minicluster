@@ -13,12 +13,20 @@ if __name__ == '__main__':
 import logging
 import cluster.qmp
 
-def command_instance_shell_simple_xsh(cwd, logger, name, command, interval=0.1):
+def command_instance_shell_simple_xsh(cwd, logger, name, command, interval=0.1, env={}):
     s = f"{cwd}/qga-{name}.sock"
     conn = cluster.qmp.Connection(s, logger)
-    st = conn.guest_exec_wait(command, interval=interval)
+    env = ["{k}={v}" for k,v in env.items()]
+    st = conn.guest_exec_wait(command, interval=interval, env=env)
+    code = st['exitcode']
     logger.info(f"{st=}")
-    return st
+    if code != 0:
+	logger.error(f"command failed: {command=} with {code=}")
+	for line in st['err-data'].splitlines():
+	    logger.error(f"ERR: {line}")
+	for line in st['out-data'].splitlines():
+	    logger.error(f"OUT: {line}")
+    return code
 
 
 if __name__ == '__main__':

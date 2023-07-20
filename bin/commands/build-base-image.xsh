@@ -102,8 +102,8 @@ if __name__ == '__main__':
 
     if do_build_l2:
         cwd_inside = '/root/minic'
-        command_instance_shell_simple_xsh(cwd, logger, name, "pacman -Qi python >/dev/null || pacman -S --noconfirm --overwrite '*' python")
-        command_copy_files_xsh(cwd, logger, '{DIR_R}', f'{name}:/root')
+        command_instance_shell_simple_xsh(cwd, logger, name, "bash -c \"pacman -Qi python >/dev/null || pacman -S --noconfirm --overwrite '*' python\"")
+        command_copy_files_xsh(cwd, logger, '{DIR_R}', f'{name}:/root', additional_env={'name': name})
         command_instance_shell_simple_xsh(cwd, logger, name, "/root/minicluster/bin/commands/bootstrap-host.sh")
         command_instance_shell_simple_xsh(cwd, logger, name, f"mkdir -p {cwd_inside}")
         copy_cwd = [
@@ -115,12 +115,11 @@ if __name__ == '__main__':
             command_copy_files_xsh(cwd, logger, '{CWD_START}/{f}', '{name}:{cwd_inside}/', additional_env={'f': f, 'name': name, 'cwd_inside': cwd_inside})
         # bootstrap L1 image as a minicluster host 
         command_network_cmd_xsh(cwd, logger, name, False)
-        # build L2 image without networking
-        # build itself with different parameters
+        command_instance_shell_simple_xsh(cwd, logger, name, f"bash -c 'cd {cwd_inside}; /root/minicluster/bin/commands/build-base-image.xsh --cache --handle nested-{handle} --build_nested false'")
         # promote embedded image from being an L2 image to being L1
         command_poweroff_image_xsh(cwd, logger, name)
         # boot the extracted image
+        # clean the extracted image
         # test the extracted image
         # clean the extracted image
         # poweroff the extracted image
-        # move the extracted image L2 to the L1 image qcow2

@@ -34,11 +34,15 @@ def _bootstrap():
     # paths and other simple values
     root = pf"{__file__}".resolve().parent.parent.parent
     src = root / "src" / "python"
+    bin = root / "bin" / "commands"
 
     sys.path.append(str(src))
     cmd=p"$XONSH_SOURCE".resolve().name
 
     cwd = os.getcwd()
+
+    if str(bin) not in $PATH:
+        $PATH.append(str(bin))
 
     ######################################################
     # arguments
