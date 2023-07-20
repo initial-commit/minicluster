@@ -82,3 +82,469 @@ new [description:"set up a pipeline for building 100 projects randomly and repor
 time 1689861950
 new [description:"continuously pull package updates from gitlab and trigger repository updates only when necessary" entry:"1689861950" modified:"1689861950" project:"mele" status:"pending" uuid:"cacb96f6-2f55-4c0c-8f7a-d47774e88a52"]
 ---
+time 1689862397
+new [description:"end of project" entry:"1689862397" modified:"1689862397" project:"bootstrap" status:"pending" uuid:"95e82113-3611-4bc1-be08-4fe04ef4dc20"]
+---
+time 1689862621
+old [description:"install archlinux from scratch on mele\nuse the internal mirror instead\ndocument the necessary steps\nwrite a script which can be downloaded to bootstrap the system" entry:"1689859692" modified:"1689859975" project:"mele" status:"pending" uuid:"b2ddced4-997e-4910-976b-58d1270b4196"]
+new [dep_95e82113-3611-4bc1-be08-4fe04ef4dc20:"x" depends:"95e82113-3611-4bc1-be08-4fe04ef4dc20" description:"install archlinux from scratch on mele\nuse the internal mirror instead\ndocument the necessary steps\nwrite a script which can be downloaded to bootstrap the system" entry:"1689859692" modified:"1689862621" project:"mele" status:"pending" uuid:"b2ddced4-997e-4910-976b-58d1270b4196"]
+---
+time 1689862621
+old [description:"research about what setting up a tftp image would involve to set up mele from scratch automatically" entry:"1689860085" modified:"1689860085" project:"mele" status:"pending" uuid:"433aa49d-2d5f-4a30-857e-917f47679604"]
+new [dep_95e82113-3611-4bc1-be08-4fe04ef4dc20:"x" depends:"95e82113-3611-4bc1-be08-4fe04ef4dc20" description:"research about what setting up a tftp image would involve to set up mele from scratch automatically" entry:"1689860085" modified:"1689862621" project:"mele" status:"pending" uuid:"433aa49d-2d5f-4a30-857e-917f47679604"]
+---
+time 1689862621
+old [description:"buy a second mele and set up blue-green deployments" entry:"1689860603" modified:"1689860603" project:"mele" status:"pending" uuid:"5f24c235-1efd-47ea-8324-2ecaea1dd629"]
+new [dep_95e82113-3611-4bc1-be08-4fe04ef4dc20:"x" depends:"95e82113-3611-4bc1-be08-4fe04ef4dc20" description:"buy a second mele and set up blue-green deployments" entry:"1689860603" modified:"1689862621" project:"mele" status:"pending" uuid:"5f24c235-1efd-47ea-8324-2ecaea1dd629"]
+---
+time 1689862621
+old [description:"continuously pull package updates from gitlab and trigger repository updates only when necessary" entry:"1689861950" modified:"1689861950" project:"mele" status:"pending" uuid:"cacb96f6-2f55-4c0c-8f7a-d47774e88a52"]
+new [dep_95e82113-3611-4bc1-be08-4fe04ef4dc20:"x" depends:"95e82113-3611-4bc1-be08-4fe04ef4dc20" description:"continuously pull package updates from gitlab and trigger repository updates only when necessary" entry:"1689861950" modified:"1689862621" project:"mele" status:"pending" uuid:"cacb96f6-2f55-4c0c-8f7a-d47774e88a52"]
+---
+time 1689862647
+old [description:"end of project" entry:"1689862397" modified:"1689862397" project:"bootstrap" status:"pending" uuid:"95e82113-3611-4bc1-be08-4fe04ef4dc20"]
+new [description:"end of project" entry:"1689862397" modified:"1689862647" priority:"L" project:"bootstrap" status:"pending" uuid:"95e82113-3611-4bc1-be08-4fe04ef4dc20"]
+---
+time 1689862920
+new [description:"end of project" entry:"1689862920" modified:"1689862920" project:"aur" status:"pending" uuid:"61410e7b-6037-4b59-b821-051403fa4015"]
+---
+time 1689862926
+new [description:"end of project" entry:"1689862926" modified:"1689862926" project:"cleanup" status:"pending" uuid:"854e0435-031b-4972-bc80-52662a9fef18"]
+---
+time 1689862936
+new [description:"end of project" entry:"1689862936" modified:"1689862936" project:"networking" status:"pending" uuid:"44922ed1-9583-4a9a-9339-d8f94940d4ef"]
+---
+time 1689862943
+new [description:"end of project" entry:"1689862943" modified:"1689862943" project:"flavius-as" status:"pending" uuid:"130fcde5-c50f-4e3e-a148-dd2bbe6c556c"]
+---
+time 1689863000
+new [description:"start of project" entry:"1689863000" modified:"1689863000" project:"aur" status:"pending" uuid:"fa053b7b-5365-495f-969e-17452e4e7395"]
+---
+time 1689863005
+new [description:"start of project" entry:"1689863005" modified:"1689863005" project:"bootstrap" status:"pending" uuid:"570e821b-b8a6-4435-b7b5-21f83294e75e"]
+---
+time 1689863018
+new [description:"start of project" entry:"1689863018" modified:"1689863018" project:"cleanup" status:"pending" uuid:"042334e9-b3bf-4e22-a50c-f45341956c61"]
+---
+time 1689863026
+new [description:"start of project" entry:"1689863026" modified:"1689863026" project:"mele" status:"pending" uuid:"797e06be-3378-415e-ac31-c018c124ba7b"]
+---
+time 1689863031
+new [description:"start of project" entry:"1689863031" modified:"1689863031" project:"networking" status:"pending" uuid:"83033fcd-e7f4-47d7-97b2-ff7d9bcfcfdf"]
+---
+time 1689863199
+old [description:"end of project" entry:"1689862397" modified:"1689862647" priority:"L" project:"bootstrap" status:"pending" uuid:"95e82113-3611-4bc1-be08-4fe04ef4dc20"]
+new [description:"end of project" entry:"1689862397" modified:"1689863199" priority:"L" project:"bootstrap" status:"pending" tags:"+marker" tags_+marker:"x" uuid:"95e82113-3611-4bc1-be08-4fe04ef4dc20"]
+---
+time 1689863199
+old [description:"end of project" entry:"1689862920" modified:"1689862920" project:"aur" status:"pending" uuid:"61410e7b-6037-4b59-b821-051403fa4015"]
+new [description:"end of project" entry:"1689862920" modified:"1689863199" project:"aur" status:"pending" tags:"+marker" tags_+marker:"x" uuid:"61410e7b-6037-4b59-b821-051403fa4015"]
+---
+time 1689863199
+old [description:"end of project" entry:"1689862926" modified:"1689862926" project:"cleanup" status:"pending" uuid:"854e0435-031b-4972-bc80-52662a9fef18"]
+new [description:"end of project" entry:"1689862926" modified:"1689863199" project:"cleanup" status:"pending" tags:"+marker" tags_+marker:"x" uuid:"854e0435-031b-4972-bc80-52662a9fef18"]
+---
+time 1689863199
+old [description:"end of project" entry:"1689862936" modified:"1689862936" project:"networking" status:"pending" uuid:"44922ed1-9583-4a9a-9339-d8f94940d4ef"]
+new [description:"end of project" entry:"1689862936" modified:"1689863199" project:"networking" status:"pending" tags:"+marker" tags_+marker:"x" uuid:"44922ed1-9583-4a9a-9339-d8f94940d4ef"]
+---
+time 1689863199
+old [description:"end of project" entry:"1689862943" modified:"1689862943" project:"flavius-as" status:"pending" uuid:"130fcde5-c50f-4e3e-a148-dd2bbe6c556c"]
+new [description:"end of project" entry:"1689862943" modified:"1689863199" project:"flavius-as" status:"pending" tags:"+marker" tags_+marker:"x" uuid:"130fcde5-c50f-4e3e-a148-dd2bbe6c556c"]
+---
+time 1689863199
+old [description:"start of project" entry:"1689863000" modified:"1689863000" project:"aur" status:"pending" uuid:"fa053b7b-5365-495f-969e-17452e4e7395"]
+new [description:"start of project" entry:"1689863000" modified:"1689863199" project:"aur" status:"pending" tags:"+marker" tags_+marker:"x" uuid:"fa053b7b-5365-495f-969e-17452e4e7395"]
+---
+time 1689863199
+old [description:"start of project" entry:"1689863005" modified:"1689863005" project:"bootstrap" status:"pending" uuid:"570e821b-b8a6-4435-b7b5-21f83294e75e"]
+new [description:"start of project" entry:"1689863005" modified:"1689863199" project:"bootstrap" status:"pending" tags:"+marker" tags_+marker:"x" uuid:"570e821b-b8a6-4435-b7b5-21f83294e75e"]
+---
+time 1689863199
+old [description:"start of project" entry:"1689863018" modified:"1689863018" project:"cleanup" status:"pending" uuid:"042334e9-b3bf-4e22-a50c-f45341956c61"]
+new [description:"start of project" entry:"1689863018" modified:"1689863199" project:"cleanup" status:"pending" tags:"+marker" tags_+marker:"x" uuid:"042334e9-b3bf-4e22-a50c-f45341956c61"]
+---
+time 1689863199
+old [description:"start of project" entry:"1689863026" modified:"1689863026" project:"mele" status:"pending" uuid:"797e06be-3378-415e-ac31-c018c124ba7b"]
+new [description:"start of project" entry:"1689863026" modified:"1689863199" project:"mele" status:"pending" tags:"+marker" tags_+marker:"x" uuid:"797e06be-3378-415e-ac31-c018c124ba7b"]
+---
+time 1689863199
+old [description:"start of project" entry:"1689863031" modified:"1689863031" project:"networking" status:"pending" uuid:"83033fcd-e7f4-47d7-97b2-ff7d9bcfcfdf"]
+new [description:"start of project" entry:"1689863031" modified:"1689863199" project:"networking" status:"pending" tags:"+marker" tags_+marker:"x" uuid:"83033fcd-e7f4-47d7-97b2-ff7d9bcfcfdf"]
+---
+time 1689863258
+old [description:"end of project" entry:"1689862920" modified:"1689863199" project:"aur" status:"pending" tags:"+marker" tags_+marker:"x" uuid:"61410e7b-6037-4b59-b821-051403fa4015"]
+new [description:"end of project" entry:"1689862920" modified:"1689863258" priority:"L" project:"aur" status:"pending" tags:"+marker" tags_+marker:"x" uuid:"61410e7b-6037-4b59-b821-051403fa4015"]
+---
+time 1689863258
+old [description:"end of project" entry:"1689862926" modified:"1689863199" project:"cleanup" status:"pending" tags:"+marker" tags_+marker:"x" uuid:"854e0435-031b-4972-bc80-52662a9fef18"]
+new [description:"end of project" entry:"1689862926" modified:"1689863258" priority:"L" project:"cleanup" status:"pending" tags:"+marker" tags_+marker:"x" uuid:"854e0435-031b-4972-bc80-52662a9fef18"]
+---
+time 1689863258
+old [description:"end of project" entry:"1689862936" modified:"1689863199" project:"networking" status:"pending" tags:"+marker" tags_+marker:"x" uuid:"44922ed1-9583-4a9a-9339-d8f94940d4ef"]
+new [description:"end of project" entry:"1689862936" modified:"1689863258" priority:"L" project:"networking" status:"pending" tags:"+marker" tags_+marker:"x" uuid:"44922ed1-9583-4a9a-9339-d8f94940d4ef"]
+---
+time 1689863258
+old [description:"end of project" entry:"1689862943" modified:"1689863199" project:"flavius-as" status:"pending" tags:"+marker" tags_+marker:"x" uuid:"130fcde5-c50f-4e3e-a148-dd2bbe6c556c"]
+new [description:"end of project" entry:"1689862943" modified:"1689863258" priority:"L" project:"flavius-as" status:"pending" tags:"+marker" tags_+marker:"x" uuid:"130fcde5-c50f-4e3e-a148-dd2bbe6c556c"]
+---
+time 1689863271
+old [description:"start of project" entry:"1689863000" modified:"1689863199" project:"aur" status:"pending" tags:"+marker" tags_+marker:"x" uuid:"fa053b7b-5365-495f-969e-17452e4e7395"]
+new [description:"start of project" entry:"1689863000" modified:"1689863271" priority:"H" project:"aur" status:"pending" tags:"+marker" tags_+marker:"x" uuid:"fa053b7b-5365-495f-969e-17452e4e7395"]
+---
+time 1689863271
+old [description:"start of project" entry:"1689863005" modified:"1689863199" project:"bootstrap" status:"pending" tags:"+marker" tags_+marker:"x" uuid:"570e821b-b8a6-4435-b7b5-21f83294e75e"]
+new [description:"start of project" entry:"1689863005" modified:"1689863271" priority:"H" project:"bootstrap" status:"pending" tags:"+marker" tags_+marker:"x" uuid:"570e821b-b8a6-4435-b7b5-21f83294e75e"]
+---
+time 1689863271
+old [description:"start of project" entry:"1689863018" modified:"1689863199" project:"cleanup" status:"pending" tags:"+marker" tags_+marker:"x" uuid:"042334e9-b3bf-4e22-a50c-f45341956c61"]
+new [description:"start of project" entry:"1689863018" modified:"1689863271" priority:"H" project:"cleanup" status:"pending" tags:"+marker" tags_+marker:"x" uuid:"042334e9-b3bf-4e22-a50c-f45341956c61"]
+---
+time 1689863271
+old [description:"start of project" entry:"1689863026" modified:"1689863199" project:"mele" status:"pending" tags:"+marker" tags_+marker:"x" uuid:"797e06be-3378-415e-ac31-c018c124ba7b"]
+new [description:"start of project" entry:"1689863026" modified:"1689863271" priority:"H" project:"mele" status:"pending" tags:"+marker" tags_+marker:"x" uuid:"797e06be-3378-415e-ac31-c018c124ba7b"]
+---
+time 1689863271
+old [description:"start of project" entry:"1689863031" modified:"1689863199" project:"networking" status:"pending" tags:"+marker" tags_+marker:"x" uuid:"83033fcd-e7f4-47d7-97b2-ff7d9bcfcfdf"]
+new [description:"start of project" entry:"1689863031" modified:"1689863271" priority:"H" project:"networking" status:"pending" tags:"+marker" tags_+marker:"x" uuid:"83033fcd-e7f4-47d7-97b2-ff7d9bcfcfdf"]
+---
+time 1689863468
+new [description:"end of project" entry:"1689863468" modified:"1689863468" priority:"L" project:"mele" status:"pending" tags:"marker" tags_marker:"x" uuid:"d44d35f6-66fd-4594-8828-79d21f2a97e2"]
+---
+time 1689863661
+new [description:"set up a self-updating process" entry:"1689863661" modified:"1689863661" project:"mele" status:"pending" uuid:"a6ab63f3-0f5a-4bc8-838c-5bf7333079e1"]
+---
+time 1689863792
+new [description:"start of project" entry:"1689863792" modified:"1689863792" priority:"H" project:"flavius" status:"pending" tags:"marker" tags_marker:"x" uuid:"95b9e1ec-9861-400d-8ded-ca90840b334e"]
+---
+time 1689863828
+new [description:"start of project" entry:"1689863828" modified:"1689863828" priority:"H" project:"flavius-as" status:"pending" tags:"marker" tags_marker:"x" uuid:"455853ef-d694-43f9-9484-531e35c9d216"]
+---
+time 1689863873
+old [description:"start of project" entry:"1689863792" modified:"1689863792" priority:"H" project:"flavius" status:"pending" tags:"marker" tags_marker:"x" uuid:"95b9e1ec-9861-400d-8ded-ca90840b334e"]
+new [description:"start of project" end:"1689863870" entry:"1689863792" modified:"1689863873" priority:"H" project:"flavius" status:"deleted" tags:"marker" tags_marker:"x" uuid:"95b9e1ec-9861-400d-8ded-ca90840b334e"]
+---
+time 1689863921
+old [description:"end of project" entry:"1689862943" modified:"1689863258" priority:"L" project:"flavius-as" status:"pending" tags:"+marker" tags_+marker:"x" uuid:"130fcde5-c50f-4e3e-a148-dd2bbe6c556c"]
+new [description:"end of project" entry:"1689862943" modified:"1689863921" priority:"L" project:"flavius-as" status:"pending" tags:"marker" tags_marker:"x" uuid:"130fcde5-c50f-4e3e-a148-dd2bbe6c556c"]
+---
+time 1689864067
+old [description:"end of project" entry:"1689862397" modified:"1689863199" priority:"L" project:"bootstrap" status:"pending" tags:"+marker" tags_+marker:"x" uuid:"95e82113-3611-4bc1-be08-4fe04ef4dc20"]
+new [description:"-\"+marker\"" entry:"1689862397" modified:"1689864067" priority:"L" project:"bootstrap" status:"pending" tags:"+marker,marker" tags_+marker:"x" tags_marker:"x" uuid:"95e82113-3611-4bc1-be08-4fe04ef4dc20"]
+---
+time 1689864067
+old [description:"end of project" entry:"1689862920" modified:"1689863258" priority:"L" project:"aur" status:"pending" tags:"+marker" tags_+marker:"x" uuid:"61410e7b-6037-4b59-b821-051403fa4015"]
+new [description:"-\"+marker\"" entry:"1689862920" modified:"1689864067" priority:"L" project:"aur" status:"pending" tags:"+marker,marker" tags_+marker:"x" tags_marker:"x" uuid:"61410e7b-6037-4b59-b821-051403fa4015"]
+---
+time 1689864067
+old [description:"end of project" entry:"1689862926" modified:"1689863258" priority:"L" project:"cleanup" status:"pending" tags:"+marker" tags_+marker:"x" uuid:"854e0435-031b-4972-bc80-52662a9fef18"]
+new [description:"-\"+marker\"" entry:"1689862926" modified:"1689864067" priority:"L" project:"cleanup" status:"pending" tags:"+marker,marker" tags_+marker:"x" tags_marker:"x" uuid:"854e0435-031b-4972-bc80-52662a9fef18"]
+---
+time 1689864067
+old [description:"end of project" entry:"1689862936" modified:"1689863258" priority:"L" project:"networking" status:"pending" tags:"+marker" tags_+marker:"x" uuid:"44922ed1-9583-4a9a-9339-d8f94940d4ef"]
+new [description:"-\"+marker\"" entry:"1689862936" modified:"1689864067" priority:"L" project:"networking" status:"pending" tags:"+marker,marker" tags_+marker:"x" tags_marker:"x" uuid:"44922ed1-9583-4a9a-9339-d8f94940d4ef"]
+---
+time 1689864067
+old [description:"start of project" entry:"1689863000" modified:"1689863271" priority:"H" project:"aur" status:"pending" tags:"+marker" tags_+marker:"x" uuid:"fa053b7b-5365-495f-969e-17452e4e7395"]
+new [description:"-\"+marker\"" entry:"1689863000" modified:"1689864067" priority:"H" project:"aur" status:"pending" tags:"+marker,marker" tags_+marker:"x" tags_marker:"x" uuid:"fa053b7b-5365-495f-969e-17452e4e7395"]
+---
+time 1689864067
+old [description:"start of project" entry:"1689863005" modified:"1689863271" priority:"H" project:"bootstrap" status:"pending" tags:"+marker" tags_+marker:"x" uuid:"570e821b-b8a6-4435-b7b5-21f83294e75e"]
+new [description:"-\"+marker\"" entry:"1689863005" modified:"1689864067" priority:"H" project:"bootstrap" status:"pending" tags:"+marker,marker" tags_+marker:"x" tags_marker:"x" uuid:"570e821b-b8a6-4435-b7b5-21f83294e75e"]
+---
+time 1689864067
+old [description:"start of project" entry:"1689863018" modified:"1689863271" priority:"H" project:"cleanup" status:"pending" tags:"+marker" tags_+marker:"x" uuid:"042334e9-b3bf-4e22-a50c-f45341956c61"]
+new [description:"-\"+marker\"" entry:"1689863018" modified:"1689864067" priority:"H" project:"cleanup" status:"pending" tags:"+marker,marker" tags_+marker:"x" tags_marker:"x" uuid:"042334e9-b3bf-4e22-a50c-f45341956c61"]
+---
+time 1689864067
+old [description:"start of project" entry:"1689863026" modified:"1689863271" priority:"H" project:"mele" status:"pending" tags:"+marker" tags_+marker:"x" uuid:"797e06be-3378-415e-ac31-c018c124ba7b"]
+new [description:"-\"+marker\"" entry:"1689863026" modified:"1689864067" priority:"H" project:"mele" status:"pending" tags:"+marker,marker" tags_+marker:"x" tags_marker:"x" uuid:"797e06be-3378-415e-ac31-c018c124ba7b"]
+---
+time 1689864067
+old [description:"start of project" entry:"1689863031" modified:"1689863271" priority:"H" project:"networking" status:"pending" tags:"+marker" tags_+marker:"x" uuid:"83033fcd-e7f4-47d7-97b2-ff7d9bcfcfdf"]
+new [description:"-\"+marker\"" entry:"1689863031" modified:"1689864067" priority:"H" project:"networking" status:"pending" tags:"+marker,marker" tags_+marker:"x" tags_marker:"x" uuid:"83033fcd-e7f4-47d7-97b2-ff7d9bcfcfdf"]
+---
+time 1689864278
+old [description:"-\"+marker\"" entry:"1689862397" modified:"1689864067" priority:"L" project:"bootstrap" status:"pending" tags:"+marker,marker" tags_+marker:"x" tags_marker:"x" uuid:"95e82113-3611-4bc1-be08-4fe04ef4dc20"]
+new [description:"end of project" entry:"1689862397" modified:"1689864278" priority:"L" project:"bootstrap" status:"pending" tags:"+marker,marker" tags_+marker:"x" tags_marker:"x" uuid:"95e82113-3611-4bc1-be08-4fe04ef4dc20"]
+---
+time 1689864280
+old [description:"-\"+marker\"" entry:"1689862920" modified:"1689864067" priority:"L" project:"aur" status:"pending" tags:"+marker,marker" tags_+marker:"x" tags_marker:"x" uuid:"61410e7b-6037-4b59-b821-051403fa4015"]
+new [description:"end of project" entry:"1689862920" modified:"1689864280" priority:"L" project:"aur" status:"pending" tags:"+marker,marker" tags_+marker:"x" tags_marker:"x" uuid:"61410e7b-6037-4b59-b821-051403fa4015"]
+---
+time 1689864280
+old [description:"-\"+marker\"" entry:"1689862926" modified:"1689864067" priority:"L" project:"cleanup" status:"pending" tags:"+marker,marker" tags_+marker:"x" tags_marker:"x" uuid:"854e0435-031b-4972-bc80-52662a9fef18"]
+new [description:"end of project" entry:"1689862926" modified:"1689864280" priority:"L" project:"cleanup" status:"pending" tags:"+marker,marker" tags_+marker:"x" tags_marker:"x" uuid:"854e0435-031b-4972-bc80-52662a9fef18"]
+---
+time 1689864280
+old [description:"-\"+marker\"" entry:"1689862936" modified:"1689864067" priority:"L" project:"networking" status:"pending" tags:"+marker,marker" tags_+marker:"x" tags_marker:"x" uuid:"44922ed1-9583-4a9a-9339-d8f94940d4ef"]
+new [description:"end of project" entry:"1689862936" modified:"1689864280" priority:"L" project:"networking" status:"pending" tags:"+marker,marker" tags_+marker:"x" tags_marker:"x" uuid:"44922ed1-9583-4a9a-9339-d8f94940d4ef"]
+---
+time 1689864309
+old [description:"-\"+marker\"" entry:"1689863000" modified:"1689864067" priority:"H" project:"aur" status:"pending" tags:"+marker,marker" tags_+marker:"x" tags_marker:"x" uuid:"fa053b7b-5365-495f-969e-17452e4e7395"]
+new [description:"start of project" entry:"1689863000" modified:"1689864309" priority:"H" project:"aur" status:"pending" tags:"+marker,marker" tags_+marker:"x" tags_marker:"x" uuid:"fa053b7b-5365-495f-969e-17452e4e7395"]
+---
+time 1689864309
+old [description:"-\"+marker\"" entry:"1689863005" modified:"1689864067" priority:"H" project:"bootstrap" status:"pending" tags:"+marker,marker" tags_+marker:"x" tags_marker:"x" uuid:"570e821b-b8a6-4435-b7b5-21f83294e75e"]
+new [description:"start of project" entry:"1689863005" modified:"1689864309" priority:"H" project:"bootstrap" status:"pending" tags:"+marker,marker" tags_+marker:"x" tags_marker:"x" uuid:"570e821b-b8a6-4435-b7b5-21f83294e75e"]
+---
+time 1689864309
+old [description:"-\"+marker\"" entry:"1689863018" modified:"1689864067" priority:"H" project:"cleanup" status:"pending" tags:"+marker,marker" tags_+marker:"x" tags_marker:"x" uuid:"042334e9-b3bf-4e22-a50c-f45341956c61"]
+new [description:"start of project" entry:"1689863018" modified:"1689864309" priority:"H" project:"cleanup" status:"pending" tags:"+marker,marker" tags_+marker:"x" tags_marker:"x" uuid:"042334e9-b3bf-4e22-a50c-f45341956c61"]
+---
+time 1689864309
+old [description:"-\"+marker\"" entry:"1689863026" modified:"1689864067" priority:"H" project:"mele" status:"pending" tags:"+marker,marker" tags_+marker:"x" tags_marker:"x" uuid:"797e06be-3378-415e-ac31-c018c124ba7b"]
+new [description:"start of project" entry:"1689863026" modified:"1689864309" priority:"H" project:"mele" status:"pending" tags:"+marker,marker" tags_+marker:"x" tags_marker:"x" uuid:"797e06be-3378-415e-ac31-c018c124ba7b"]
+---
+time 1689864309
+old [description:"-\"+marker\"" entry:"1689863031" modified:"1689864067" priority:"H" project:"networking" status:"pending" tags:"+marker,marker" tags_+marker:"x" tags_marker:"x" uuid:"83033fcd-e7f4-47d7-97b2-ff7d9bcfcfdf"]
+new [description:"start of project" entry:"1689863031" modified:"1689864309" priority:"H" project:"networking" status:"pending" tags:"+marker,marker" tags_+marker:"x" tags_marker:"x" uuid:"83033fcd-e7f4-47d7-97b2-ff7d9bcfcfdf"]
+---
+time 1689864536
+old [description:"start of project" entry:"1689863000" modified:"1689864309" priority:"H" project:"aur" status:"pending" tags:"+marker,marker" tags_+marker:"x" tags_marker:"x" uuid:"fa053b7b-5365-495f-969e-17452e4e7395"]
+new [description:"start of project" entry:"1689863000" modified:"1689864536" priority:"H" project:"aur" status:"pending" tags:"marker" tags_marker:"x" uuid:"fa053b7b-5365-495f-969e-17452e4e7395"]
+---
+time 1689864542
+old [description:"start of project" entry:"1689863005" modified:"1689864309" priority:"H" project:"bootstrap" status:"pending" tags:"+marker,marker" tags_+marker:"x" tags_marker:"x" uuid:"570e821b-b8a6-4435-b7b5-21f83294e75e"]
+new [description:"start of project" entry:"1689863005" modified:"1689864542" priority:"H" project:"bootstrap" status:"pending" tags:"marker" tags_marker:"x" uuid:"570e821b-b8a6-4435-b7b5-21f83294e75e"]
+---
+time 1689864548
+old [description:"start of project" entry:"1689863018" modified:"1689864309" priority:"H" project:"cleanup" status:"pending" tags:"+marker,marker" tags_+marker:"x" tags_marker:"x" uuid:"042334e9-b3bf-4e22-a50c-f45341956c61"]
+new [description:"start of project" entry:"1689863018" modified:"1689864548" priority:"H" project:"cleanup" status:"pending" tags:"marker" tags_marker:"x" uuid:"042334e9-b3bf-4e22-a50c-f45341956c61"]
+---
+time 1689864552
+old [description:"start of project" entry:"1689863026" modified:"1689864309" priority:"H" project:"mele" status:"pending" tags:"+marker,marker" tags_+marker:"x" tags_marker:"x" uuid:"797e06be-3378-415e-ac31-c018c124ba7b"]
+new [description:"start of project" entry:"1689863026" modified:"1689864552" priority:"H" project:"mele" status:"pending" tags:"marker" tags_marker:"x" uuid:"797e06be-3378-415e-ac31-c018c124ba7b"]
+---
+time 1689864558
+old [description:"start of project" entry:"1689863031" modified:"1689864309" priority:"H" project:"networking" status:"pending" tags:"+marker,marker" tags_+marker:"x" tags_marker:"x" uuid:"83033fcd-e7f4-47d7-97b2-ff7d9bcfcfdf"]
+new [description:"start of project" entry:"1689863031" modified:"1689864558" priority:"H" project:"networking" status:"pending" tags:"marker" tags_marker:"x" uuid:"83033fcd-e7f4-47d7-97b2-ff7d9bcfcfdf"]
+---
+time 1689864601
+old [description:"end of project" entry:"1689862397" modified:"1689864278" priority:"L" project:"bootstrap" status:"pending" tags:"+marker,marker" tags_+marker:"x" tags_marker:"x" uuid:"95e82113-3611-4bc1-be08-4fe04ef4dc20"]
+new [description:"end of project" entry:"1689862397" modified:"1689864601" priority:"L" project:"bootstrap" status:"pending" tags:"marker" tags_marker:"x" uuid:"95e82113-3611-4bc1-be08-4fe04ef4dc20"]
+---
+time 1689864605
+old [description:"end of project" entry:"1689862920" modified:"1689864280" priority:"L" project:"aur" status:"pending" tags:"+marker,marker" tags_+marker:"x" tags_marker:"x" uuid:"61410e7b-6037-4b59-b821-051403fa4015"]
+new [description:"end of project" entry:"1689862920" modified:"1689864605" priority:"L" project:"aur" status:"pending" tags:"marker" tags_marker:"x" uuid:"61410e7b-6037-4b59-b821-051403fa4015"]
+---
+time 1689864610
+old [description:"end of project" entry:"1689862926" modified:"1689864280" priority:"L" project:"cleanup" status:"pending" tags:"+marker,marker" tags_+marker:"x" tags_marker:"x" uuid:"854e0435-031b-4972-bc80-52662a9fef18"]
+new [description:"end of project" entry:"1689862926" modified:"1689864610" priority:"L" project:"cleanup" status:"pending" tags:"marker" tags_marker:"x" uuid:"854e0435-031b-4972-bc80-52662a9fef18"]
+---
+time 1689864613
+old [description:"end of project" entry:"1689862936" modified:"1689864280" priority:"L" project:"networking" status:"pending" tags:"+marker,marker" tags_+marker:"x" tags_marker:"x" uuid:"44922ed1-9583-4a9a-9339-d8f94940d4ef"]
+new [description:"end of project" entry:"1689862936" modified:"1689864613" priority:"L" project:"networking" status:"pending" tags:"marker" tags_marker:"x" uuid:"44922ed1-9583-4a9a-9339-d8f94940d4ef"]
+---
+time 1689864990
+old [description:"start of project" entry:"1689863026" modified:"1689864552" priority:"H" project:"mele" status:"pending" tags:"marker" tags_marker:"x" uuid:"797e06be-3378-415e-ac31-c018c124ba7b"]
+new [dep_95e82113-3611-4bc1-be08-4fe04ef4dc20:"x" depends:"95e82113-3611-4bc1-be08-4fe04ef4dc20" description:"start of project" entry:"1689863026" modified:"1689864990" priority:"H" project:"mele" status:"pending" tags:"marker" tags_marker:"x" uuid:"797e06be-3378-415e-ac31-c018c124ba7b"]
+---
+time 1689865116
+old [description:"end of project" entry:"1689863468" modified:"1689863468" priority:"L" project:"mele" status:"pending" tags:"marker" tags_marker:"x" uuid:"d44d35f6-66fd-4594-8828-79d21f2a97e2"]
+new [dep_797e06be-3378-415e-ac31-c018c124ba7b:"x" depends:"797e06be-3378-415e-ac31-c018c124ba7b" description:"end of project" entry:"1689863468" modified:"1689865116" priority:"L" project:"mele" status:"pending" tags:"marker" tags_marker:"x" uuid:"d44d35f6-66fd-4594-8828-79d21f2a97e2"]
+---
+time 1689865145
+old [description:"end of project" entry:"1689862920" modified:"1689864605" priority:"L" project:"aur" status:"pending" tags:"marker" tags_marker:"x" uuid:"61410e7b-6037-4b59-b821-051403fa4015"]
+new [dep_fa053b7b-5365-495f-969e-17452e4e7395:"x" depends:"fa053b7b-5365-495f-969e-17452e4e7395" description:"end of project" entry:"1689862920" modified:"1689865145" priority:"L" project:"aur" status:"pending" tags:"marker" tags_marker:"x" uuid:"61410e7b-6037-4b59-b821-051403fa4015"]
+---
+time 1689865180
+old [description:"end of project" entry:"1689862943" modified:"1689863921" priority:"L" project:"flavius-as" status:"pending" tags:"marker" tags_marker:"x" uuid:"130fcde5-c50f-4e3e-a148-dd2bbe6c556c"]
+new [dep_455853ef-d694-43f9-9484-531e35c9d216:"x" depends:"455853ef-d694-43f9-9484-531e35c9d216" description:"end of project" entry:"1689862943" modified:"1689865180" priority:"L" project:"flavius-as" status:"pending" tags:"marker" tags_marker:"x" uuid:"130fcde5-c50f-4e3e-a148-dd2bbe6c556c"]
+---
+time 1689865196
+old [description:"end of project" entry:"1689862936" modified:"1689864613" priority:"L" project:"networking" status:"pending" tags:"marker" tags_marker:"x" uuid:"44922ed1-9583-4a9a-9339-d8f94940d4ef"]
+new [dep_83033fcd-e7f4-47d7-97b2-ff7d9bcfcfdf:"x" depends:"83033fcd-e7f4-47d7-97b2-ff7d9bcfcfdf" description:"end of project" entry:"1689862936" modified:"1689865196" priority:"L" project:"networking" status:"pending" tags:"marker" tags_marker:"x" uuid:"44922ed1-9583-4a9a-9339-d8f94940d4ef"]
+---
+time 1689865211
+old [description:"end of project" entry:"1689862926" modified:"1689864610" priority:"L" project:"cleanup" status:"pending" tags:"marker" tags_marker:"x" uuid:"854e0435-031b-4972-bc80-52662a9fef18"]
+new [dep_042334e9-b3bf-4e22-a50c-f45341956c61:"x" depends:"042334e9-b3bf-4e22-a50c-f45341956c61" description:"end of project" entry:"1689862926" modified:"1689865211" priority:"L" project:"cleanup" status:"pending" tags:"marker" tags_marker:"x" uuid:"854e0435-031b-4972-bc80-52662a9fef18"]
+---
+time 1689865339
+old [description:"start of project" entry:"1689863000" modified:"1689864536" priority:"H" project:"aur" status:"pending" tags:"marker" tags_marker:"x" uuid:"fa053b7b-5365-495f-969e-17452e4e7395"]
+new [dep_95e82113-3611-4bc1-be08-4fe04ef4dc20:"x" depends:"95e82113-3611-4bc1-be08-4fe04ef4dc20" description:"start of project" entry:"1689863000" modified:"1689865339" priority:"H" project:"aur" status:"pending" tags:"marker" tags_marker:"x" uuid:"fa053b7b-5365-495f-969e-17452e4e7395"]
+---
+time 1689865339
+old [description:"start of project" entry:"1689863031" modified:"1689864558" priority:"H" project:"networking" status:"pending" tags:"marker" tags_marker:"x" uuid:"83033fcd-e7f4-47d7-97b2-ff7d9bcfcfdf"]
+new [dep_95e82113-3611-4bc1-be08-4fe04ef4dc20:"x" depends:"95e82113-3611-4bc1-be08-4fe04ef4dc20" description:"start of project" entry:"1689863031" modified:"1689865339" priority:"H" project:"networking" status:"pending" tags:"marker" tags_marker:"x" uuid:"83033fcd-e7f4-47d7-97b2-ff7d9bcfcfdf"]
+---
+time 1689865339
+old [description:"start of project" entry:"1689863828" modified:"1689863828" priority:"H" project:"flavius-as" status:"pending" tags:"marker" tags_marker:"x" uuid:"455853ef-d694-43f9-9484-531e35c9d216"]
+new [dep_95e82113-3611-4bc1-be08-4fe04ef4dc20:"x" depends:"95e82113-3611-4bc1-be08-4fe04ef4dc20" description:"start of project" entry:"1689863828" modified:"1689865339" priority:"H" project:"flavius-as" status:"pending" tags:"marker" tags_marker:"x" uuid:"455853ef-d694-43f9-9484-531e35c9d216"]
+---
+time 1689865367
+old [description:"start of project" entry:"1689863018" modified:"1689864548" priority:"H" project:"cleanup" status:"pending" tags:"marker" tags_marker:"x" uuid:"042334e9-b3bf-4e22-a50c-f45341956c61"]
+new [dep_95e82113-3611-4bc1-be08-4fe04ef4dc20:"x" depends:"95e82113-3611-4bc1-be08-4fe04ef4dc20" description:"start of project" entry:"1689863018" modified:"1689865367" priority:"H" project:"cleanup" status:"pending" tags:"marker" tags_marker:"x" uuid:"042334e9-b3bf-4e22-a50c-f45341956c61"]
+---
+time 1689865393
+old [description:"end of project" entry:"1689862397" modified:"1689864601" priority:"L" project:"bootstrap" status:"pending" tags:"marker" tags_marker:"x" uuid:"95e82113-3611-4bc1-be08-4fe04ef4dc20"]
+new [dep_570e821b-b8a6-4435-b7b5-21f83294e75e:"x" depends:"570e821b-b8a6-4435-b7b5-21f83294e75e" description:"end of project" entry:"1689862397" modified:"1689865393" priority:"L" project:"bootstrap" status:"pending" tags:"marker" tags_marker:"x" uuid:"95e82113-3611-4bc1-be08-4fe04ef4dc20"]
+---
+time 1689865458
+old [dep_95e82113-3611-4bc1-be08-4fe04ef4dc20:"x" depends:"95e82113-3611-4bc1-be08-4fe04ef4dc20" description:"start of project" entry:"1689863828" modified:"1689865339" priority:"H" project:"flavius-as" status:"pending" tags:"marker" tags_marker:"x" uuid:"455853ef-d694-43f9-9484-531e35c9d216"]
+new [dep_44922ed1-9583-4a9a-9339-d8f94940d4ef:"x" dep_95e82113-3611-4bc1-be08-4fe04ef4dc20:"x" depends:"44922ed1-9583-4a9a-9339-d8f94940d4ef,95e82113-3611-4bc1-be08-4fe04ef4dc20" description:"start of project" entry:"1689863828" modified:"1689865458" priority:"H" project:"flavius-as" status:"pending" tags:"marker" tags_marker:"x" uuid:"455853ef-d694-43f9-9484-531e35c9d216"]
+---
+time 1689865650
+old [dep_95e82113-3611-4bc1-be08-4fe04ef4dc20:"x" depends:"95e82113-3611-4bc1-be08-4fe04ef4dc20" description:"start of project" entry:"1689863000" modified:"1689865339" priority:"H" project:"aur" status:"pending" tags:"marker" tags_marker:"x" uuid:"fa053b7b-5365-495f-969e-17452e4e7395"]
+new [dep_95e82113-3611-4bc1-be08-4fe04ef4dc20:"x" dep_d44d35f6-66fd-4594-8828-79d21f2a97e2:"x" depends:"95e82113-3611-4bc1-be08-4fe04ef4dc20,d44d35f6-66fd-4594-8828-79d21f2a97e2" description:"start of project" entry:"1689863000" modified:"1689865650" priority:"H" project:"aur" status:"pending" tags:"marker" tags_marker:"x" uuid:"fa053b7b-5365-495f-969e-17452e4e7395"]
+---
+time 1689865650
+old [dep_95e82113-3611-4bc1-be08-4fe04ef4dc20:"x" depends:"95e82113-3611-4bc1-be08-4fe04ef4dc20" description:"start of project" entry:"1689863031" modified:"1689865339" priority:"H" project:"networking" status:"pending" tags:"marker" tags_marker:"x" uuid:"83033fcd-e7f4-47d7-97b2-ff7d9bcfcfdf"]
+new [dep_95e82113-3611-4bc1-be08-4fe04ef4dc20:"x" dep_d44d35f6-66fd-4594-8828-79d21f2a97e2:"x" depends:"95e82113-3611-4bc1-be08-4fe04ef4dc20,d44d35f6-66fd-4594-8828-79d21f2a97e2" description:"start of project" entry:"1689863031" modified:"1689865650" priority:"H" project:"networking" status:"pending" tags:"marker" tags_marker:"x" uuid:"83033fcd-e7f4-47d7-97b2-ff7d9bcfcfdf"]
+---
+time 1689865650
+old [dep_44922ed1-9583-4a9a-9339-d8f94940d4ef:"x" dep_95e82113-3611-4bc1-be08-4fe04ef4dc20:"x" depends:"44922ed1-9583-4a9a-9339-d8f94940d4ef,95e82113-3611-4bc1-be08-4fe04ef4dc20" description:"start of project" entry:"1689863828" modified:"1689865458" priority:"H" project:"flavius-as" status:"pending" tags:"marker" tags_marker:"x" uuid:"455853ef-d694-43f9-9484-531e35c9d216"]
+new [dep_44922ed1-9583-4a9a-9339-d8f94940d4ef:"x" dep_95e82113-3611-4bc1-be08-4fe04ef4dc20:"x" dep_d44d35f6-66fd-4594-8828-79d21f2a97e2:"x" depends:"44922ed1-9583-4a9a-9339-d8f94940d4ef,95e82113-3611-4bc1-be08-4fe04ef4dc20,d44d35f6-66fd-4594-8828-79d21f2a97e2" description:"start of project" entry:"1689863828" modified:"1689865650" priority:"H" project:"flavius-as" status:"pending" tags:"marker" tags_marker:"x" uuid:"455853ef-d694-43f9-9484-531e35c9d216"]
+---
+time 1689865837
+old [dep_797e06be-3378-415e-ac31-c018c124ba7b:"x" depends:"797e06be-3378-415e-ac31-c018c124ba7b" description:"end of project" entry:"1689863468" modified:"1689865116" priority:"L" project:"mele" status:"pending" tags:"marker" tags_marker:"x" uuid:"d44d35f6-66fd-4594-8828-79d21f2a97e2"]
+new [dep_570e821b-b8a6-4435-b7b5-21f83294e75e:"x" dep_797e06be-3378-415e-ac31-c018c124ba7b:"x" depends:"570e821b-b8a6-4435-b7b5-21f83294e75e,797e06be-3378-415e-ac31-c018c124ba7b" description:"end of project" entry:"1689863468" modified:"1689865837" priority:"L" project:"mele" status:"pending" tags:"marker" tags_marker:"x" uuid:"d44d35f6-66fd-4594-8828-79d21f2a97e2"]
+---
+time 1689866394
+old [dep_95e82113-3611-4bc1-be08-4fe04ef4dc20:"x" dep_d44d35f6-66fd-4594-8828-79d21f2a97e2:"x" depends:"95e82113-3611-4bc1-be08-4fe04ef4dc20,d44d35f6-66fd-4594-8828-79d21f2a97e2" description:"start of project" entry:"1689863000" modified:"1689865650" priority:"H" project:"aur" status:"pending" tags:"marker" tags_marker:"x" uuid:"fa053b7b-5365-495f-969e-17452e4e7395"]
+new [dep_854e0435-031b-4972-bc80-52662a9fef18:"x" dep_95e82113-3611-4bc1-be08-4fe04ef4dc20:"x" dep_d44d35f6-66fd-4594-8828-79d21f2a97e2:"x" depends:"854e0435-031b-4972-bc80-52662a9fef18,95e82113-3611-4bc1-be08-4fe04ef4dc20,d44d35f6-66fd-4594-8828-79d21f2a97e2" description:"start of project" entry:"1689863000" modified:"1689866394" priority:"H" project:"aur" status:"pending" tags:"marker" tags_marker:"x" uuid:"fa053b7b-5365-495f-969e-17452e4e7395"]
+---
+time 1689866465
+old [dep_570e821b-b8a6-4435-b7b5-21f83294e75e:"x" depends:"570e821b-b8a6-4435-b7b5-21f83294e75e" description:"end of project" entry:"1689862397" modified:"1689865393" priority:"L" project:"bootstrap" status:"pending" tags:"marker" tags_marker:"x" uuid:"95e82113-3611-4bc1-be08-4fe04ef4dc20"]
+new [dep_570e821b-b8a6-4435-b7b5-21f83294e75e:"x" depends:"570e821b-b8a6-4435-b7b5-21f83294e75e" description:"end of project" entry:"1689862397" modified:"1689866465" project:"bootstrap" status:"pending" tags:"marker" tags_marker:"x" uuid:"95e82113-3611-4bc1-be08-4fe04ef4dc20"]
+---
+time 1689866465
+old [dep_fa053b7b-5365-495f-969e-17452e4e7395:"x" depends:"fa053b7b-5365-495f-969e-17452e4e7395" description:"end of project" entry:"1689862920" modified:"1689865145" priority:"L" project:"aur" status:"pending" tags:"marker" tags_marker:"x" uuid:"61410e7b-6037-4b59-b821-051403fa4015"]
+new [dep_fa053b7b-5365-495f-969e-17452e4e7395:"x" depends:"fa053b7b-5365-495f-969e-17452e4e7395" description:"end of project" entry:"1689862920" modified:"1689866465" project:"aur" status:"pending" tags:"marker" tags_marker:"x" uuid:"61410e7b-6037-4b59-b821-051403fa4015"]
+---
+time 1689866465
+old [dep_042334e9-b3bf-4e22-a50c-f45341956c61:"x" depends:"042334e9-b3bf-4e22-a50c-f45341956c61" description:"end of project" entry:"1689862926" modified:"1689865211" priority:"L" project:"cleanup" status:"pending" tags:"marker" tags_marker:"x" uuid:"854e0435-031b-4972-bc80-52662a9fef18"]
+new [dep_042334e9-b3bf-4e22-a50c-f45341956c61:"x" depends:"042334e9-b3bf-4e22-a50c-f45341956c61" description:"end of project" entry:"1689862926" modified:"1689866465" project:"cleanup" status:"pending" tags:"marker" tags_marker:"x" uuid:"854e0435-031b-4972-bc80-52662a9fef18"]
+---
+time 1689866465
+old [dep_83033fcd-e7f4-47d7-97b2-ff7d9bcfcfdf:"x" depends:"83033fcd-e7f4-47d7-97b2-ff7d9bcfcfdf" description:"end of project" entry:"1689862936" modified:"1689865196" priority:"L" project:"networking" status:"pending" tags:"marker" tags_marker:"x" uuid:"44922ed1-9583-4a9a-9339-d8f94940d4ef"]
+new [dep_83033fcd-e7f4-47d7-97b2-ff7d9bcfcfdf:"x" depends:"83033fcd-e7f4-47d7-97b2-ff7d9bcfcfdf" description:"end of project" entry:"1689862936" modified:"1689866465" project:"networking" status:"pending" tags:"marker" tags_marker:"x" uuid:"44922ed1-9583-4a9a-9339-d8f94940d4ef"]
+---
+time 1689866465
+old [dep_455853ef-d694-43f9-9484-531e35c9d216:"x" depends:"455853ef-d694-43f9-9484-531e35c9d216" description:"end of project" entry:"1689862943" modified:"1689865180" priority:"L" project:"flavius-as" status:"pending" tags:"marker" tags_marker:"x" uuid:"130fcde5-c50f-4e3e-a148-dd2bbe6c556c"]
+new [dep_455853ef-d694-43f9-9484-531e35c9d216:"x" depends:"455853ef-d694-43f9-9484-531e35c9d216" description:"end of project" entry:"1689862943" modified:"1689866465" project:"flavius-as" status:"pending" tags:"marker" tags_marker:"x" uuid:"130fcde5-c50f-4e3e-a148-dd2bbe6c556c"]
+---
+time 1689866465
+old [dep_854e0435-031b-4972-bc80-52662a9fef18:"x" dep_95e82113-3611-4bc1-be08-4fe04ef4dc20:"x" dep_d44d35f6-66fd-4594-8828-79d21f2a97e2:"x" depends:"854e0435-031b-4972-bc80-52662a9fef18,95e82113-3611-4bc1-be08-4fe04ef4dc20,d44d35f6-66fd-4594-8828-79d21f2a97e2" description:"start of project" entry:"1689863000" modified:"1689866394" priority:"H" project:"aur" status:"pending" tags:"marker" tags_marker:"x" uuid:"fa053b7b-5365-495f-969e-17452e4e7395"]
+new [dep_854e0435-031b-4972-bc80-52662a9fef18:"x" dep_95e82113-3611-4bc1-be08-4fe04ef4dc20:"x" dep_d44d35f6-66fd-4594-8828-79d21f2a97e2:"x" depends:"854e0435-031b-4972-bc80-52662a9fef18,95e82113-3611-4bc1-be08-4fe04ef4dc20,d44d35f6-66fd-4594-8828-79d21f2a97e2" description:"start of project" entry:"1689863000" modified:"1689866465" project:"aur" status:"pending" tags:"marker" tags_marker:"x" uuid:"fa053b7b-5365-495f-969e-17452e4e7395"]
+---
+time 1689866465
+old [description:"start of project" entry:"1689863005" modified:"1689864542" priority:"H" project:"bootstrap" status:"pending" tags:"marker" tags_marker:"x" uuid:"570e821b-b8a6-4435-b7b5-21f83294e75e"]
+new [description:"start of project" entry:"1689863005" modified:"1689866465" project:"bootstrap" status:"pending" tags:"marker" tags_marker:"x" uuid:"570e821b-b8a6-4435-b7b5-21f83294e75e"]
+---
+time 1689866465
+old [dep_95e82113-3611-4bc1-be08-4fe04ef4dc20:"x" depends:"95e82113-3611-4bc1-be08-4fe04ef4dc20" description:"start of project" entry:"1689863018" modified:"1689865367" priority:"H" project:"cleanup" status:"pending" tags:"marker" tags_marker:"x" uuid:"042334e9-b3bf-4e22-a50c-f45341956c61"]
+new [dep_95e82113-3611-4bc1-be08-4fe04ef4dc20:"x" depends:"95e82113-3611-4bc1-be08-4fe04ef4dc20" description:"start of project" entry:"1689863018" modified:"1689866465" project:"cleanup" status:"pending" tags:"marker" tags_marker:"x" uuid:"042334e9-b3bf-4e22-a50c-f45341956c61"]
+---
+time 1689866465
+old [dep_95e82113-3611-4bc1-be08-4fe04ef4dc20:"x" depends:"95e82113-3611-4bc1-be08-4fe04ef4dc20" description:"start of project" entry:"1689863026" modified:"1689864990" priority:"H" project:"mele" status:"pending" tags:"marker" tags_marker:"x" uuid:"797e06be-3378-415e-ac31-c018c124ba7b"]
+new [dep_95e82113-3611-4bc1-be08-4fe04ef4dc20:"x" depends:"95e82113-3611-4bc1-be08-4fe04ef4dc20" description:"start of project" entry:"1689863026" modified:"1689866465" project:"mele" status:"pending" tags:"marker" tags_marker:"x" uuid:"797e06be-3378-415e-ac31-c018c124ba7b"]
+---
+time 1689866465
+old [dep_95e82113-3611-4bc1-be08-4fe04ef4dc20:"x" dep_d44d35f6-66fd-4594-8828-79d21f2a97e2:"x" depends:"95e82113-3611-4bc1-be08-4fe04ef4dc20,d44d35f6-66fd-4594-8828-79d21f2a97e2" description:"start of project" entry:"1689863031" modified:"1689865650" priority:"H" project:"networking" status:"pending" tags:"marker" tags_marker:"x" uuid:"83033fcd-e7f4-47d7-97b2-ff7d9bcfcfdf"]
+new [dep_95e82113-3611-4bc1-be08-4fe04ef4dc20:"x" dep_d44d35f6-66fd-4594-8828-79d21f2a97e2:"x" depends:"95e82113-3611-4bc1-be08-4fe04ef4dc20,d44d35f6-66fd-4594-8828-79d21f2a97e2" description:"start of project" entry:"1689863031" modified:"1689866465" project:"networking" status:"pending" tags:"marker" tags_marker:"x" uuid:"83033fcd-e7f4-47d7-97b2-ff7d9bcfcfdf"]
+---
+time 1689866465
+old [dep_570e821b-b8a6-4435-b7b5-21f83294e75e:"x" dep_797e06be-3378-415e-ac31-c018c124ba7b:"x" depends:"570e821b-b8a6-4435-b7b5-21f83294e75e,797e06be-3378-415e-ac31-c018c124ba7b" description:"end of project" entry:"1689863468" modified:"1689865837" priority:"L" project:"mele" status:"pending" tags:"marker" tags_marker:"x" uuid:"d44d35f6-66fd-4594-8828-79d21f2a97e2"]
+new [dep_570e821b-b8a6-4435-b7b5-21f83294e75e:"x" dep_797e06be-3378-415e-ac31-c018c124ba7b:"x" depends:"570e821b-b8a6-4435-b7b5-21f83294e75e,797e06be-3378-415e-ac31-c018c124ba7b" description:"end of project" entry:"1689863468" modified:"1689866465" project:"mele" status:"pending" tags:"marker" tags_marker:"x" uuid:"d44d35f6-66fd-4594-8828-79d21f2a97e2"]
+---
+time 1689866465
+old [dep_44922ed1-9583-4a9a-9339-d8f94940d4ef:"x" dep_95e82113-3611-4bc1-be08-4fe04ef4dc20:"x" dep_d44d35f6-66fd-4594-8828-79d21f2a97e2:"x" depends:"44922ed1-9583-4a9a-9339-d8f94940d4ef,95e82113-3611-4bc1-be08-4fe04ef4dc20,d44d35f6-66fd-4594-8828-79d21f2a97e2" description:"start of project" entry:"1689863828" modified:"1689865650" priority:"H" project:"flavius-as" status:"pending" tags:"marker" tags_marker:"x" uuid:"455853ef-d694-43f9-9484-531e35c9d216"]
+new [dep_44922ed1-9583-4a9a-9339-d8f94940d4ef:"x" dep_95e82113-3611-4bc1-be08-4fe04ef4dc20:"x" dep_d44d35f6-66fd-4594-8828-79d21f2a97e2:"x" depends:"44922ed1-9583-4a9a-9339-d8f94940d4ef,95e82113-3611-4bc1-be08-4fe04ef4dc20,d44d35f6-66fd-4594-8828-79d21f2a97e2" description:"start of project" entry:"1689863828" modified:"1689866465" project:"flavius-as" status:"pending" tags:"marker" tags_marker:"x" uuid:"455853ef-d694-43f9-9484-531e35c9d216"]
+---
+time 1689866465
+old [description:"start of project" end:"1689863870" entry:"1689863792" modified:"1689863873" priority:"H" project:"flavius" status:"deleted" tags:"marker" tags_marker:"x" uuid:"95b9e1ec-9861-400d-8ded-ca90840b334e"]
+new [description:"start of project" end:"1689863870" entry:"1689863792" modified:"1689866465" project:"flavius" status:"deleted" tags:"marker" tags_marker:"x" uuid:"95b9e1ec-9861-400d-8ded-ca90840b334e"]
+---
+time 1689867780
+old [description:"set up a pipeline on mele for building aur packages on mele which are used on flavmina" entry:"1689861830" modified:"1689861830" project:"aur" status:"pending" uuid:"c6fdb766-7105-4962-949b-28b18d2d5e9a"]
+new [description:"set up a pipeline on mele for building aur packages on mele which are used on flavmina" entry:"1689861830" modified:"1689867780" project:"aur" status:"pending" uuid:"c6fdb766-7105-4962-949b-28b18d2d5e9a" wait:"1690149599"]
+---
+time 1689867780
+old [description:"set up a pipeline for building 100 projects randomly and report to aur if they fail" entry:"1689861881" modified:"1689861881" project:"aur" status:"pending" uuid:"ebd46e23-823c-46cb-8a8d-d14f6846326f"]
+new [description:"set up a pipeline for building 100 projects randomly and report to aur if they fail" entry:"1689861881" modified:"1689867780" project:"aur" status:"pending" uuid:"ebd46e23-823c-46cb-8a8d-d14f6846326f" wait:"1690149599"]
+---
+time 1689867780
+old [dep_fa053b7b-5365-495f-969e-17452e4e7395:"x" depends:"fa053b7b-5365-495f-969e-17452e4e7395" description:"end of project" entry:"1689862920" modified:"1689866465" project:"aur" status:"pending" tags:"marker" tags_marker:"x" uuid:"61410e7b-6037-4b59-b821-051403fa4015"]
+new [dep_fa053b7b-5365-495f-969e-17452e4e7395:"x" depends:"fa053b7b-5365-495f-969e-17452e4e7395" description:"end of project" entry:"1689862920" modified:"1689867780" project:"aur" status:"pending" tags:"marker" tags_marker:"x" uuid:"61410e7b-6037-4b59-b821-051403fa4015" wait:"1690149599"]
+---
+time 1689867780
+old [dep_854e0435-031b-4972-bc80-52662a9fef18:"x" dep_95e82113-3611-4bc1-be08-4fe04ef4dc20:"x" dep_d44d35f6-66fd-4594-8828-79d21f2a97e2:"x" depends:"854e0435-031b-4972-bc80-52662a9fef18,95e82113-3611-4bc1-be08-4fe04ef4dc20,d44d35f6-66fd-4594-8828-79d21f2a97e2" description:"start of project" entry:"1689863000" modified:"1689866465" project:"aur" status:"pending" tags:"marker" tags_marker:"x" uuid:"fa053b7b-5365-495f-969e-17452e4e7395"]
+new [dep_854e0435-031b-4972-bc80-52662a9fef18:"x" dep_95e82113-3611-4bc1-be08-4fe04ef4dc20:"x" dep_d44d35f6-66fd-4594-8828-79d21f2a97e2:"x" depends:"854e0435-031b-4972-bc80-52662a9fef18,95e82113-3611-4bc1-be08-4fe04ef4dc20,d44d35f6-66fd-4594-8828-79d21f2a97e2" description:"start of project" entry:"1689863000" modified:"1689867780" project:"aur" status:"pending" tags:"marker" tags_marker:"x" uuid:"fa053b7b-5365-495f-969e-17452e4e7395" wait:"1690149599"]
+---
+time 1689867798
+old [description:"make regular backups of flavius-as automatically" entry:"1689861361" modified:"1689861361" project:"flavius-as" status:"pending" uuid:"b22ab588-0bef-4a4a-ae65-b5f475003a5a"]
+new [description:"make regular backups of flavius-as automatically" entry:"1689861361" modified:"1689867798" project:"flavius-as" status:"pending" uuid:"b22ab588-0bef-4a4a-ae65-b5f475003a5a" wait:"1690149599"]
+---
+time 1689867798
+old [description:"set up a pipeline on mele for flavius-as postgresql, using base image built by mele as a base" entry:"1689861433" modified:"1689861433" project:"flavius-as" status:"pending" uuid:"07b622d0-93ef-4f7e-9e83-913e779dc9f7"]
+new [description:"set up a pipeline on mele for flavius-as postgresql, using base image built by mele as a base" entry:"1689861433" modified:"1689867798" project:"flavius-as" status:"pending" uuid:"07b622d0-93ef-4f7e-9e83-913e779dc9f7" wait:"1690149599"]
+---
+time 1689867798
+old [description:"research around having the postgres data on the host system, pass-through" entry:"1689861508" modified:"1689861508" project:"flavius-as" status:"pending" uuid:"da4856c5-239d-43e6-8d4b-2e2cadc47a64"]
+new [description:"research around having the postgres data on the host system, pass-through" entry:"1689861508" modified:"1689867798" project:"flavius-as" status:"pending" uuid:"da4856c5-239d-43e6-8d4b-2e2cadc47a64" wait:"1690149599"]
+---
+time 1689867798
+old [dep_455853ef-d694-43f9-9484-531e35c9d216:"x" depends:"455853ef-d694-43f9-9484-531e35c9d216" description:"end of project" entry:"1689862943" modified:"1689866465" project:"flavius-as" status:"pending" tags:"marker" tags_marker:"x" uuid:"130fcde5-c50f-4e3e-a148-dd2bbe6c556c"]
+new [dep_455853ef-d694-43f9-9484-531e35c9d216:"x" depends:"455853ef-d694-43f9-9484-531e35c9d216" description:"end of project" entry:"1689862943" modified:"1689867798" project:"flavius-as" status:"pending" tags:"marker" tags_marker:"x" uuid:"130fcde5-c50f-4e3e-a148-dd2bbe6c556c" wait:"1690149599"]
+---
+time 1689867798
+old [dep_44922ed1-9583-4a9a-9339-d8f94940d4ef:"x" dep_95e82113-3611-4bc1-be08-4fe04ef4dc20:"x" dep_d44d35f6-66fd-4594-8828-79d21f2a97e2:"x" depends:"44922ed1-9583-4a9a-9339-d8f94940d4ef,95e82113-3611-4bc1-be08-4fe04ef4dc20,d44d35f6-66fd-4594-8828-79d21f2a97e2" description:"start of project" entry:"1689863828" modified:"1689866465" project:"flavius-as" status:"pending" tags:"marker" tags_marker:"x" uuid:"455853ef-d694-43f9-9484-531e35c9d216"]
+new [dep_44922ed1-9583-4a9a-9339-d8f94940d4ef:"x" dep_95e82113-3611-4bc1-be08-4fe04ef4dc20:"x" dep_d44d35f6-66fd-4594-8828-79d21f2a97e2:"x" depends:"44922ed1-9583-4a9a-9339-d8f94940d4ef,95e82113-3611-4bc1-be08-4fe04ef4dc20,d44d35f6-66fd-4594-8828-79d21f2a97e2" description:"start of project" entry:"1689863828" modified:"1689867798" project:"flavius-as" status:"pending" tags:"marker" tags_marker:"x" uuid:"455853ef-d694-43f9-9484-531e35c9d216" wait:"1690149599"]
+---
+time 1689867803
+old [description:"set up a pipeline on mele for flavmina" entry:"1689861677" modified:"1689861677" project:"flavmina" status:"pending" uuid:"636e4fc9-8e58-43b3-a880-f96c25cffcf7"]
+new [description:"set up a pipeline on mele for flavmina" entry:"1689861677" modified:"1689867803" project:"flavmina" status:"pending" uuid:"636e4fc9-8e58-43b3-a880-f96c25cffcf7" wait:"1690149599"]
+---
+time 1689867819
+old [description:"research about setting up inter-vm networking in a cluster" entry:"1689861580" modified:"1689861580" project:"networking" status:"pending" uuid:"cc69d6b8-52a7-46c1-be34-4ce345e01aff"]
+new [description:"research about setting up inter-vm networking in a cluster" entry:"1689861580" modified:"1689867819" project:"networking" status:"pending" uuid:"cc69d6b8-52a7-46c1-be34-4ce345e01aff" wait:"1690149599"]
+---
+time 1689867819
+old [dep_83033fcd-e7f4-47d7-97b2-ff7d9bcfcfdf:"x" depends:"83033fcd-e7f4-47d7-97b2-ff7d9bcfcfdf" description:"end of project" entry:"1689862936" modified:"1689866465" project:"networking" status:"pending" tags:"marker" tags_marker:"x" uuid:"44922ed1-9583-4a9a-9339-d8f94940d4ef"]
+new [dep_83033fcd-e7f4-47d7-97b2-ff7d9bcfcfdf:"x" depends:"83033fcd-e7f4-47d7-97b2-ff7d9bcfcfdf" description:"end of project" entry:"1689862936" modified:"1689867819" project:"networking" status:"pending" tags:"marker" tags_marker:"x" uuid:"44922ed1-9583-4a9a-9339-d8f94940d4ef" wait:"1690149599"]
+---
+time 1689867819
+old [dep_95e82113-3611-4bc1-be08-4fe04ef4dc20:"x" dep_d44d35f6-66fd-4594-8828-79d21f2a97e2:"x" depends:"95e82113-3611-4bc1-be08-4fe04ef4dc20,d44d35f6-66fd-4594-8828-79d21f2a97e2" description:"start of project" entry:"1689863031" modified:"1689866465" project:"networking" status:"pending" tags:"marker" tags_marker:"x" uuid:"83033fcd-e7f4-47d7-97b2-ff7d9bcfcfdf"]
+new [dep_95e82113-3611-4bc1-be08-4fe04ef4dc20:"x" dep_d44d35f6-66fd-4594-8828-79d21f2a97e2:"x" depends:"95e82113-3611-4bc1-be08-4fe04ef4dc20,d44d35f6-66fd-4594-8828-79d21f2a97e2" description:"start of project" entry:"1689863031" modified:"1689867819" project:"networking" status:"pending" tags:"marker" tags_marker:"x" uuid:"83033fcd-e7f4-47d7-97b2-ff7d9bcfcfdf" wait:"1690149599"]
+---
+time 1689868029
+old [dep_95e82113-3611-4bc1-be08-4fe04ef4dc20:"x" depends:"95e82113-3611-4bc1-be08-4fe04ef4dc20" description:"install archlinux from scratch on mele\nuse the internal mirror instead\ndocument the necessary steps\nwrite a script which can be downloaded to bootstrap the system" entry:"1689859692" modified:"1689862621" project:"mele" status:"pending" uuid:"b2ddced4-997e-4910-976b-58d1270b4196"]
+new [annotation_1689868029:"use the internal mirror instead" dep_95e82113-3611-4bc1-be08-4fe04ef4dc20:"x" depends:"95e82113-3611-4bc1-be08-4fe04ef4dc20" description:"install archlinux from scratch on mele\nuse the internal mirror instead\ndocument the necessary steps\nwrite a script which can be downloaded to bootstrap the system" entry:"1689859692" modified:"1689868029" project:"mele" status:"pending" uuid:"b2ddced4-997e-4910-976b-58d1270b4196"]
+---
+time 1689868042
+old [annotation_1689868029:"use the internal mirror instead" dep_95e82113-3611-4bc1-be08-4fe04ef4dc20:"x" depends:"95e82113-3611-4bc1-be08-4fe04ef4dc20" description:"install archlinux from scratch on mele\nuse the internal mirror instead\ndocument the necessary steps\nwrite a script which can be downloaded to bootstrap the system" entry:"1689859692" modified:"1689868029" project:"mele" status:"pending" uuid:"b2ddced4-997e-4910-976b-58d1270b4196"]
+new [annotation_1689868029:"use the internal mirror instead" annotation_1689868042:"document the necessary steps" dep_95e82113-3611-4bc1-be08-4fe04ef4dc20:"x" depends:"95e82113-3611-4bc1-be08-4fe04ef4dc20" description:"install archlinux from scratch on mele\nuse the internal mirror instead\ndocument the necessary steps\nwrite a script which can be downloaded to bootstrap the system" entry:"1689859692" modified:"1689868042" project:"mele" status:"pending" uuid:"b2ddced4-997e-4910-976b-58d1270b4196"]
+---
+time 1689868054
+old [annotation_1689868029:"use the internal mirror instead" annotation_1689868042:"document the necessary steps" dep_95e82113-3611-4bc1-be08-4fe04ef4dc20:"x" depends:"95e82113-3611-4bc1-be08-4fe04ef4dc20" description:"install archlinux from scratch on mele\nuse the internal mirror instead\ndocument the necessary steps\nwrite a script which can be downloaded to bootstrap the system" entry:"1689859692" modified:"1689868042" project:"mele" status:"pending" uuid:"b2ddced4-997e-4910-976b-58d1270b4196"]
+new [annotation_1689868029:"use the internal mirror instead" annotation_1689868042:"document the necessary steps" annotation_1689868054:"write a script which can be downloaded to bootstrap the system" dep_95e82113-3611-4bc1-be08-4fe04ef4dc20:"x" depends:"95e82113-3611-4bc1-be08-4fe04ef4dc20" description:"install archlinux from scratch on mele\nuse the internal mirror instead\ndocument the necessary steps\nwrite a script which can be downloaded to bootstrap the system" entry:"1689859692" modified:"1689868054" project:"mele" status:"pending" uuid:"b2ddced4-997e-4910-976b-58d1270b4196"]
+---
+time 1689868082
+old [annotation_1689868029:"use the internal mirror instead" annotation_1689868042:"document the necessary steps" annotation_1689868054:"write a script which can be downloaded to bootstrap the system" dep_95e82113-3611-4bc1-be08-4fe04ef4dc20:"x" depends:"95e82113-3611-4bc1-be08-4fe04ef4dc20" description:"install archlinux from scratch on mele\nuse the internal mirror instead\ndocument the necessary steps\nwrite a script which can be downloaded to bootstrap the system" entry:"1689859692" modified:"1689868054" project:"mele" status:"pending" uuid:"b2ddced4-997e-4910-976b-58d1270b4196"]
+new [annotation_1689868029:"use the internal mirror instead" annotation_1689868042:"document the necessary steps" annotation_1689868054:"write a script which can be downloaded to bootstrap the system" dep_95e82113-3611-4bc1-be08-4fe04ef4dc20:"x" depends:"95e82113-3611-4bc1-be08-4fe04ef4dc20" description:"install archlinux from scratch on mele" entry:"1689859692" modified:"1689868082" project:"mele" status:"pending" uuid:"b2ddced4-997e-4910-976b-58d1270b4196"]
+---
+time 1689868154
+old [dep_570e821b-b8a6-4435-b7b5-21f83294e75e:"x" depends:"570e821b-b8a6-4435-b7b5-21f83294e75e" description:"end of project" entry:"1689862397" modified:"1689866465" project:"bootstrap" status:"pending" tags:"marker" tags_marker:"x" uuid:"95e82113-3611-4bc1-be08-4fe04ef4dc20"]
+new [dep_570e821b-b8a6-4435-b7b5-21f83294e75e:"x" depends:"570e821b-b8a6-4435-b7b5-21f83294e75e" description:"end of project" entry:"1689862397" modified:"1689868154" priority:"L" project:"bootstrap" status:"pending" tags:"marker" tags_marker:"x" uuid:"95e82113-3611-4bc1-be08-4fe04ef4dc20"]
+---
+time 1689868154
+old [dep_fa053b7b-5365-495f-969e-17452e4e7395:"x" depends:"fa053b7b-5365-495f-969e-17452e4e7395" description:"end of project" entry:"1689862920" modified:"1689867780" project:"aur" status:"pending" tags:"marker" tags_marker:"x" uuid:"61410e7b-6037-4b59-b821-051403fa4015" wait:"1690149599"]
+new [dep_fa053b7b-5365-495f-969e-17452e4e7395:"x" depends:"fa053b7b-5365-495f-969e-17452e4e7395" description:"end of project" entry:"1689862920" modified:"1689868154" priority:"L" project:"aur" status:"pending" tags:"marker" tags_marker:"x" uuid:"61410e7b-6037-4b59-b821-051403fa4015" wait:"1690149599"]
+---
+time 1689868154
+old [dep_042334e9-b3bf-4e22-a50c-f45341956c61:"x" depends:"042334e9-b3bf-4e22-a50c-f45341956c61" description:"end of project" entry:"1689862926" modified:"1689866465" project:"cleanup" status:"pending" tags:"marker" tags_marker:"x" uuid:"854e0435-031b-4972-bc80-52662a9fef18"]
+new [dep_042334e9-b3bf-4e22-a50c-f45341956c61:"x" depends:"042334e9-b3bf-4e22-a50c-f45341956c61" description:"end of project" entry:"1689862926" modified:"1689868154" priority:"L" project:"cleanup" status:"pending" tags:"marker" tags_marker:"x" uuid:"854e0435-031b-4972-bc80-52662a9fef18"]
+---
+time 1689868154
+old [dep_83033fcd-e7f4-47d7-97b2-ff7d9bcfcfdf:"x" depends:"83033fcd-e7f4-47d7-97b2-ff7d9bcfcfdf" description:"end of project" entry:"1689862936" modified:"1689867819" project:"networking" status:"pending" tags:"marker" tags_marker:"x" uuid:"44922ed1-9583-4a9a-9339-d8f94940d4ef" wait:"1690149599"]
+new [dep_83033fcd-e7f4-47d7-97b2-ff7d9bcfcfdf:"x" depends:"83033fcd-e7f4-47d7-97b2-ff7d9bcfcfdf" description:"end of project" entry:"1689862936" modified:"1689868154" priority:"L" project:"networking" status:"pending" tags:"marker" tags_marker:"x" uuid:"44922ed1-9583-4a9a-9339-d8f94940d4ef" wait:"1690149599"]
+---
+time 1689868154
+old [dep_455853ef-d694-43f9-9484-531e35c9d216:"x" depends:"455853ef-d694-43f9-9484-531e35c9d216" description:"end of project" entry:"1689862943" modified:"1689867798" project:"flavius-as" status:"pending" tags:"marker" tags_marker:"x" uuid:"130fcde5-c50f-4e3e-a148-dd2bbe6c556c" wait:"1690149599"]
+new [dep_455853ef-d694-43f9-9484-531e35c9d216:"x" depends:"455853ef-d694-43f9-9484-531e35c9d216" description:"end of project" entry:"1689862943" modified:"1689868154" priority:"L" project:"flavius-as" status:"pending" tags:"marker" tags_marker:"x" uuid:"130fcde5-c50f-4e3e-a148-dd2bbe6c556c" wait:"1690149599"]
+---
+time 1689868154
+old [dep_570e821b-b8a6-4435-b7b5-21f83294e75e:"x" dep_797e06be-3378-415e-ac31-c018c124ba7b:"x" depends:"570e821b-b8a6-4435-b7b5-21f83294e75e,797e06be-3378-415e-ac31-c018c124ba7b" description:"end of project" entry:"1689863468" modified:"1689866465" project:"mele" status:"pending" tags:"marker" tags_marker:"x" uuid:"d44d35f6-66fd-4594-8828-79d21f2a97e2"]
+new [dep_570e821b-b8a6-4435-b7b5-21f83294e75e:"x" dep_797e06be-3378-415e-ac31-c018c124ba7b:"x" depends:"570e821b-b8a6-4435-b7b5-21f83294e75e,797e06be-3378-415e-ac31-c018c124ba7b" description:"end of project" entry:"1689863468" modified:"1689868154" priority:"L" project:"mele" status:"pending" tags:"marker" tags_marker:"x" uuid:"d44d35f6-66fd-4594-8828-79d21f2a97e2"]
+---
