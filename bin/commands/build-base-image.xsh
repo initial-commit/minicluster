@@ -57,9 +57,11 @@ if __name__ == '__main__':
     if do_initial_build:
         command_make_empty_image_xsh(cwd, logger, handle, d)
         command_mount_image_xsh(cwd, logger, handle)
-        command_prepare_chroot_xsh(cwd, logger, handle, cache)
-        cp -a @(f"{handle}.qcow2") @(f"pristine-{handle}.qcow2")
-
+        success = command_prepare_chroot_xsh(cwd, logger, handle, cache)
+        if not success:
+            sys.exit(1)
+        if do_build_l2:
+            cp -a @(f"{handle}.qcow2") @(f"pristine-{handle}.qcow2")
 
     if do_fix_image:
         name = get_random_name(handle)

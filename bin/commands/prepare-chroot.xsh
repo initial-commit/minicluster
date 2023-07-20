@@ -3,6 +3,7 @@
 if __name__ == '__main__':
     d=p"$XONSH_SOURCE".resolve().parent; source f'{d}/bootstrap.xsh'
     MINICLUSTER.ARGPARSE.add_argument('--handle', required=True)
+    MINICLUSTER.ARGPARSE.add_argument('--cache', action="store_true", default=False, help="Use local package cache")
     MINICLUSTER = MINICLUSTER.bootstrap_finished(MINICLUSTER)
 
 import logging
@@ -19,19 +20,20 @@ def command_prepare_chroot_xsh(cwd, logger, handle, cache):
     unshare_pid=("--fork", "--pid", "--mount-proc",)
     unshare_mount=("--mount", "--map-auto", "--map-root-user", "--setuid", "0", "--setgid", "0")
 
-    if not pf"archlinux-bootstrap-x86_64.tar".exists():
+    if not pf"archlinux-bootstrap-x86_64.tar.gz".exists():
         #TODO: fetch the mirrors as json from archlinux and use that information
         curl -o archlinux-bootstrap-x86_64.tar.gz -C - https://geo.mirror.pkgbuild.com/iso/latest/archlinux-bootstrap-x86_64.tar.gz
         curl -o archlinux-bootstrap-x86_64.tar.gz.sig -C - https://geo.mirror.pkgbuild.com/iso/latest/archlinux-bootstrap-x86_64.tar.gz.sig
         sq --force wkd get pierre@archlinux.org -o release-key.pgp
-    sq verify --signer-file release-key.pgp --detached archlinux-bootstrap-x86_64.tar.gz.sig archlinux-bootstrap-x86_64.tar.gz
+        sq verify --signer-file release-key.pgp --detached archlinux-bootstrap-x86_64.tar.gz.sig archlinux-bootstrap-x86_64.tar.gz
     if not pf"archlinux-bootstrap-x86_64.tar".exists():
         gunzip -c archlinux-bootstrap-x86_64.tar.gz > archlinux-bootstrap-x86_64.tar
         # These symlinks just create problems. We just pick up some files from the bootstrap and use it to generate the archlinux keyring but we don't have much use for this image other than that
         # This approach makes the whole system more self-contained and isolated
         # Failed solution: playing with pacstrap's options to initialize the keyring does not work in the grand scheme of things because of bugs, hardcoded paths in pacman-key and the like
         tar --delete -f archlinux-bootstrap-x86_64.tar 'root.x86_64/etc/ca-certificates/extracted/cadir/'
-        unshare @(unshare_pid) @(unshare_mount) tar hxf archlinux-bootstrap-x86_64.tar --no-same-owner --no-same-permissions --warning=no-unknown-keyword
+    #if not pf"{cwd}/root.x86_64".exists():
+    #    unshare @(unshare_pid) @(unshare_mount) tar hxf archlinux-bootstrap-x86_64.tar --no-same-owner --no-same-permissions --warning=no-unknown-keyword
 
     # START: prepare root
     r=pf"{cwd}/root.x86_64"
@@ -42,15 +44,27 @@ def command_prepare_chroot_xsh(cwd, logger, handle, cache):
 
     sed -i 's/^#Server = /Server = /g' root.x86_64/etc/pacman.d/mirrorlist
 
-    unshare @(unshare_pid) @(unshare_mount) mount @(r) @(r) --bind
-    unshare @(unshare_pid) @(unshare_mount) mount proc @(pf"{r}/proc") -t proc -o nosuid,noexec,nodev
-    unshare @(unshare_pid) @(unshare_mount) mount /sys @(pf"{r}/sys") --rbind
+    #unshare @(unshare_pid) @(unshare_mount) mount @(r) @(r) --bind
+    #unshare @(unshare_pid) @(unshare_mount) mount proc @(pf"{r}/proc") -t proc -o nosuid,noexec,nodev
+    #unshare @(unshare_pid) @(unshare_mount) mount /sys @(pf"{r}/sys") --rbind
     ln -sf @(pf"{r}/proc/self/fd") @(pf"{r}/dev/fd")
     ln -sf @(pf"{r}/proc/self/fd/0") @(pf"{r}/dev/stdin")
     ln -sf @(pf"{r}/proc/self/fd/1") @(pf"{r}/dev/stout")
     ln -sf @(pf"{r}/proc/self/fd/2") @(pf"{r}/dev/sterr")
 
     cp -a @(MINICLUSTER.DIR_R)/bootstrap-overlay/tmp/bootstrap-rootimage.sh @(r)/
+    if cache:
+        prepare_overlay_commands = [
+            ("mkdir", "-p", "var/lib/pacman/sync/"),
+            ("cp", "/var/lib/pacman/sync/core.db", "./var/lib/pacman/sync/"),
+            ("cp", "/var/lib/pacman/sync/extra.db", "./var/lib/pacman/sync/"),
+            ("find", "/var/cache/pacman/pkg/", "-name", "archlinux-keyring-*-any.pkg.tar.zst", "-exec", "cp", "{}", "./var/cache/pacman/pkg/", ";"),
+        ]
+        #$DOTGLOB = True
+        for c in prepare_overlay_commands:
+            echo unshare ... -w @(r) @(c)
+            unshare --fork --pid --mount-proc --kill-child=SIGTERM --map-auto --map-root-user --setuid 0 --setgid 0 -w @(r) @(c)
+        $DOTGLOB = False
     unshare --fork --pid --mount-proc --kill-child=SIGTERM --map-auto --map-root-user --setuid 0 --setgid 0 -w @(r) env -i ./bootstrap-rootimage.sh
     # END: root prepared
 
@@ -58,6 +72,7 @@ def command_prepare_chroot_xsh(cwd, logger, handle, cache):
     cp -a @(r)/etc/pacman.d/mirrorlist @(cwd)/bootstrap-overlay/etc/pacman.d/
     cp -a @(r)/etc/pacman.conf @(cwd)/bootstrap-overlay/etc/
     cp -a @(r)/var/cache/pacman/pkg/* @(cwd)/bootstrap-overlay/var/cache/pacman/pkg/
+    cp -a @(r)/var/lib/pacman/sync/* @(cwd)/bootstrap-overlay/var/lib/pacman/sync/
     #cp -a @(cwd)/bootstrap-overlay/* @(cwd)/
     gnupg_files_to_copy = [
         'gpg-agent.conf',
@@ -87,10 +102,14 @@ def command_prepare_chroot_xsh(cwd, logger, handle, cache):
     cp /etc/resolv.conf @(mountpoint)/etc/
     #unshare @(unshare_pid) @(unshare_mount) pacstrap.xsh @(mountpoint) archlinux-keyring
     unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) mkdir -p @(mountpoint)/var/cache/pacman/pkg/
+    pacstrap_flags = ''
     if cache:
         unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) rsync -azp --progress /var/cache/pacman/pkg/ @(mountpoint)/var/cache/pacman/pkg/
         unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) sync
-    unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) pacstrap.xsh @(mountpoint) base linux mkinitcpio linux-firmware qemu-guest-agent python
+        pacstrap_flags = '--cache'
+    else:
+        ping -c 1 8.8.8.8 -w 1
+    unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) pacstrap.xsh @(mountpoint) @(pacstrap_flags) base linux mkinitcpio linux-firmware qemu-guest-agent
 
     d=p"$XONSH_SOURCE".resolve().parent; source f'{d}/umount-image.xsh'
     command_umount_image_xsh(cwd, logger, handle)
@@ -107,20 +126,20 @@ def command_prepare_chroot_xsh(cwd, logger, handle, cache):
     hostname = handle
 
     commands = [
+        ["set-trace", "false"],
+        ["set-verbose", "false"],
         ["set-memsize", "1024"],
         ["set-smp", "2"],
         ["set-pgroup", "false"],
-        ["set-trace", "false"],
-        ["set-verbose", "false"],
         ["time", "run"],
         ["mount", "/dev/sda2", "/"],
         ["mount", "/dev/sda1", "/boot"],
         ["time", "command", "pacman-key --init"],
         ["time", "command", "pacman-key --populate archlinux"],
-        ["time", "command", "pacman -Syy --noconfirm"],
+        (["time", "command", "pacman -Syy --noconfirm"], None),
         #["time", "command", "pacman --noconfirm -S base linux grub mkinitcpio qemu-guest-agent linux-headers linux-firmware audit qemu-base arch-install-scripts"],
         #["sh-lines", "genfstab -U / | grep -vw '# ' | sed '/^$/d' | sed 's/sd/vd/g' > /etc/fstab"], #TODO: use only uuids and get rid of this
-        ["time", "command", "pacman --noconfirm -S linux"],
+        ["time", "command", "pacman --noconfirm -S linux"], # reinstallation seems to be necessary (?)
         ["time", "sync"],
         ["time", "drop-caches", "3"],
         ["ln-sf", f"/usr/share/zoneinfo/{tz}", "/etc/localtime"],
@@ -158,18 +177,29 @@ def command_prepare_chroot_xsh(cwd, logger, handle, cache):
     ]
 
     for c in commands:
+        if isinstance(c, tuple):
+            if cache:
+                c = c[1]
+            else:
+                c = c[0]
+        if not c:
+            continue
         logger.info(f"{c=}")
-        time.sleep(1)
         p=![guestfish -x @(f'--remote={guestfish_pid}') -- @(c)]
         code = p.rtn
         logger.info(f"{code=} {c=}")
+        if code != 0:
+            return False
+        #time.sleep(1)
         #TODO: handle exit code
+    return True
 
 if __name__ == '__main__':
     cwd = MINICLUSTER.CWD_START
 
     logger = logging.getLogger(__name__)
     handle = MINICLUSTER.ARGS.handle
+    cache = MINICLUSTER.ARGS.cache
     $RAISE_SUBPROC_ERROR = True
-    command_prepare_chroot_xsh(cwd, logger, handle)
+    command_prepare_chroot_xsh(cwd, logger, handle, cache)
 

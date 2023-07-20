@@ -22,14 +22,17 @@ bootstrap () {
 	set -e
 	set -x
 	pwd
-	ping -c 1 8.8.8.8 -w 1
-	ping -c 1 archlinux.org -w 1
 	pacman-key --init
 	pacman-key --populate archlinux
-	pacman -Syy --noconfirm
-	df -h
+	set +e
+	ip -j -p addr show | grep -Po '"operstate": "[^"]+"' | cut -d':' -f 2 | grep -w '"UP"' && pacman -Syy --noconfirm
+	set -e
 	mkdir -p /var/cache/pacman/pkg
-	pacman -S --noconfirm --overwrite "*" archlinux-keyring
+	if ip -j -p addr show | grep -Po '"operstate": "[^"]+"' | cut -d':' -f 2 | grep -w '"UP"' ; then
+		pacman -S --noconfirm --overwrite "*" archlinux-keyring
+	else
+		find var/cache/pacman/pkg/ -name 'archlinux-keyring-*-any.pkg.tar.zst' -exec pacman -U --noconfirm --overwrite '*' {} \;
+	fi
 	set +x
 }
 

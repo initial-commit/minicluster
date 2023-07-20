@@ -8,7 +8,11 @@ import time
 
 r=$ARG1
 r=pf"{r}".resolve(strict=False)
+cache = False
 pkgs=$ARGS[2:]
+if $ARG2 == '--cache':
+    cache = True
+    pkgs=$ARGS[3:]
 
 #$RAISE_SUBPROC_ERROR = True
 #XONSH_TRACE_SUBPROC = True
@@ -52,9 +56,9 @@ bind_device(r, "zero")
 mount run @(pf"{r}/run") -t tmpfs -o nosuid,nodev,mode=0755
 mount tmp @(pf"{r}/tmp") -t tmpfs -o mode=1777,strictatime,nodev,nosuid
 
-ping -c 1 8.8.8.8 -w 1
 ls -ltrah etc/pacman.d/
 ls -ltrah etc/pacman.d/gnupg/
 
-pacman --verbose -Syy --overwrite "*" -r @(r) --noconfirm --cachedir @(pf"{r}/var/cache/pacman/pkg") --hookdir @(pf"{r}/usr/share/libalpm/hooks") --gpgdir @(pf"{r}/etc/pacman.d/gnupg") --config @(pf"{r}/etc/pacman.conf")
+if not cache:
+    pacman --verbose -Syy --overwrite "*" -r @(r) --noconfirm --cachedir @(pf"{r}/var/cache/pacman/pkg") --hookdir @(pf"{r}/usr/share/libalpm/hooks") --gpgdir @(pf"{r}/etc/pacman.d/gnupg") --config @(pf"{r}/etc/pacman.conf")
 pacman --verbose -S --overwrite "*" -r @(r) --noconfirm --cachedir @(pf"{r}/var/cache/pacman/pkg") --hookdir @(pf"{r}/usr/share/libalpm/hooks") --gpgdir @(pf"{r}/etc/pacman.d/gnupg") --config @(pf"{r}/etc/pacman.conf") @(pkgs)
