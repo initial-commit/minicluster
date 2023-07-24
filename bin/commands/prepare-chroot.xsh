@@ -123,6 +123,9 @@ def command_prepare_chroot_xsh(cwd, logger, handle, cache):
     lang="LANG=en_US.UTF-8"
     hostname = handle
 
+    e_tmp_dir = f"{cwd}/extracted-tmp-{handle}"
+    mkdir -p @(e_tmp_dir)
+
     commands = [
         ["set-trace", "false"],
         ["set-verbose", "false"],
@@ -166,7 +169,7 @@ def command_prepare_chroot_xsh(cwd, logger, handle, cache):
         #["sleep", "60"],
         ["time", "drop-caches", "3"],
         #TODO: copy to var path of project
-        ["copy-out", "/boot/initramfs-linux.img", "/boot/vmlinuz-linux", f"{cwd}/"],
+        ["copy-out", "/boot/initramfs-linux.img", "/boot/vmlinuz-linux", f"{e_tmp_dir}/"],
         #TODO: umount based on the layout in the spec
         ["umount", "/boot"],
         ["-umount", "/"],
@@ -190,6 +193,9 @@ def command_prepare_chroot_xsh(cwd, logger, handle, cache):
             return False
         #time.sleep(1)
         #TODO: handle exit code
+    mv @(f"{e_tmp_dir}/initramfs-linux.img") @(f"{cwd}/{handle}-initramfs-linux.img")
+    mv @(f"{e_tmp_dir}/vmlinuz-linux") @(f"{cwd}/{handle}-vmlinuz-linux")
+    rmdir @(e_tmp_dir)
     return True
 
 if __name__ == '__main__':

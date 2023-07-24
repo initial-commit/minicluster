@@ -12,6 +12,7 @@ if __name__ == '__main__':
     source @(f'{d}/poweroff-image.xsh')
     source @(f'{d}/copy-files.xsh')
     source @(f'{d}/network-cmd.xsh')
+    source @(f'{d}/merge-pacman-repositories.xsh')
     import math
     import psutil
     from cluster.functions import str2bool_exc as strtobool
@@ -136,16 +137,38 @@ if __name__ == '__main__':
         ]
         for f in files_to_copy:
             cp @(f) @(f"{cwd}/")
+
+        dirs_to_sync = [
+            "/var/lib/pacman/sync/",
+            "/var/cache/pacman/pkg/",
+        ]
+        for dr in dirs_to_sync:
+            src = pf"{cwd}/{handle}-ro-build/{dr}/"
+            target = pf"{cwd}/pacman-mirror-{handle}/{dr}/"
+            if not target.exists():
+                mkdir -p @(str(target))
+            echo rsync -a --delete --info=stats2,misc1,flist0 @(f"{src}/") @(target.parent)
+            rsync -a --delete --info=stats2,misc1,flist0 @(src) @(target.parent)
         command_umount_image_xsh(cwd, logger, f"{handle}-ro-build")
+        # sh -c 'find . \( -type d -printf "%p/\n" , -type f,l -print \) | sed "s|^./||"'
+        # END: copy all files from L1 image onto L0
+        # TODO: cleanup image
+        # TODO: merge the two databases core and extra
+        extracted_db_dir = pathlib.Path(f"{cwd}/pacman-mirror-{handle}/var/lib/pacman/sync/").absolute()
+        extracted_pkg_cache = pathlib.Path(f"{cwd}/pacman-mirror-{handle}/var/cache/pacman/pkg/").absolute()
+        dest_db_name = f"local-mirror-{handle}"
+        dest_db_dir = pathlib.Path(f"{cwd}/local-mirror-{handle}").absolute()
+        command_merge_pacman_repositories_xsh(logger, extracted_db_dir, ["core", "extra"], extracted_pkg_cache, dest_db_name, dest_db_dir)
         # mount-image.xsh --handle nested-d1
         command_poweroff_image_xsh(cwd, logger, name)
         # boot the extracted image
-        # extract pacman repository to a protected storage
+        # extract pacman repository to a protected storage pacman-mirror-nested-{handle}
         # clean the extracted image
         # test the extracted image
         # clean the extracted image
         # poweroff the extracted image
         # TODO: md5sum and compare the kernel and the initramfs, should be pairwise identical
+        # TODO: md5sum and compare of package dbs /var/lib/pacman/sync/
         # TODO: mount images and extract pacman repositories
         # TODO: clean directories /root, /tmp, /var/log, pacman cache, machine-id, /etc/*.pacnew
         # TODO: make image smaller with: qemu-img convert -O qcow2 d1.qcow2  d1-small.qcow2

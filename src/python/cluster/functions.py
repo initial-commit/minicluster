@@ -5,6 +5,9 @@ import psutil
 import logging
 import glob
 import sys
+import tarfile
+import pyzstd
+from contextlib import contextmanager
 
 _true_set = {'yes', 'true', 't', 'y', '1'}
 _false_set = {'no', 'false', 'f', 'n', '0'}
@@ -114,3 +117,30 @@ def get_current_nbd_mountpoints(blk_info, mountpoint):
 
 def interpolate_string(s, MINICLUSTER):
     return s.format(**MINICLUSTER._asdict())
+
+
+class ZstdTarFile(tarfile.TarFile):
+    def __init__(self, name, mode='r', *, level_or_option=None, zstd_dict=None, **kwargs):
+        self.zstd_file = pyzstd.ZstdFile(name, mode,
+                                  level_or_option=level_or_option,
+                                  zstd_dict=zstd_dict)
+        try:
+            super().__init__(fileobj=self.zstd_file, mode=mode, **kwargs)
+        except:
+            self.zstd_file.close()
+            raise
+
+    def close(self):
+        try:
+            super().close()
+        finally:
+            self.zstd_file.close()
+
+@contextmanager
+def pushd(new_dir):
+    previous_dir = os.getcwd()
+    os.chdir(new_dir)
+    try:
+        yield
+    finally:
+        os.chdir(previous_dir)
