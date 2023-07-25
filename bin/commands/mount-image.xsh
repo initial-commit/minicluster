@@ -37,6 +37,7 @@ def command_mount_image_xsh(cwd, logger, handle, readonly=None):
     mount_args.append(mountpoint)
 
     guestmount @(mount_args)
+    return mountpoint
 
 if __name__ == '__main__':
     cwd = MINICLUSTER.CWD_START

@@ -21,6 +21,7 @@ if __name__ == '__main__':
     MINICLUSTER.ARGPARSE.add_argument('--initial_build', nargs='?', type=lambda b:bool(strtobool(b)), const=False, default=True, metavar='true|false')
     MINICLUSTER.ARGPARSE.add_argument('--test_image', nargs='?', type=lambda b:bool(strtobool(b)), const=False, default=True, metavar='true|false')
     MINICLUSTER.ARGPARSE.add_argument('--build_nested', nargs='?', type=lambda b:bool(strtobool(b)), const=False, default=True, metavar='true|false')
+    MINICLUSTER.ARGPARSE.add_argument('--extract_nested', nargs='?', type=lambda b:bool(strtobool(b)), const=False, default=True, metavar='true|false')
     def_ram = 2**int(math.log2(psutil.virtual_memory().available // 2**20 * 2/3))
     MINICLUSTER.ARGPARSE.add_argument('--ram', default=def_ram)
     MINICLUSTER = MINICLUSTER.bootstrap_finished(MINICLUSTER)
@@ -29,6 +30,28 @@ import random
 import string
 import sys
 
+def extract_l2_assets(cwd, logger, handle, name):
+    command_mount_image_xsh(cwd, logger, handle, "ro-build")
+    files_to_copy = [
+        f"{cwd}/{handle}-ro-build/{cwd_inside}/nested-{handle}.qcow2",
+        f"{cwd}/{handle}-ro-build/{cwd_inside}/nested-{handle}-initramfs-linux.img",
+        f"{cwd}/{handle}-ro-build/{cwd_inside}/nested-{handle}-vmlinuz-linux",
+        f"{cwd}/{handle}-ro-build/{cwd_inside}/fstab-nested-{handle}",
+    ]
+    for f in files_to_copy:
+        cp @(f) @(f"{cwd}/")
+    dirs_to_sync = [
+        "/var/lib/pacman/sync/",
+        "/var/cache/pacman/pkg/",
+    ]
+    for dr in dirs_to_sync:
+        src = pf"{cwd}/{handle}-ro-build/{dr}/"
+        target = pf"{cwd}/pacman-mirror-{handle}/{dr}/"
+        if not target.exists():
+            mkdir -p @(str(target))
+        rsync -a --delete --info=stats2,misc1,flist0 @(src) @(target.parent)
+    command_umount_image_xsh(cwd, logger, f"{handle}-ro-build")
+    
 def get_random_name(handle):
     r = ''.join((''.join(random.choice(string.ascii_lowercase)) for i in range(8)) )
     return f"build-tmp-{handle}-{r}"
@@ -120,7 +143,42 @@ if __name__ == '__main__':
         command_instance_shell_simple_xsh(cwd, logger, name, f"bash -c 'cd {cwd_inside}; /root/minicluster/bin/commands/build-base-image.xsh --cache --handle nested-{handle} --build_nested false'")
         # promote embedded image from being an L2 image to being L1
         command_poweroff_image_xsh(cwd, logger, name)
+    # This stage operates on two images, called L1 and L2. The host is called L0
+    # L2 is created inside L1
+    # The procedure is the following
+    #
+    # boot L1
+    # mount L2 read-only and extract: initramfs, kernel, pacman repo, into L1
+    # boot L2 inside L1
+    # test L2 inside L1
+    # cleanup (shrink and clean) L2 inside L1
+    # create L2 minicluster pacman repo inside L1
+    # assert that all files in L2 are covered by repo inside L1
+    # power down L2 inside L1
+    # promote all L2 artifacts from L1 to L0: kernel, initramfs, fstab, minicluster pacman repo
+    # boot L2 on L0 and test, turn off
+    # remove all L2 artifacts from L1
+    #
+    # cleanup L1 on L0
+    # turn off L1 on L0
+    # create a pacman package from the minicluster code inside L1 and install it
+    # remove all packages inside the L1 minicluster pacman repo also present in the L2 minicluster repo
+    # create L1 minicluster pacman repo inside L1
+    # promote L1 minicluster pacman repo to L0
+    # shut down L1 and remove all temporary artifacts
+    # assert that no other files are left in directory except one directory called 'artifacts' where everything is stored
     do_extract = True
+    if do_extract:
+        cwd_inside = '/root/minic'
+        name = get_random_name(handle)
+        started = command_boot_image_xsh(cwd, logger, handle, name, l2_ram, True, False)
+        if not started:
+            sys.exit(1)
+        #success = extract_l2_assets(cwd, logger, handle, name)
+        #if not success:
+        #    sys.exit(1)
+        command_poweroff_image_xsh(cwd, logger, name)
+    do_extract = False
     if do_extract:
         cwd_inside = '/root/minic'
         name = get_random_name(handle)
@@ -152,14 +210,13 @@ if __name__ == '__main__':
         command_umount_image_xsh(cwd, logger, f"{handle}-ro-build")
         # sh -c 'find . \( -type d -printf "%p/\n" , -type f,l -print \) | sed "s|^./||"'
         # END: copy all files from L1 image onto L0
-        # TODO: cleanup image
-        # TODO: merge the two databases core and extra
         extracted_db_dir = pathlib.Path(f"{cwd}/pacman-mirror-{handle}/var/lib/pacman/sync/").absolute()
         extracted_pkg_cache = pathlib.Path(f"{cwd}/pacman-mirror-{handle}/var/cache/pacman/pkg/").absolute()
         dest_db_name = f"local-mirror-{handle}"
         dest_db_dir = pathlib.Path(f"{cwd}/local-mirror-{handle}").absolute()
         command_merge_pacman_repositories_xsh(logger, extracted_db_dir, ["core", "extra"], extracted_pkg_cache, dest_db_name, dest_db_dir)
         # mount-image.xsh --handle nested-d1
+        # TODO: cleanup image
         command_poweroff_image_xsh(cwd, logger, name)
         # boot the extracted image
         # extract pacman repository to a protected storage pacman-mirror-nested-{handle}

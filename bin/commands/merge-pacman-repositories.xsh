@@ -35,6 +35,60 @@ def get_random_name(handle):
     r = ''.join((''.join(random.choice(string.ascii_lowercase)) for i in range(8)) )
     return f"build-tmp-{handle}-{r}"
 
+def collect_list(k, v):
+    if not hasattr(collect_list, "lst"):
+        collect_list.lst = set()
+    if isinstance(v, list) and k not in collect_list.lst:
+        collect_list.lst.add(k)
+    return v
+
+list_fields = ['license', 'provides', 'backup', 'replaces', 'optdepend', 'makedepend', 'checkdepend', 'depend', 'conflict']
+
+def depend_parse(raw_vals):
+    vals = {}
+    for raw_v in raw_vals:
+        if ':' in raw_v:
+            pkg, reason = raw_v.split(':', 2)
+        else:
+            pkg = raw_v
+            reason = None
+        vals[pkg] = reason
+    return vals
+
+def normalize_field(fname, fval):
+    cbs = {
+        'pkgname': None,
+        'pkgbase': None,
+        'pkgver': None,
+        'pkgdesc': None,
+        'url': None,
+        'builddate': lambda v: int(v),
+        'packager': None,
+        'size': lambda v: int(v),
+        'arch': None,
+        'license': None,
+        'provides': None,
+        'depend': None,
+        'optdepend': depend_parse,
+        'makedepend': None,
+        'checkdepend': None,
+        'conflict': None,
+        'backup': None,
+        'replaces': None,
+        'group': None,
+    }
+    if fname not in cbs:
+        raise Exception(f"field not handled: {fname=} with {fval=}")
+    if cbs[fname] is None:
+        return fval
+
+    if fname in list_fields and not isinstance(fval, list):
+        fval = [fval]
+
+    import inspect
+    if 2 == len(inspect.signature(cbs[fname]).parameters):
+        return cbs[fname](fname, fval)
+    return cbs[fname](fval)
 
 def get_pkg_info(pkg_path, kv_reg, db_extracted_dir, db_names, logger):
     if pkg_path.suffix == '.zst':
@@ -53,10 +107,19 @@ def get_pkg_info(pkg_path, kv_reg, db_extracted_dir, db_names, logger):
         groups = {k: v.lstrip() for k,v in groups.groupdict().items()}
         k = groups['var']
         v = groups['val']
-        pkginfo[k] = v
-        #logger.info(f"{groups=}")
-        #TODO: a var can occur multiple times in the same .PKGINFO file, current bug is that only the last value is kept per variable as string
+        if k in pkginfo and isinstance(pkginfo[k], str):
+            pkginfo[k] = [pkginfo[k], v]
+        if k in pkginfo and isinstance(pkginfo[k], list):
+            pkginfo[k].append(v)
+        if k not in pkginfo:
+            pkginfo[k] = v
+    normalized_info = {}
+    logger.info(f"{pkginfo=}")
+    for k, v in pkginfo.items():
+        normalized_info[k] = normalize_field(k, v)
+    pkginfo = normalized_info
     expected_d_name=f"{pkginfo['pkgname']}-{pkginfo['pkgver']}"
+    logger.info(f"{pkginfo=}")
     found = False
     exp_path = None
     db_name = None
@@ -70,7 +133,7 @@ def get_pkg_info(pkg_path, kv_reg, db_extracted_dir, db_names, logger):
             break
     for f in pkgf:
         if f.name.startswith('.'):
-            logger.warn(f"TODO: parse {f} and put info into sqlite")
+            # logger.warn(f"TODO: parse {f} and put info into sqlite")
             continue
         suffix = ''
         if f.isdir():
@@ -90,7 +153,7 @@ def command_merge_pacman_repositories_xsh(logger, source_db_dir, db_names, sourc
             d_archive_dir.mkdir()
             d_archive.extractall(d_archive_dir)
     #go through each pkg file in source_pkg_cache
-    kv_reg = re.compile('^(?P<var>[a-zA-Z_]+).*=(?P<val>.+)')
+    kv_reg = re.compile('^(?P<var>[a-zA-Z_]+)[^=]*=(?P<val>.+)')
     temp_db_uncompressed_dir = pathlib.Path(f"{dest_db_dir}/{dest_db_name}").absolute()
     if dest_db_dir.exists():
         shutil.rmtree(dest_db_dir)
@@ -141,6 +204,8 @@ def command_merge_pacman_repositories_xsh(logger, source_db_dir, db_names, sourc
     shutil.rmtree(cwd)
     shutil.rmtree(db_extracted_dir)
     cwd = pathlib.Path(f"{dest_db_dir}")
+    lst = list(collect_list.lst)
+    logger.info(f"package properties which can be lists: {lst=}")
 
 if __name__ == '__main__':
     source_db_dir = MINICLUSTER.ARGS.source_db_dir

@@ -56,5 +56,5 @@ context.flavmina.read=project:flavmina
 context.flavmina.write=project:flavmina
 context.aur.read=project:aur
 context.aur.write=project:aur
-context=bootstrap
 news.version=2.6.0
+context=bootstrap

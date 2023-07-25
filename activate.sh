@@ -1,7 +1,9 @@
 export PATH=$(pwd)/bin/commands:$PATH
 stty rows 46 cols 189
+# turn on line wrapping
+printf %b '\033[?7h'
 bootstrap-host.sh
-pacman -S --noconfirm vim tmux tree htop dnsmasq dmidecode wget ncdu
+pacman -Qi vim &>/dev/null || { pacman -S --noconfirm vim tmux tree htop dnsmasq dmidecode wget ncdu }
 #libguestfs-test-tool
 #qemu-img create -f qcow2 d2.qcow2 4G
 #libguestfs-make-fixed-appliance
