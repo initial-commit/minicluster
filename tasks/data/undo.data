@@ -658,3 +658,9 @@ time 1690383777
 old [description:"create command to extract arch repository from image" entry:"1689859505" modified:"1689859505" project:"bootstrap" status:"pending" uuid:"366c9851-0c50-4eb2-bc78-10e799b33dad"]
 new [description:"create command to extract arch repository from image" end:"1690383769" entry:"1689859505" modified:"1690383777" project:"bootstrap" status:"deleted" uuid:"366c9851-0c50-4eb2-bc78-10e799b33dad"]
 ---
+time 1690384090
+new [description:"add information about reddit and buymeacoffee" entry:"1690384090" modified:"1690384090" project:"bootstrap" status:"pending" uuid:"30f3674d-71a6-4657-b307-d70c0f64d35d"]
+---
+time 1690384236
+new [description:"create a wiki and a phylosophy page" entry:"1690384236" modified:"1690384236" project:"cleanup" status:"pending" uuid:"d28ae6ef-d0ee-47e2-a0e5-c56eef649b6f"]
+---
