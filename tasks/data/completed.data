@@ -1,3 +1,4 @@
+[description:"heuristics to normalize pkginfo values" end:"1690364842" entry:"1690352308" modified:"1690364842" project:"bootstrap" status:"completed" uuid:"2d4dd3e8-2b19-4aba-b213-1e15b34a786b"]
 [description:"promote embedded image from being L2 to being L1" end:"1690194900" entry:"1689859384" modified:"1690194900" project:"bootstrap" status:"completed" uuid:"972b2d71-ee2a-439d-b72a-0386ce1ab26e"]
 [description:"start of project" end:"1689863870" entry:"1689863792" modified:"1689866465" project:"flavius" status:"deleted" tags:"marker" tags_marker:"x" uuid:"95b9e1ec-9861-400d-8ded-ca90840b334e"]
 [description:"create command to clean" end:"1689859309" entry:"1689859265" modified:"1689859312" project:"bootstrap" status:"deleted" uuid:"b57eddff-3cc6-43c8-a77c-1b52406d9aa3"]

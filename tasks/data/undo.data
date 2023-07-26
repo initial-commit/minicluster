@@ -621,3 +621,24 @@ time 1690197292
 old [annotation_1690197193:"build-base image has two outputs: a base archlinux image, and an arch repository with all software (redundant) for a minicluster image" description:"create a command make-minicluster-image" entry:"1690197121" modified:"1690197193" project:"bootstrap" status:"pending" uuid:"d8f7a42e-c78a-48bf-84a9-da413cc2d069"]
 new [annotation_1690197193:"build-base image has two outputs: a base archlinux image, and an arch repository with all software (redundant) for a minicluster image" annotation_1690197292:"task: create a minimal (no duplicates) arch repo for minicluster and an image 'minicluster' from the two repositories and the archlinux image" description:"create a command make-minicluster-image" entry:"1690197121" modified:"1690197292" project:"bootstrap" status:"pending" uuid:"d8f7a42e-c78a-48bf-84a9-da413cc2d069"]
 ---
+time 1690352308
+new [description:"heuristics to normalize pkginfo values" entry:"1690352308" modified:"1690352308" project:"bootstrap" status:"pending" uuid:"2d4dd3e8-2b19-4aba-b213-1e15b34a786b"]
+---
+time 1690352319
+old [description:"heuristics to normalize pkginfo values" entry:"1690352308" modified:"1690352308" project:"bootstrap" status:"pending" uuid:"2d4dd3e8-2b19-4aba-b213-1e15b34a786b"]
+new [description:"heuristics to normalize pkginfo values" entry:"1690352308" modified:"1690352319" project:"bootstrap" start:"1690352319" status:"pending" uuid:"2d4dd3e8-2b19-4aba-b213-1e15b34a786b"]
+---
+time 1690352415
+new [description:"fix copy-files which sets owner always to 1000:1000 inside the vm" entry:"1690352415" modified:"1690352415" project:"bootstrap" status:"pending" uuid:"13241815-490b-449a-b6d5-270cf97ad193"]
+---
+time 1690364842
+old [description:"heuristics to normalize pkginfo values" entry:"1690352308" modified:"1690352319" project:"bootstrap" start:"1690352319" status:"pending" uuid:"2d4dd3e8-2b19-4aba-b213-1e15b34a786b"]
+new [description:"heuristics to normalize pkginfo values" end:"1690364842" entry:"1690352308" modified:"1690364842" project:"bootstrap" status:"completed" uuid:"2d4dd3e8-2b19-4aba-b213-1e15b34a786b"]
+---
+time 1690364872
+new [description:"collect all info about packages into a sqlite db" entry:"1690364872" modified:"1690364872" project:"bootstrap" status:"pending" uuid:"ba2ca139-c9c3-423b-9d19-c858ba5dfdbc"]
+---
+time 1690364882
+old [description:"collect all info about packages into a sqlite db" entry:"1690364872" modified:"1690364872" project:"bootstrap" status:"pending" uuid:"ba2ca139-c9c3-423b-9d19-c858ba5dfdbc"]
+new [description:"collect all info about packages into a sqlite db" entry:"1690364872" modified:"1690364882" project:"bootstrap" start:"1690364882" status:"pending" uuid:"ba2ca139-c9c3-423b-9d19-c858ba5dfdbc"]
+---

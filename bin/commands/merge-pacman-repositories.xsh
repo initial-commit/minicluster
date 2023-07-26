@@ -42,18 +42,48 @@ def collect_list(k, v):
         collect_list.lst.add(k)
     return v
 
-list_fields = ['license', 'provides', 'backup', 'replaces', 'optdepend', 'makedepend', 'checkdepend', 'depend', 'conflict']
+LIST_FIELDS = ['license', 'backup', 'replaces', 'conflict', 'depend', 'optdepend', 'makedepend', 'checkdepend', 'provides', ]
+DICT_FIELDS = []
+
+def ensure_fields(pkginfo):
+    normalized = {}
+    for f in LIST_FIELDS:
+        if f not in pkginfo:
+            normalized[f] = []
+        else:
+            if not isinstance(pkginfo[f], list):
+                raise Exception(f"field {f} should be a list, it is instead {pkginfo[f]=}")
+    for f in DICT_FIELDS:
+        if f not in pkginfo:
+            normalized[f] = {}
+        else:
+            if not isinstance(pkginfo[f], dict):
+                raise Exception(f"field {f} should be a list, it is instead {pkginfo[f]=}")
+    return pkginfo | normalized
 
 def depend_parse(raw_vals):
-    vals = {}
+    regex = (
+            "^(?P<otherpkg>[^=<>: ]+)"
+            "((?P<operator>[=<>]+)(?P<version>[^:]+?))?"
+            "(: (?P<reason>.+))?$"
+        )
+    e=re.compile(regex)
+    results = []
     for raw_v in raw_vals:
-        if ':' in raw_v:
-            pkg, reason = raw_v.split(':', 2)
-        else:
-            pkg = raw_v
-            reason = None
-        vals[pkg] = reason
-    return vals
+        m = e.match(raw_v)
+        assert m is not None, f"Could not parse depends-type value {raw_v=}"
+        results.append(m.groupdict())
+    return results
+
+def contact_parse(raw_val):
+    regex = r"^(?P<realname>[^<]+)<(?P<email>[^@]+@.+)>"
+    e = re.compile(regex)
+    m = e.match(raw_val)
+    assert m is not None, f"Could not parse contact for {raw_val=}"
+    data = m.groupdict()
+    data['realname'] = data['realname'].strip()
+    data['email'] = data['email'].strip()
+    return data
 
 def normalize_field(fname, fval):
     cbs = {
@@ -63,31 +93,29 @@ def normalize_field(fname, fval):
         'pkgdesc': None,
         'url': None,
         'builddate': lambda v: int(v),
-        'packager': None,
+        'packager': contact_parse, # Extract name and email
         'size': lambda v: int(v),
         'arch': None,
         'license': None,
-        'provides': None,
-        'depend': None,
-        'optdepend': depend_parse,
-        'makedepend': None,
-        'checkdepend': None,
-        'conflict': None,
+        'provides': depend_parse, # DEP
+        'depend': depend_parse, # DEP
+        'optdepend': depend_parse, # DEP
+        'makedepend': depend_parse, # DEP
+        'checkdepend': depend_parse, # DEP
+        'conflict': depend_parse, # DEP
         'backup': None,
-        'replaces': None,
+        'replaces': depend_parse, # DEP
         'group': None,
     }
     if fname not in cbs:
         raise Exception(f"field not handled: {fname=} with {fval=}")
+
+    if fname in LIST_FIELDS and not isinstance(fval, list):
+        fval = [fval]
+
     if cbs[fname] is None:
         return fval
 
-    if fname in list_fields and not isinstance(fval, list):
-        fval = [fval]
-
-    import inspect
-    if 2 == len(inspect.signature(cbs[fname]).parameters):
-        return cbs[fname](fname, fval)
     return cbs[fname](fval)
 
 def get_pkg_info(pkg_path, kv_reg, db_extracted_dir, db_names, logger):
@@ -107,19 +135,29 @@ def get_pkg_info(pkg_path, kv_reg, db_extracted_dir, db_names, logger):
         groups = {k: v.lstrip() for k,v in groups.groupdict().items()}
         k = groups['var']
         v = groups['val']
-        if k in pkginfo and isinstance(pkginfo[k], str):
-            pkginfo[k] = [pkginfo[k], v]
-        if k in pkginfo and isinstance(pkginfo[k], list):
-            pkginfo[k].append(v)
-        if k not in pkginfo:
+        if k in LIST_FIELDS or k in DICT_FIELDS:
+            if k in LIST_FIELDS:
+                if k not in pkginfo:
+                    pkginfo[k] = []
+                pkginfo[k].append(v)
+            elif k in DICT_FIELDS:
+                if k not in pkginfo:
+                    pkginfo[k] = {}
+                pkginfo[k][v] = None
+        else:
+            if k in pkginfo:
+                raise Exception(f"field {k} already exists and is not a DICT_FIELD or LIST_FIELD")
             pkginfo[k] = v
     normalized_info = {}
-    logger.info(f"{pkginfo=}")
+    expected_d_name=f"{pkginfo['pkgname']}-{pkginfo['pkgver']}"
+    #if 'packager' in pkginfo and pkginfo['packager']:
+    #    logger.debug(f"YYY {expected_d_name} {pkginfo['packager']=}")
     for k, v in pkginfo.items():
         normalized_info[k] = normalize_field(k, v)
     pkginfo = normalized_info
-    expected_d_name=f"{pkginfo['pkgname']}-{pkginfo['pkgver']}"
-    logger.info(f"{pkginfo=}")
+    pkginfo = ensure_fields(pkginfo)
+    #for k in ['packager']:
+    #    logger.debug(f"YYY {expected_d_name=} {k} {pkginfo[k]=}")
     found = False
     exp_path = None
     db_name = None
@@ -163,7 +201,6 @@ def command_merge_pacman_repositories_xsh(logger, source_db_dir, db_names, sourc
     to_remove = []
     all_files = []
     for pkg_path in itertools.chain(source_pkg_cache.glob('*.pkg.tar.zst'), source_pkg_cache.glob('*.pkg.tar.xz')):
-        # TODO: collect in a sqlite db all other information from the package
         (pkginfo, db_name, files) = get_pkg_info(pkg_path, kv_reg, db_extracted_dir, db_names, logger)
         expected_d_name=f"{pkginfo['pkgname']}-{pkginfo['pkgver']}"
         exp_path = db_extracted_dir / db_name / expected_d_name
@@ -178,6 +215,7 @@ def command_merge_pacman_repositories_xsh(logger, source_db_dir, db_names, sourc
         with open(files_f, "w") as files_fp:
             for line in files:
                 files_fp.write(line + "\n")
+        # TODO: store in a sqlite db all information from the package: pkginfo, db_name (the originating db name) and list of files
         all_files.extend(files[1:])
 
     # now create database files
@@ -204,8 +242,8 @@ def command_merge_pacman_repositories_xsh(logger, source_db_dir, db_names, sourc
     shutil.rmtree(cwd)
     shutil.rmtree(db_extracted_dir)
     cwd = pathlib.Path(f"{dest_db_dir}")
-    lst = list(collect_list.lst)
-    logger.info(f"package properties which can be lists: {lst=}")
+    #lst = list(collect_list.lst)
+    #logger.info(f"package properties which can be lists: {lst=}")
 
 if __name__ == '__main__':
     source_db_dir = MINICLUSTER.ARGS.source_db_dir
