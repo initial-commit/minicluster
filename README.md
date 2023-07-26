@@ -10,9 +10,11 @@ It can be used in various ways:
 * to develop cloud-based Linux images
 * for setting up and operating homelabs
 * for safe deployment to production of provably working systems
-* for testing dedicated hardware by giving control over the kernel and kernel drivers
+* for testing dedicated hardware by giving control over the kernel and kernel
+  drivers
 
-By combining these aspects within the same organization, it can cover the full needs, from development to operating software.
+By combining these aspects within the same organization, it can cover the full
+needs, from development to operating software.
 
 Minicluster is optimized for
 
@@ -21,6 +23,9 @@ Minicluster is optimized for
 * robust, reproducible environments
 * promoting the infrastructure to production with peace of mind
 * observability
+
+Minicluster has commands to do basic things. However, to model complex
+pipelines/processes, you'll have to write python code.
 
 Example Use-Cases
 =================
