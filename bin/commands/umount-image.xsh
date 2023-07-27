@@ -12,19 +12,22 @@ import os
 
 def command_umount_image_xsh(cwd, logger, handle):
 	mountpoint = f"{cwd}/{handle}"
-
-	pidfile = f"{cwd}/guestmount-{handle}.pid"
+	logger.info(f"unmounting {mountpoint}")
 
 	pid = None
-	if os.path.exists(pidfile):
-		with open(pidfile, 'r') as f:
-			pid = int(f.read().rstrip())
-
+	for pidfile in [f"{cwd}/guestmount-{handle}.pid", f"{cwd}/guestmount-{handle}-ro.pid"]:
+		if os.path.exists(pidfile):
+			with open(pidfile, 'r') as f:
+				pid = int(f.read().rstrip())
+	if pid is None:
+		logger.error(f"could not find pidfile for {mountpoint=}")
+		return False
 	guestunmount @(mountpoint)
 
 	while pid and psutil.pid_exists(pid):
 		logger.info("pid exists")
 		time.sleep(0.2)
+	return True
 
 if __name__ == '__main__':
 	cwd = MINICLUSTER.CWD_START

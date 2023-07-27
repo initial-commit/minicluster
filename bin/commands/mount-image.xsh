@@ -36,6 +36,8 @@ def command_mount_image_xsh(cwd, logger, handle, readonly=None):
         mount_args.append('--ro')
     mount_args.append(mountpoint)
 
+    logger.info(f"mounting {disk_file} at {mountpoint}")
+
     guestmount @(mount_args)
     return mountpoint
 

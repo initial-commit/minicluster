@@ -1,5 +1,37 @@
 #!/usr/bin/env xonsh
 
+# For overview:
+# this command downloads all assets necessary on an archlinux system called L0 henceforth.
+# L0 is your real, physical machine.
+# on L0, an L1 image is built. This will be thrown away, after extracting the pacman repository
+# inside L1, we build an L2 image. This image is a barebones archlinux system (with more or less just the qemu agent inside)
+#
+# Outputs of this process:
+#
+# * the archlinux appliance
+# * the archlinux pacman repository
+# * the minicluster pacman repository
+#
+# The archlinux appliance
+# =======================
+# * it consists of the files: qcow2 image, initramfs, kernel, fstab (just for reference)
+# * the files come from inside L2
+# * the files are produced by processes/commands running inside L1
+# * does not contain any pacman packages or databases (all mirrors removed)
+# * at various points in this script, these files are stored in "the artefacts directory" inside L1 (cwd_inside variable)
+#
+# The archlinux pacman repository
+# ===============================
+# * is is a valid "mirror" containing all the packages installed in the archlinux appliance
+# * the packages are installed inside the archlinux appliance, but this repository is not available in a VM of archlinux
+# * is the base of all other archlinux-based systems in all your clusters
+#
+# The minicluster pacman repository
+# =================================
+# * is a derivation of the archlinux pacman repository, packages are deduplicated and this repo contains just minicluster-specific
+#   packages
+# * will be used by another command to make a minicluster appliance
+
 if __name__ == '__main__':
     d=p"$XONSH_SOURCE".resolve().parent; source @(f'{d}/bootstrap.xsh')
     source @(f'{d}/make-empty-image.xsh')
@@ -30,7 +62,31 @@ import random
 import string
 import sys
 
-def extract_l2_assets(cwd, logger, handle, name):
+
+def extract_l2_assets(cwd, logger, handle, name, cwd_inside):
+    """In this function we want to use a lot of bash execution.
+
+    This ensures that we operate on L2 using the next-state
+    version of the underlying system.
+
+    Doing so tests as part of the process the L1 image.
+    While the L1 image we operate on here is not used, the package
+    repository will be extracted and used later on (when building minicluster)
+    """
+    command_instance_shell_simple_xsh(cwd, logger, name, f"bash -c 'cd {cwd_inside}; /root/minicluster/bin/commands/extract-image-assets.xsh --handle nested-{handle}'")
+    command_mount_image_xsh(cwd, logger, handle, "ro-build")
+    ro_dir_on_l0 = fp"{cwd}/{handle}-ro-build/".absolute()
+    artefacts_dir_ro = fp"{ro_dir_on_l0}/{cwd_inside}/artefacts-nested-{handle}".absolute()
+    #command_instance_shell_simple_xsh(cwd, logger, name, f"bash -c 'cd {cwd_inside}; ls -ltrah'", interval=0.1, env={}, show_out=True)
+    # TODO: clean the image, assert that no files are uncovered (except whitelisted files)
+    # TODO: shrink the image, assert that the size is indeed smaller
+    # TODO: test-vm the L2 image, turn off
+    # TODO: assert that L2 image is turned off
+    # TODO: assert that the L2 image is not running; copy the image itself
+    # TODO: copy the artefacts of L2 inside L1 onto L0
+    command_umount_image_xsh(cwd, logger, f"{handle}-ro-build")
+    return True
+
     command_mount_image_xsh(cwd, logger, handle, "ro-build")
     files_to_copy = [
         f"{cwd}/{handle}-ro-build/{cwd_inside}/nested-{handle}.qcow2",
@@ -51,6 +107,14 @@ def extract_l2_assets(cwd, logger, handle, name):
             mkdir -p @(str(target))
         rsync -a --delete --info=stats2,misc1,flist0 @(src) @(target.parent)
     command_umount_image_xsh(cwd, logger, f"{handle}-ro-build")
+
+def extract_l1_assets():
+    # TODO: mount ro
+    # TODO: assert md5 checksums are the same for initramfs and linux-kernel
+    # TODO: make L1 pacman repository (fat variant)
+    # TODO: assert that L1 repository only contains additions relative to L2 repository
+    # TODO: unmount ro
+    pass
     
 def get_random_name(handle):
     r = ''.join((''.join(random.choice(string.ascii_lowercase)) for i in range(8)) )
@@ -62,6 +126,7 @@ if __name__ == '__main__':
     do_fix_image = False
     do_test_image = MINICLUSTER.ARGS.test_image
     do_build_l2 = MINICLUSTER.ARGS.build_nested
+    extract_nested = MINICLUSTER.ARGS.extract_nested
     vm_ram = MINICLUSTER.ARGS.ram
     l2_ram = int(vm_ram / 2)
 
@@ -143,6 +208,7 @@ if __name__ == '__main__':
         command_instance_shell_simple_xsh(cwd, logger, name, f"bash -c 'cd {cwd_inside}; /root/minicluster/bin/commands/build-base-image.xsh --cache --handle nested-{handle} --build_nested false'")
         # promote embedded image from being an L2 image to being L1
         command_poweroff_image_xsh(cwd, logger, name)
+    # TODO: check this and confirm that the outcomes are equivalent (minus L1 promotion)
     # This stage operates on two images, called L1 and L2. The host is called L0
     # L2 is created inside L1
     # The procedure is the following
@@ -167,17 +233,19 @@ if __name__ == '__main__':
     # promote L1 minicluster pacman repo to L0
     # shut down L1 and remove all temporary artifacts
     # assert that no other files are left in directory except one directory called 'artifacts' where everything is stored
-    do_extract = True
-    if do_extract:
+    if extract_nested:
         cwd_inside = '/root/minic'
         name = get_random_name(handle)
         started = command_boot_image_xsh(cwd, logger, handle, name, l2_ram, True, False)
         if not started:
             sys.exit(1)
-        #success = extract_l2_assets(cwd, logger, handle, name)
-        #if not success:
-        #    sys.exit(1)
+        success = extract_l2_assets(cwd, logger, handle, name, cwd_inside)
+        if not success:
+            sys.exit(1)
+        # TODO: extract_l1_assets()
+        # TODO: cleanup all intermediary files, including the L1 image
         command_poweroff_image_xsh(cwd, logger, name)
+    # TODO: remove the section below
     do_extract = False
     if do_extract:
         cwd_inside = '/root/minic'

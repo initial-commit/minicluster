@@ -159,7 +159,7 @@ def get_pkg_info(pkg_path, kv_reg, db_extracted_dir, db_names, logger):
     found = False
     exp_path = None
     db_name = None
-    files = ['%FILES%']
+    files = [('%FILES%', None)]
     for d in db_names:
         exp_path = db_extracted_dir / d / expected_d_name
         if exp_path.exists():
@@ -167,15 +167,14 @@ def get_pkg_info(pkg_path, kv_reg, db_extracted_dir, db_names, logger):
             found = True
             db_name = d
             break
+    type_indicators = {tarfile.REGTYPE: 'f', tarfile.AREGTYPE: 'f', tarfile.SYMTYPE: 'l', tarfile.DIRTYPE: 'd', tarfile.LNKTYPE: ''}
     for f in pkgf:
         if f.name.startswith('.'):
             # logger.warn(f"TODO: parse {f} and put info into sqlite")
             continue
-        suffix = ''
-        if f.isdir():
-            suffix = '/'
-        f = f.name + suffix
-        files.append(f)
+        t = type_indicators[f.type]
+        f = f.name
+        files.append((f, t))
     files.sort()
     return (pkginfo, db_name, files)
 
@@ -198,10 +197,7 @@ def store_pkg_info(logger, db, pkginfo, db_name, files):
     with db:
         with contextlib.closing(db.cursor()) as cur:
             values = []
-            for f in files:
-                type_flag = 'f'
-                if f.endswith('/'):
-                    type_flag = 'd'
+            for (f, type_flag) in files:
                 values.append((pkgname, f, type_flag))
                 if len(values) >= 1000:
                     cur.executemany(f"INSERT INTO files VALUES(?, ?, ?)", values)
@@ -266,7 +262,7 @@ def command_merge_pacman_repositories_xsh(logger, source_db_dir, db_names, sourc
         #logger.info(f"{files_f=}")
         to_remove.append(files_f)
         with open(files_f, "w") as files_fp:
-            for line in files:
+            for (line, t) in files:
                 files_fp.write(line + "\n")
         store_pkg_info(logger, db, pkginfo, db_name, files[1:])
 
@@ -290,6 +286,9 @@ def command_merge_pacman_repositories_xsh(logger, source_db_dir, db_names, sourc
     shutil.rmtree(cwd)
     shutil.rmtree(db_extracted_dir)
     # TODO save db_create_start, db_create_end, the params to this function
+    meta = [
+        ('db_names', ' '.join(db_names)),
+        ]
 
 if __name__ == '__main__':
     source_db_dir = MINICLUSTER.ARGS.source_db_dir
