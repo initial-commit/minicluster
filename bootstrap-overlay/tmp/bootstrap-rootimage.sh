@@ -34,7 +34,6 @@ bootstrap () {
 		find var/cache/pacman/pkg/ -name 'archlinux-keyring-*-any.pkg.tar.zst' -exec pacman -U --noconfirm --overwrite '*' {} \;
 	fi
 	set +x
-	rm -- "$0"
 }
 
 declare_all () {

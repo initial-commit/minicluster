@@ -74,6 +74,7 @@ def copy_from_local_dir_to_remote_dir(logger, cwd, copy_from, copy_to, name_from
     logger.info(f"{copy_from=} {copy_to=} {f_size=}")
     (copy_from, copy_to, name_from, name_to, from_remote, to_remote, conn_from, conn_to, is_dir) = parse_params(cwd, logger, f, copy_to)
     written = copy_from_local_file_to_remote_file(logger, cwd, copy_from, copy_to, name_from, name_to, from_remote, to_remote, conn_from, conn_to)
+    assert written is not None, f"could not copy from local dir to remote dir {copy_from=} {copy_to=} {name_from=} {name_to=} {cwd=}"
     # TODO: better error handling
     conn_to.unarchive_in_vm(copy_to)
     os.remove(f)

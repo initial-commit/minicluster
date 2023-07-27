@@ -73,6 +73,7 @@ def extract_l2_assets(cwd, logger, handle, name, cwd_inside):
     While the L1 image we operate on here is not used, the package
     repository will be extracted and used later on (when building minicluster)
     """
+    command_instance_shell_simple_xsh(cwd, logger, name, f"mkdir -p '{cwd_inside}'")
     command_instance_shell_simple_xsh(cwd, logger, name, f"bash -c 'cd {cwd_inside}; /root/minicluster/bin/commands/extract-image-assets.xsh --handle nested-{handle}'")
     command_mount_image_xsh(cwd, logger, handle, "ro-build")
     ro_dir_on_l0 = fp"{cwd}/{handle}-ro-build/".absolute()
@@ -241,6 +242,8 @@ if __name__ == '__main__':
         started = command_boot_image_xsh(cwd, logger, handle, name, l2_ram, True, False)
         if not started:
             sys.exit(1)
+        command_instance_shell_simple_xsh(cwd, logger, name, "bash -c \"pacman -Qi python >/dev/null || pacman -S --noconfirm --overwrite '*' python\"")
+        command_copy_files_xsh(cwd, logger, '{DIR_R}', f'{name}:/root', additional_env={'name': name})
         success = extract_l2_assets(cwd, logger, handle, name, cwd_inside)
         if not success:
             sys.exit(1)
