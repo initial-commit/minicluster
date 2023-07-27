@@ -664,3 +664,7 @@ new [description:"add information about reddit and buymeacoffee" entry:"16903840
 time 1690384236
 new [description:"create a wiki and a phylosophy page" entry:"1690384236" modified:"1690384236" project:"cleanup" status:"pending" uuid:"d28ae6ef-d0ee-47e2-a0e5-c56eef649b6f"]
 ---
+time 1690450296
+old [description:"create command to clean and trim images" entry:"1689859295" modified:"1689859295" project:"bootstrap" status:"pending" uuid:"dd33898b-137b-4e3b-8265-e6fc5f9a8251"]
+new [description:"create command to clean and trim images" entry:"1689859295" modified:"1690450296" project:"bootstrap" start:"1690450296" status:"pending" uuid:"dd33898b-137b-4e3b-8265-e6fc5f9a8251"]
+---

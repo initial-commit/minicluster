@@ -177,3 +177,4 @@
 {"description":"create command to extract arch repository from image","end":"20230726T150249Z","entry":"20230720T132505Z","modified":"20230726T150257Z","project":"bootstrap","status":"deleted","uuid":"366c9851-0c50-4eb2-bc78-10e799b33dad"}
 {"description":"add information about reddit and buymeacoffee","entry":"20230726T150810Z","modified":"20230726T150810Z","project":"bootstrap","status":"pending","uuid":"30f3674d-71a6-4657-b307-d70c0f64d35d"}
 {"description":"create a wiki and a phylosophy page","entry":"20230726T151036Z","modified":"20230726T151036Z","project":"cleanup","status":"pending","uuid":"d28ae6ef-d0ee-47e2-a0e5-c56eef649b6f"}
+{"description":"create command to clean and trim images","entry":"20230720T132135Z","modified":"20230727T093136Z","project":"bootstrap","start":"20230727T093136Z","status":"pending","uuid":"dd33898b-137b-4e3b-8265-e6fc5f9a8251"}
