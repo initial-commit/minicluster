@@ -87,6 +87,7 @@ def extract_l2_assets(cwd, logger, handle, name, cwd_inside):
     command_umount_image_xsh(cwd, logger, f"{handle}-ro-build")
     return True
 
+    # TODO: remove below
     command_mount_image_xsh(cwd, logger, handle, "ro-build")
     files_to_copy = [
         f"{cwd}/{handle}-ro-build/{cwd_inside}/nested-{handle}.qcow2",
@@ -190,10 +191,11 @@ if __name__ == '__main__':
             sys.exit(1)
         image_started = True
 
-    if do_build_l2:
-        cwd_inside = '/root/minic'
+    if image_started:
         command_instance_shell_simple_xsh(cwd, logger, name, "bash -c \"pacman -Qi python >/dev/null || pacman -S --noconfirm --overwrite '*' python\"")
         command_copy_files_xsh(cwd, logger, '{DIR_R}', f'{name}:/root', additional_env={'name': name})
+    if do_build_l2:
+        cwd_inside = '/root/minic'
         command_instance_shell_simple_xsh(cwd, logger, name, "/root/minicluster/bin/commands/bootstrap-host.sh")
         command_instance_shell_simple_xsh(cwd, logger, name, f"mkdir -p {cwd_inside}")
         copy_cwd = [

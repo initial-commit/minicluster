@@ -36,18 +36,18 @@ def get_files_on_disk_unaccounted(logger, cwd, handle, repo_db):
         ),
         disk as (
                 select path from disk_files where
-                        path not glob 'etc/ca-certificates/extracted/cadir/*'
+                        path not glob 'dev/*'
+                        and path not glob 'boot/*'
+                        and path not glob 'run/*'
+                        and path not glob 'etc/ca-certificates/extracted/cadir/*'
+                        and path not glob 'etc/ca-certificates/extracted/*'
                         and path not glob 'var/lib/pacman/local/*' -- local db must stay
                         and path not glob 'var/log/*' -- TODO: remove
 			and path not glob 'etc/systemd/system/*'
 			and path not glob 'etc/systemd/user/*'
                         and path not glob 'etc/ssl/certs/*'
-                        and path not glob 'etc/ca-certificates/extracted/*'
                         and path not glob 'etc/pacman.d/gnupg/*'
                         and path not glob 'etc/systemd/system/*.target.wants/*'
-                        and path not glob 'dev/*'
-                        and path not glob 'boot/*'
-                        and path not glob 'run/*'
                         and path not glob 'usr/lib/modules/*/modules.*'
 			and path not in ('etc/credstore', 'etc/credstore.encrypted', 'etc/group-', 'etc/gshadow-', 'etc/hostname', 'etc/ld.so.cache', 'etc/locale.conf')
 			and path not in ('etc/localtime', 'etc/os-release', 'etc/pacman.d/gnupg', 'etc/passwd-', 'etc/shadow-')
@@ -84,15 +84,17 @@ def command_clean_image_xsh(cwd, logger, handle, repo_db):
 	if not started:
 	    return False
 	rm_patterns = [
-	    "rm -f /tmp/bootstrap-rootimage.sh",
+	    #"rm -f /tmp/bootstrap-rootimage.sh", # TODO: this should be removed by us somewhere else
 	    "bash -c 'yes | pacman -Scc'",
 	    "systemd-tmpfiles --create --clean --remove --boot",
 	    "find /run -type f -delete",
 	    "find /etc -type f -name '*.pacnew' -delete",
-	    "rm -rf /root/.gnupg /root/.ssh /tmp/bootstrap-rootimage.sh /root/.bash_history",
+	    #find / -type d -name __pycache__ rm -rf {} # problem: it seems these are included by packages
+	    "rm -rf /root/.gnupg",
+	    "rm -rf /root/.bash_history",
 	    "rm -rf /root/.ssh",
-	    "find /tmp -type d -name '.*-unix' -delete",
-	    "find /var/lib/pacman/sync/ -type f -name '*.db' -delete",
+	    "find /tmp -type d -name '.*-unix' -delete", # TODO: why is this not removing anything?
+	    "find /var/lib/pacman/sync/ -type f -name '*.db' -delete", # TODO: for each of them, also disable in /etc/pacman.conf
 	    "rm -rf /etc/.pwd.lock /etc/sudoers",
 	    "rm -rf /var/cache/ldconfig/aux-cache",
 	    "journalctl --vacuum-size=0M",
