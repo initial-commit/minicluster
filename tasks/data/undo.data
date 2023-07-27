@@ -668,3 +668,7 @@ time 1690450296
 old [description:"create command to clean and trim images" entry:"1689859295" modified:"1689859295" project:"bootstrap" status:"pending" uuid:"dd33898b-137b-4e3b-8265-e6fc5f9a8251"]
 new [description:"create command to clean and trim images" entry:"1689859295" modified:"1690450296" project:"bootstrap" start:"1690450296" status:"pending" uuid:"dd33898b-137b-4e3b-8265-e6fc5f9a8251"]
 ---
+time 1690475575
+old [description:"command which shows all files not owned by any package with heuristics to exclude runtime files" entry:"1689890146" modified:"1689890146" project:"bootstrap" status:"pending" uuid:"c79ead24-7f28-4ffd-a830-a66533ef841e"]
+new [description:"command which shows all files not owned by any package with heuristics to exclude runtime files" end:"1690475575" entry:"1689890146" modified:"1690475575" project:"bootstrap" status:"completed" uuid:"c79ead24-7f28-4ffd-a830-a66533ef841e"]
+---
