@@ -24,7 +24,7 @@ def command_instance_shell_simple_xsh(cwd, logger, name, command, interval=0.1, 
 	    logger.error(f"NESTED {name}: {line}")
 	for line in st['out-data'].splitlines():
 	    logger.info(f"NESTED {name}: {line}")
-    if code != 0:
+    if code != 0 and not show_out:
 	logger.error(f"command failed: {command=} with {code=}")
 	for line in st['err-data'].splitlines():
 	    logger.error(f"ERR: {line}")
