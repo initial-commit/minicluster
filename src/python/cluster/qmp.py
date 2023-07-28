@@ -132,7 +132,7 @@ class Connection(object, metaclass=CachedViaConstructorMeta):
         )
         stat_result = self.guest_exec_wait(["python", "-c", prog])
         if stat_result['exitcode']:
-            self.logger.warning(f"could not get path stat: {stat_result=}")
+            self.logger.debug(f"could not get path stat: {stat_result=} for {vm_path=}")
             return None
         return json.loads(stat_result['out-data'])
 

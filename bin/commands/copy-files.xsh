@@ -66,7 +66,7 @@ def copy_from_local_dir_to_remote_dir(logger, cwd, copy_from, copy_to, name_from
     base_name = os.path.basename(os.path.realpath(copy_from))
     root_dir = str(pf"{copy_from}".resolve().parent)
     base_dir = pf"{copy_from}".resolve().name
-    f = shutil.make_archive(base_name, "gztar", root_dir, base_dir, logger=logger)
+    f = shutil.make_archive(base_name, "gztar", root_dir, base_dir, owner='root', group='root', logger=logger)
     logger.info(f"archive made: {f=}")
     f_size = os.stat(f).st_size
     f_basename = os.path.basename(f)
