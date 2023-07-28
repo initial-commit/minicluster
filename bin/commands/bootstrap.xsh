@@ -26,8 +26,9 @@ def _bootstrap():
         "ARGS", # named args
         "POS_ARGS", # positional args
         "bootstrap_finished", # function used to signal, must be called by each command
-	"w_ctx",
-	"w_list",
+        "w_ctx",
+        "w_list",
+        "signal_handler",
     ])
 
     ######################################################
@@ -94,6 +95,28 @@ def _bootstrap():
     ######################################################
     #TODO: install xonsh hooks https://xon.sh/events.html
 
+    ######################################################
+    # signal handling
+    class SignalHandler(object):
+        def __init__(self, minicluster):
+            import signal
+            import faulthandler
+            #faulthandler.enable()
+            self.MINICLUSTER = minicluster
+            self.logger = logging.getLogger(__name__)
+            catchable_sigs = set(signal.Signals) - {signal.SIGKILL, signal.SIGSTOP}
+            catchable_sigs.remove(signal.SIGCHLD) # TODO: check this out, more logging / monitoring
+            for sig in catchable_sigs:
+                signal.signal(sig, self.handler)  # Substitute handler of choice for `print`
+            #signal.signal(signal.SIGINT, self.handler)
+            #signal.signal(signal.SIGTERM, self.handler)
+            #signal.signal(signal.SIGUSR1, self.handler)
+            #signal.signal(signal.SIGUSR2, self.handler)
+            #signal.signal(signal.SIGABRT, self.handler)
+            #signal.signal(signal.SIGPIPE, self.handler)
+            self.logger.info(f"signal handlers installed")
+        def handler(self, sig, frame):
+            self.logger.info(f"received {sig=} at {frame=}")
 
     ######################################################
     # MINICLUSTER global
@@ -106,8 +129,9 @@ def _bootstrap():
         args,
         pos_args,
         None,
-	w_ctx,
-	w_list,
+    w_ctx,
+    w_list,
+    SignalHandler,
     )
     return MINICLUSTER
 
@@ -119,6 +143,7 @@ def bootstrap_finished(MINICLUSTER):
     import logging
     t = MINICLUSTER.ARGPARSE.parse_known_args()
     MINICLUSTER = MINICLUSTER._replace(ARGS=t[0], POS_ARGS=t[1])
+    MINICLUSTER = MINICLUSTER._replace(signal_handler = MINICLUSTER.signal_handler(MINICLUSTER))
 
     #@events.on_import_post_exec_module
     def on_import_post_exec_module(module):
@@ -157,7 +182,7 @@ def bootstrap_finished(MINICLUSTER):
 
     logger = logging.getLogger(__name__)
     for w in MINICLUSTER.w_list:
-    	logger.info(f"BOOTSTRAP WARNING: {w=} {str(w)}")
+        logger.info(f"BOOTSTRAP WARNING: {w=} {str(w)}")
     logger.info(f"warnings created during bootstrap: {len(MINICLUSTER.w_list)}")
     MINICLUSTER.w_ctx.__exit__(None, None, None)
     assert len(MINICLUSTER.w_list) == 0, "Some warnings shown during bootstrap"

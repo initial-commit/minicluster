@@ -242,7 +242,7 @@ class Connection(object, metaclass=CachedViaConstructorMeta):
             assert self.sock_path is not None, f"No socket {self.sock_path=}"
             self.logger.debug(f"connecting socket {self.sock_path=}")
             self._socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-            self._socket.settimeout(1)
+            #self._socket.settimeout(1)
             connect_stat = self._socket.connect(self.sock_path)
             poller = select.poll()
             poller.register(self._socket)
