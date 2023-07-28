@@ -129,6 +129,7 @@ def command_test_vm_xsh(cwd, logger, name):
     #TODO: test for all tmpfiles cleaned, see systemd-tmpfiles
     #status = c.guest_exec_wait('dmesg -x -k -J --time-format iso -T -c')
     #print(status['out-data'])
+    return True
 
 if __name__ == '__main__':
     cwd = MINICLUSTER.CWD_START

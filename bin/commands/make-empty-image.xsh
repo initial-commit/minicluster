@@ -96,6 +96,7 @@ def command_make_empty_image_xsh(cwd, logger, handle, d):
 
     with open(f"/{cwd}/fstab-{handle}", "w") as f:
         f.write("\n".join(fstab_lines))
+    # TODO: return information about the created image
 
 
 def create_bootstrap_guestfish_commands(disk_file, d):

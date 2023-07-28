@@ -55,6 +55,7 @@ if __name__ == '__main__':
     MINICLUSTER.ARGPARSE.add_argument('--test_image', nargs='?', type=lambda b:bool(strtobool(b)), const=False, default=True, metavar='true|false')
     MINICLUSTER.ARGPARSE.add_argument('--build_nested', nargs='?', type=lambda b:bool(strtobool(b)), const=False, default=True, metavar='true|false')
     MINICLUSTER.ARGPARSE.add_argument('--extract_nested', nargs='?', type=lambda b:bool(strtobool(b)), const=False, default=True, metavar='true|false')
+    # TODO: when exiting cleanly, cleanup
     def_ram = 2**int(math.log2(psutil.virtual_memory().available // 2**20 * 2/3))
     MINICLUSTER.ARGPARSE.add_argument('--ram', default=def_ram)
     MINICLUSTER = MINICLUSTER.bootstrap_finished(MINICLUSTER)
@@ -74,8 +75,12 @@ def extract_l2_assets(cwd, logger, handle, name, cwd_inside):
     While the L1 image we operate on here is not used, the package
     repository will be extracted and used later on (when building minicluster)
     """
-    command_instance_shell_simple_xsh(cwd, logger, name, f"mkdir -p '{cwd_inside}'")
-    command_instance_shell_simple_xsh(cwd, logger, name, f"bash -c 'cd {cwd_inside}; /root/minicluster/bin/commands/extract-image-assets.xsh --handle nested-{handle}'")
+    (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, f"mkdir -p '{cwd_inside}'")
+    if not success:
+        return False
+    (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, f"bash -c 'cd {cwd_inside}; /root/minicluster/bin/commands/extract-image-assets.xsh --handle nested-{handle}'")
+    if not success:
+        return False
     command_mount_image_xsh(cwd, logger, handle, "ro-build")
     ro_dir_on_l0 = fp"{cwd}/{handle}-ro-build/".absolute()
     artefacts_dir_ro = fp"{ro_dir_on_l0}/{cwd_inside}/artefacts-nested-{handle}".absolute()
@@ -123,6 +128,49 @@ def get_random_name(handle):
     r = ''.join((''.join(random.choice(string.ascii_lowercase)) for i in range(8)) )
     return f"build-tmp-{handle}-{r}"
 
+def proc_initial_build(cwd, logger, handle, diskspec):
+    command_make_empty_image_xsh(cwd, logger, handle, d)
+    command_mount_image_xsh(cwd, logger, handle)
+    success = command_prepare_chroot_xsh(cwd, logger, handle, cache)
+    if not success:
+        logger.error(f"failed to prepare chroot for {handle=}")
+        return None
+    # TODO: make a backup
+    #cp -a @(f"{handle}.qcow2") @(f"pristine-{handle}.qcow2")
+    name = get_random_name(handle) + str(get_linenumber())
+    started = command_boot_image_xsh(cwd, logger, handle, name, 2048, True, False)
+    if not started:
+        logger.error("failed to boot initial image")
+        return None
+    commands = [
+        "systemd-tmpfiles --create --clean --remove --boot",
+    # echo -e "shopt -s extglob\nchown -R root:root /!(sys|proc|run)" | bash
+        #TODO: this could use the input-data of the qga protocol
+        'echo -e "shopt -s extglob\nchown -R root:root /!(sys|proc|run)" | bash',
+        'systemctl poweroff',
+    ]
+    interval = 0.1
+    prev_raise = $RAISE_SUBPROC_ERROR
+    for i, command in enumerate(commands):
+        logger.info(f"---------------- {command=}")
+        if i == len(commands)-1:
+            $RAISE_SUBPROC_ERROR = False
+            interval = 0.005
+        (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, command, interval=interval)
+        $RAISE_SUBPROC_ERROR = prev_raise
+        if not success:
+            if started:
+                command_poweroff_image_xsh(cwd, logger, name)
+                started = False
+            return None
+    success = command_test_vm_xsh(cwd, logger, name)
+    if not success:
+        return None
+    if started:
+        command_poweroff_image_xsh(cwd, logger, name)
+    return True
+
+
 if __name__ == '__main__':
     do_initial_build = MINICLUSTER.ARGS.initial_build
     # fixing image is not necessary with the latest changes done via guestfish in prepare-chroot
@@ -137,6 +185,7 @@ if __name__ == '__main__':
     logger = logging.getLogger(__name__)
     handle = MINICLUSTER.ARGS.handle
     cache = MINICLUSTER.ARGS.cache
+    # TODO: this should be a parameter
     d = {
         'type': 'mbr',
         'size': '20GB',
@@ -147,44 +196,52 @@ if __name__ == '__main__':
         ],
     }
     $RAISE_SUBPROC_ERROR = True
+
     if do_initial_build:
-        command_make_empty_image_xsh(cwd, logger, handle, d)
-        command_mount_image_xsh(cwd, logger, handle)
-        success = command_prepare_chroot_xsh(cwd, logger, handle, cache)
-        if not success:
-            sys.exit(1)
-        if do_build_l2:
-            cp -a @(f"{handle}.qcow2") @(f"pristine-{handle}.qcow2")
+        success = proc_initial_build(cwd, logger, handle, d)
+        if success:
+            logger.info("SUCCESS!!!")
+    raise Exception(f"TODO: migrate and remove below")
+    #if do_initial_build:
+    #    command_make_empty_image_xsh(cwd, logger, handle, d)
+    #    command_mount_image_xsh(cwd, logger, handle)
+    #    success = command_prepare_chroot_xsh(cwd, logger, handle, cache)
+    #    if not success:
+    #        sys.exit(1)
+    #    if do_build_l2:
+    #        cp -a @(f"{handle}.qcow2") @(f"pristine-{handle}.qcow2")
 
-    if do_fix_image:
-        name = get_random_name(handle) + str(get_linenumber())
-        started = command_boot_image_xsh(cwd, logger, handle, name, 2048, True, False)
-        if not started:
-            sys.exit(1)
-        commands = [
-            "systemd-tmpfiles --create --clean --remove --boot",
-        # echo -e "shopt -s extglob\nchown -R root:root /!(sys|proc|run)" | bash
-            #TODO: this could use the input-data of the qga protocol
-            'echo -e "shopt -s extglob\nchown -R root:root /!(sys|proc|run)" | bash',
-            'systemctl poweroff',
-        ]
-        interval = 0.1
-        for i, command in enumerate(commands):
-            logger.info(f"---------------- {command=}")
-            if i == len(commands)-1:
-                $RAISE_SUBPROC_ERROR = False
-                interval = 0.005
-            command_instance_shell_simple_xsh(cwd, logger, name, command, interval=interval)
-            # TODO: error handling
+    #if do_fix_image:
+    #    name = get_random_name(handle) + str(get_linenumber())
+    #    started = command_boot_image_xsh(cwd, logger, handle, name, 2048, True, False)
+    #    if not started:
+    #        sys.exit(1)
+    #    commands = [
+    #        "systemd-tmpfiles --create --clean --remove --boot",
+    #    # echo -e "shopt -s extglob\nchown -R root:root /!(sys|proc|run)" | bash
+    #        #TODO: this could use the input-data of the qga protocol
+    #        'echo -e "shopt -s extglob\nchown -R root:root /!(sys|proc|run)" | bash',
+    #        'systemctl poweroff',
+    #    ]
+    #    interval = 0.1
+    #    for i, command in enumerate(commands):
+    #        logger.info(f"---------------- {command=}")
+    #        if i == len(commands)-1:
+    #            $RAISE_SUBPROC_ERROR = False
+    #            interval = 0.005
+    #        (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, command, interval=interval)
+    #        if not success:
+    #            sys.exit(st['exitcode'])
+    #        # TODO: error handling
 
-    image_started = False
-    if do_test_image:
-        name = get_random_name(handle) + str(get_linenumber())
-        started = command_boot_image_xsh(cwd, logger, handle, name, vm_ram, True, False)
-        if not started:
-            sys.exit(1)
-        command_test_vm_xsh(cwd, logger, name)
-        command_poweroff_image_xsh(cwd, logger, name)
+    #image_started = False
+    #if do_test_image:
+    #    name = get_random_name(handle) + str(get_linenumber())
+    #    started = command_boot_image_xsh(cwd, logger, handle, name, vm_ram, True, False)
+    #    if not started:
+    #        sys.exit(1)
+    #    command_test_vm_xsh(cwd, logger, name)
+    #    command_poweroff_image_xsh(cwd, logger, name)
 
     if not image_started and do_build_l2:
         name = get_random_name(handle) + str(get_linenumber())
@@ -194,12 +251,18 @@ if __name__ == '__main__':
         image_started = True
 
     if image_started:
-        command_instance_shell_simple_xsh(cwd, logger, name, "bash -c \"pacman -Qi python >/dev/null || pacman -S --noconfirm --overwrite '*' python\"")
+        (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, "bash -c \"pacman -Qi python >/dev/null || pacman -S --noconfirm --overwrite '*' python\"")
+        if not success:
+            sys.exit(st['exitcode'])
         command_copy_files_xsh(cwd, logger, '{DIR_R}', f'{name}:/root', additional_env={'name': name})
     if do_build_l2:
         cwd_inside = '/root/minic'
-        command_instance_shell_simple_xsh(cwd, logger, name, "/root/minicluster/bin/commands/bootstrap-host.sh")
-        command_instance_shell_simple_xsh(cwd, logger, name, f"mkdir -p {cwd_inside}")
+        (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, "/root/minicluster/bin/commands/bootstrap-host.sh")
+        if not success:
+            sys.exit(st['exitcode'])
+        (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, f"mkdir -p {cwd_inside}")
+        if not success:
+            sys.exit(st['exitcode'])
         copy_cwd = [
             'archlinux-bootstrap-x86_64.tar.gz',
             'archlinux-bootstrap-x86_64.tar.gz.sig',
@@ -209,7 +272,9 @@ if __name__ == '__main__':
             command_copy_files_xsh(cwd, logger, '{CWD_START}/{f}', '{name}:{cwd_inside}/', additional_env={'f': f, 'name': name, 'cwd_inside': cwd_inside})
         # bootstrap L1 image as a minicluster host 
         command_network_cmd_xsh(cwd, logger, name, False)
-        command_instance_shell_simple_xsh(cwd, logger, name, f"bash -c 'cd {cwd_inside}; /root/minicluster/bin/commands/build-base-image.xsh --cache --handle nested-{handle} --build_nested false'")
+        (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, f"bash -c 'cd {cwd_inside}; /root/minicluster/bin/commands/build-base-image.xsh --cache --handle nested-{handle} --build_nested false'")
+        if not success:
+            sys.exit(st['exitcode'])
         # promote embedded image from being an L2 image to being L1
         command_poweroff_image_xsh(cwd, logger, name)
     # TODO: check this and confirm that the outcomes are equivalent (minus L1 promotion)
@@ -243,7 +308,9 @@ if __name__ == '__main__':
         started = command_boot_image_xsh(cwd, logger, handle, name, l2_ram, True, False)
         if not started:
             sys.exit(1)
-        command_instance_shell_simple_xsh(cwd, logger, name, "bash -c \"pacman -Qi python >/dev/null || pacman -S --noconfirm --overwrite '*' python\"")
+        (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, "bash -c \"pacman -Qi python >/dev/null || pacman -S --noconfirm --overwrite '*' python\"")
+        if not success:
+            sys.exit(st['exitcode'])
         command_copy_files_xsh(cwd, logger, '{DIR_R}', f'{name}:/root', additional_env={'name': name})
         success = extract_l2_assets(cwd, logger, handle, name, cwd_inside)
         if not success:

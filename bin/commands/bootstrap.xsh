@@ -11,6 +11,8 @@ def _bootstrap():
     import collections
     import logging
     import argparse
+    import signal
+    #import faulthandler
     from dateutil.relativedelta import relativedelta
 
     ######################################################
@@ -99,8 +101,6 @@ def _bootstrap():
     # signal handling
     class SignalHandler(object):
         def __init__(self, minicluster):
-            import signal
-            import faulthandler
             #faulthandler.enable()
             self.MINICLUSTER = minicluster
             self.logger = logging.getLogger(__name__)
