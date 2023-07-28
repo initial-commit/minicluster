@@ -142,8 +142,13 @@ class Connection(object, metaclass=CachedViaConstructorMeta):
         read_perc = 0
         read_perc_prev = 0
         fp.seek(pos, os.SEEK_SET)
-
-        resp = self.path_stat(vm_path)
+        # TODO: check this, the behavior is strange
+        # copy-files.xsh --from '{DIR_R}' --to t1:/root
+        # resp = self.path_stat(vm_path)
+        # is_overwrite = False
+        # if not resp:
+        #     is_overwrite = True
+        # self.logger.info(f"will overwrite {vm_path=} inside: {is_overwrite}")
         # TODO: create a temporary file, then move
         resp = self._send_recv_rountrip("guest-file-open", path=vm_path, mode='wb')
         h = resp['return']
