@@ -78,6 +78,7 @@ def copy_from_local_dir_to_remote_dir(logger, cwd, copy_from, copy_to, name_from
     # TODO: better error handling
     conn_to.unarchive_in_vm(copy_to)
     os.remove(f)
+    return written
 
 def copy_from_local_file_to_remote_file(logger, cwd, copy_from, copy_to, name_from, name_to, from_remote, to_remote, conn_from, conn_to):
     if copy_to.endswith('/'):
