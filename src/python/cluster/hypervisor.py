@@ -65,7 +65,9 @@ class HypervisorConnection(object):
             "execute": "set_link",
             "arguments": {"name": "mynet0", "up": False}
         }
+        self.logger.info(f"sending set_link: false")
         resp = self.send_recv(payload)
+        self.logger.info(f"received set_link")
         self.logger.info(f"{resp=}")
         assert 'return' in resp
         return True

@@ -30,7 +30,7 @@ def command_instance_shell_simple_xsh(cwd, logger, name, command, interval=0.1, 
 	    logger.error(f"ERR: {line}")
 	for line in st['out-data'].splitlines():
 	    logger.error(f"OUT: {line}")
-    return code
+    return (st['exitcode'] == 0, st)
 
 
 if __name__ == '__main__':

@@ -117,6 +117,11 @@ def _bootstrap():
             self.logger.info(f"signal handlers installed")
         def handler(self, sig, frame):
             self.logger.info(f"received {sig=} at {frame=}")
+            if sig == signal.SIGINT:
+                self.logger.info(f"CTRL+C")
+                # TODO: keep track of how many times we got it at a short interval
+                # if more than 2, and the same frame, print frame and exit
+                sys.exit(0)
 
     ######################################################
     # MINICLUSTER global
@@ -129,9 +134,9 @@ def _bootstrap():
         args,
         pos_args,
         None,
-    w_ctx,
-    w_list,
-    SignalHandler,
+        w_ctx,
+        w_list,
+        SignalHandler,
     )
     return MINICLUSTER
 
