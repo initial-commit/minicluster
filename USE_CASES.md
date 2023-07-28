@@ -122,6 +122,8 @@ These use-cases are about how I use minicluster
   repositories/community, nextcloud
 * my website: getnikola among others
 * the initial-commit website
+* my development machines: build repositories for each, preferably also with
+  testing and of course the ability to roll-back
 
 
 I will consider minicluster to be stable enough for releasing 1.0.0 when my
