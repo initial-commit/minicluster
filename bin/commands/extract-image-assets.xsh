@@ -23,7 +23,7 @@ import sys
 
 def get_random_name(handle):
     r = ''.join((''.join(random.choice(string.ascii_lowercase)) for i in range(8)) )
-    return f"build-tmp-{handle}-{r}"
+    return f"extract-tmp-{handle}-{r}"
 
 if __name__ == '__main__':
     cwd = MINICLUSTER.CWD_START

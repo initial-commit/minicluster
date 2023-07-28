@@ -35,7 +35,7 @@ from cluster.functions import ZstdTarFile, pushd
 
 def get_random_name(handle):
     r = ''.join((''.join(random.choice(string.ascii_lowercase)) for i in range(8)) )
-    return f"build-tmp-{handle}-{r}"
+    return f"merge-tmp-{handle}-{r}"
 
 def collect_list(k, v):
     if not hasattr(collect_list, "lst"):

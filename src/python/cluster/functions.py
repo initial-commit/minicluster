@@ -8,6 +8,7 @@ import sys
 import tarfile
 import pyzstd
 from contextlib import contextmanager
+import inspect
 
 _true_set = {'yes', 'true', 't', 'y', '1'}
 _false_set = {'no', 'false', 'f', 'n', '0'}
@@ -136,6 +137,7 @@ class ZstdTarFile(tarfile.TarFile):
         finally:
             self.zstd_file.close()
 
+
 @contextmanager
 def pushd(new_dir):
     previous_dir = os.getcwd()
@@ -144,3 +146,8 @@ def pushd(new_dir):
         yield
     finally:
         os.chdir(previous_dir)
+
+
+def get_linenumber():
+    cf = inspect.currentframe()
+    return cf.f_back.f_lineno

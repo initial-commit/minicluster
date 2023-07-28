@@ -48,6 +48,7 @@ if __name__ == '__main__':
     import math
     import psutil
     from cluster.functions import str2bool_exc as strtobool
+    from cluster.functions import get_linenumber
     MINICLUSTER.ARGPARSE.add_argument('--handle', required=True)
     MINICLUSTER.ARGPARSE.add_argument('--cache', action="store_true", default=False, help="Use local package cache")
     MINICLUSTER.ARGPARSE.add_argument('--initial_build', nargs='?', type=lambda b:bool(strtobool(b)), const=False, default=True, metavar='true|false')
@@ -156,7 +157,7 @@ if __name__ == '__main__':
             cp -a @(f"{handle}.qcow2") @(f"pristine-{handle}.qcow2")
 
     if do_fix_image:
-        name = get_random_name(handle)
+        name = get_random_name(handle) + str(get_linenumber())
         started = command_boot_image_xsh(cwd, logger, handle, name, 2048, True, False)
         if not started:
             sys.exit(1)
@@ -178,7 +179,7 @@ if __name__ == '__main__':
 
     image_started = False
     if do_test_image:
-        name = get_random_name(handle)
+        name = get_random_name(handle) + str(get_linenumber())
         started = command_boot_image_xsh(cwd, logger, handle, name, vm_ram, True, False)
         if not started:
             sys.exit(1)
@@ -186,7 +187,7 @@ if __name__ == '__main__':
         command_poweroff_image_xsh(cwd, logger, name)
 
     if not image_started and do_build_l2:
-        name = get_random_name(handle)
+        name = get_random_name(handle) + str(get_linenumber())
         started = command_boot_image_xsh(cwd, logger, handle, name, l2_ram, True, False)
         if not started:
             sys.exit(1)
@@ -238,7 +239,7 @@ if __name__ == '__main__':
     # assert that no other files are left in directory except one directory called 'artifacts' where everything is stored
     if extract_nested:
         cwd_inside = '/root/minic'
-        name = get_random_name(handle)
+        name = get_random_name(handle) + str(get_linenumber())
         started = command_boot_image_xsh(cwd, logger, handle, name, l2_ram, True, False)
         if not started:
             sys.exit(1)
@@ -254,7 +255,7 @@ if __name__ == '__main__':
     do_extract = False
     if do_extract:
         cwd_inside = '/root/minic'
-        name = get_random_name(handle)
+        name = get_random_name(handle) + str(get_linenumber())
         started = command_boot_image_xsh(cwd, logger, handle, name, l2_ram, True, False)
         if not started:
             sys.exit(1)
