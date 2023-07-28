@@ -1,3 +1,4 @@
+[description:"create command to extract python packages as wheel from image" end:"1690524189" entry:"1689859527" modified:"1690524192" project:"bootstrap" status:"deleted" uuid:"30bb117c-e7e7-4fa8-aaaa-c6f504776690"]
 [description:"command which shows all files not owned by any package with heuristics to exclude runtime files" end:"1690475575" entry:"1689890146" modified:"1690475575" project:"bootstrap" status:"completed" uuid:"c79ead24-7f28-4ffd-a830-a66533ef841e"]
 [description:"create command to extract arch repository from image" end:"1690383769" entry:"1689859505" modified:"1690383777" project:"bootstrap" status:"deleted" uuid:"366c9851-0c50-4eb2-bc78-10e799b33dad"]
 [description:"adapt code to annotate vmlinuz-linux and initramfs-linux.img with the handle" end:"1690383611" entry:"1689887550" modified:"1690383611" project:"bootstrap" status:"completed" uuid:"d17b0e72-c3be-4527-897e-3a5aee25fad3"]
