@@ -110,7 +110,7 @@ class MediaParameters(Handler):
 	image = self.cmd_args['image']
 	p = [
 	    '-device', 'virtio-blk-pci,drive=disk1,bootindex=1,iommu_platform=true,disable-legacy=on',
-	    '-drive', f'media=disk,if=none,id=disk1,file={image}.qcow2',
+	    '-drive', f'media=disk,if=none,id=disk1,file={image}.qcow2', #cache=directsync, none, writethrough, unsafe
 	]
 	return self.tail_call_next(p)
 

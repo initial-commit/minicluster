@@ -696,3 +696,6 @@ new [annotation_1690548490:"https:\/\/www.firsttimersonly.com\/" description:"ma
 time 1690553519
 new [description:"doing a instance-shell command while another cmd sleep x is running as part of a basic test-suite" entry:"1690553519" modified:"1690553519" project:"bootstrap" status:"pending" uuid:"23a7b142-b69b-42e2-a670-09dded99c0d2"]
 ---
+time 1690562860
+new [description:"resolve hack in build-base-image by using a character device for logs inside the vm" entry:"1690562860" modified:"1690562860" project:"bootstrap" status:"pending" uuid:"abc48943-695e-457e-84b1-2163b862c184"]
+---

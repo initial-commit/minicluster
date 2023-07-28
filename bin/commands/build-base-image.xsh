@@ -276,21 +276,13 @@ if __name__ == '__main__':
         #    f"date >> build-nested-{handle}.log; sync;"
         #    '\''
         #    ))
-        #(success, st) = command_instance_shell_simple_xsh(cwd, logger, name,(
-        #    f"bash -c 'cd {cwd_inside}; rm -f build-nested-{handle}.log;"
-        #    ' i=0; while [ $i -ne 5 ]; do date 2>&1 | tee '
-        #    f"build-nested-{handle}.log; sync;"
-        #    ' sleep 5; i=$(($i+1)); done;\''
-        #    ))
-        (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, f"bash -c 'cd {cwd_inside}; rm -f build-nested-{handle}.log; /root/minicluster/bin/commands/build-base-image.xsh --cache --handle nested-{handle} --build_nested false --extract_nested false 2>&1 | tee >> build-nested-{handle}.log'")
-        # XXX start hack
-        if ro_mnt:
-            # TODO: since we know the path of the file, we could kill it ourselves
-            # however, this is not a guarantee that any other files are not open from outside
-            logger.info("please kill now your tail command")
-            time.sleep(30)
-            command_umount_image_xsh(cwd, logger, f"{handle}-ro-build")
-        # XXX end hack
+        (success, st) = command_instance_shell_simple_xsh(cwd, logger, name,(
+            f"bash -c 'cd {cwd_inside}; rm -f build-nested-{handle}.log;"
+            ' i=0; while [ $i -ne 5 ]; do date 2>&1 | tee -a -p '
+            f"build-nested-{handle}.log; sync build-nested-{handle}.log;"
+            ' sleep 5; i=$(($i+1)); done;\''
+            ))
+        #(success, st) = command_instance_shell_simple_xsh(cwd, logger, name, f"bash -c 'cd {cwd_inside}; rm -f build-nested-{handle}.log; /root/minicluster/bin/commands/build-base-image.xsh --cache --handle nested-{handle} --build_nested false --extract_nested false 2>&1 | tee >> build-nested-{handle}.log'")
         if not success:
             logger.error(f"failed to build nested L2 image nested-{handle} in {name}:{cwd_inside}/")
             command_poweroff_image_xsh(cwd, logger, name)
@@ -299,6 +291,14 @@ if __name__ == '__main__':
         # turn off the L1 image
         if started:
             command_poweroff_image_xsh(cwd, logger, name)
+        # XXX start hack
+        if ro_mnt:
+            time.sleep(10)
+            # TODO: since we know the path of the file, we could kill it ourselves
+            # however, this is not a guarantee that any other files are not open from outside
+            logger.info("please kill now your tail command")
+            command_umount_image_xsh(cwd, logger, f"{handle}-ro-build")
+        # XXX end hack
         return True
 
     if do_build_nested:
