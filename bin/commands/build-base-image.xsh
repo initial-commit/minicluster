@@ -52,12 +52,11 @@ if __name__ == '__main__':
     MINICLUSTER.ARGPARSE.add_argument('--handle', required=True)
     MINICLUSTER.ARGPARSE.add_argument('--cache', action="store_true", default=False, help="Use local package cache")
     MINICLUSTER.ARGPARSE.add_argument('--initial_build', nargs='?', type=lambda b:bool(strtobool(b)), const=False, default=True, metavar='true|false')
-    MINICLUSTER.ARGPARSE.add_argument('--test_image', nargs='?', type=lambda b:bool(strtobool(b)), const=False, default=True, metavar='true|false')
     MINICLUSTER.ARGPARSE.add_argument('--build_nested', nargs='?', type=lambda b:bool(strtobool(b)), const=False, default=True, metavar='true|false')
     MINICLUSTER.ARGPARSE.add_argument('--extract_nested', nargs='?', type=lambda b:bool(strtobool(b)), const=False, default=True, metavar='true|false')
     # TODO: when exiting cleanly, cleanup
     def_ram = 2**int(math.log2(psutil.virtual_memory().available // 2**20 * 2/3))
-    MINICLUSTER.ARGPARSE.add_argument('--ram', default=def_ram)
+    MINICLUSTER.ARGPARSE.add_argument('--ram', default=def_ram, type=int)
     MINICLUSTER = MINICLUSTER.bootstrap_finished(MINICLUSTER)
 
 import random
@@ -128,55 +127,54 @@ def get_random_name(handle):
     r = ''.join((''.join(random.choice(string.ascii_lowercase)) for i in range(8)) )
     return f"build-tmp-{handle}-{r}"
 
-def proc_initial_build(cwd, logger, handle, diskspec):
-    command_make_empty_image_xsh(cwd, logger, handle, d)
-    command_mount_image_xsh(cwd, logger, handle)
-    success = command_prepare_chroot_xsh(cwd, logger, handle, cache)
-    if not success:
-        logger.error(f"failed to prepare chroot for {handle=}")
-        return None
-    # TODO: make a backup
-    #cp -a @(f"{handle}.qcow2") @(f"pristine-{handle}.qcow2")
+def proc_initial_build(cwd, logger, handle, diskspec, cache):
+    # TODO: re-activate this snippet
+    if cache:
+        command_make_empty_image_xsh(cwd, logger, handle, d)
+        command_mount_image_xsh(cwd, logger, handle)
+        success = command_prepare_chroot_xsh(cwd, logger, handle, cache)
+        if not success:
+            logger.error(f"failed to prepare chroot for {handle=}")
+            return None
+        # TODO: make a backup
+        #cp -a @(f"{handle}.qcow2") @(f"pristine-{handle}.qcow2")
     name = get_random_name(handle) + str(get_linenumber())
     started = command_boot_image_xsh(cwd, logger, handle, name, 2048, True, False)
     if not started:
         logger.error("failed to boot initial image")
         return None
+    # TODO: the "commands" below is "fixing image", the question is if this is still necessary
     commands = [
         "systemd-tmpfiles --create --clean --remove --boot",
-    # echo -e "shopt -s extglob\nchown -R root:root /!(sys|proc|run)" | bash
         #TODO: this could use the input-data of the qga protocol
+        #TODO: any other cleanups we could do from the clean-image command?
         'echo -e "shopt -s extglob\nchown -R root:root /!(sys|proc|run)" | bash',
-        'systemctl poweroff',
     ]
-    interval = 0.1
     prev_raise = $RAISE_SUBPROC_ERROR
+    $RAISE_SUBPROC_ERROR = False
     for i, command in enumerate(commands):
         logger.info(f"---------------- {command=}")
-        if i == len(commands)-1:
-            $RAISE_SUBPROC_ERROR = False
-            interval = 0.005
-        (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, command, interval=interval)
+        (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, command)
         $RAISE_SUBPROC_ERROR = prev_raise
         if not success:
             if started:
                 command_poweroff_image_xsh(cwd, logger, name)
                 started = False
+            logger.error(f"failed command: {command=}")
             return None
+    $RAISE_SUBPROC_ERROR = prev_raise
     success = command_test_vm_xsh(cwd, logger, name)
     if not success:
         return None
     if started:
         command_poweroff_image_xsh(cwd, logger, name)
+    # TODO: here we could make a backup of the image pristine-{handle}.qcow2
     return True
 
 
 if __name__ == '__main__':
     do_initial_build = MINICLUSTER.ARGS.initial_build
-    # fixing image is not necessary with the latest changes done via guestfish in prepare-chroot
-    do_fix_image = False
-    do_test_image = MINICLUSTER.ARGS.test_image
-    do_build_l2 = MINICLUSTER.ARGS.build_nested
+    do_build_nested = MINICLUSTER.ARGS.build_nested
     extract_nested = MINICLUSTER.ARGS.extract_nested
     vm_ram = MINICLUSTER.ARGS.ram
     l2_ram = int(vm_ram / 2)
@@ -196,52 +194,149 @@ if __name__ == '__main__':
         ],
     }
     $RAISE_SUBPROC_ERROR = True
+    logger.info(f"starting with RAM L1: {vm_ram} L2: {l2_ram}")
 
     if do_initial_build:
-        success = proc_initial_build(cwd, logger, handle, d)
-        if success:
-            logger.info("SUCCESS!!!")
+        success = proc_initial_build(cwd, logger, handle, d, cache)
+        if not success:
+            logger.error(f"initial build of L1 image failed: {handle=}")
+            sys.exit(1)
+
+    def proc_build_nested(cwd, logger, handle, l2_ram):
+        # TODO: poweroff would benefit from a context
+        name = get_random_name(handle) + str(get_linenumber())
+        name = "t1"
+        # boot image
+        started = command_boot_image_xsh(cwd, logger, handle, name, l2_ram, True, False)
+        if not started:
+            logger.error(f"failed to start {handle=} with ram {l2_ram=} and {name=}")
+            return False
+        # install python
+        (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, "bash -c \"pacman -Qi python >/dev/null || pacman -S --noconfirm --overwrite '*' python\"")
+        if not success:
+            logger.error(f"failed installing python for building nested L2 image {handle=} {name=}")
+            command_poweroff_image_xsh(cwd, logger, name)
+            started = False
+            return False
+        # copy code into vm
+        written = command_copy_files_xsh(cwd, logger, '{DIR_R}', f'{name}:/root', additional_env={'name': name})
+        if not written:
+            logger.error(f"failed to copy minicluster into L1, vm {name=}")
+            command_poweroff_image_xsh(cwd, logger, name)
+            started = False
+            return False
+        # make the working directory in which we'll be building L2
+        cwd_inside = '/root/minic'
+        (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, f"mkdir -p {cwd_inside}")
+        if not success:
+            logger.error(f"failed to make temporary build directory")
+            command_poweroff_image_xsh(cwd, logger, name)
+            started = False
+            return False
+        # bootstrap L1 as a minicluster-building capable VM
+        (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, "/root/minicluster/bin/commands/bootstrap-host.sh")
+        if not success:
+            logger.error(f"failed to bootstrap L1 host into a minicluster-capable vm: {name=} {handle=}")
+            command_poweroff_image_xsh(cwd, logger, name)
+            started = False
+            return False
+        # copy files from L0 into L1 instead of downloading them again
+        copy_cwd = [
+            'archlinux-bootstrap-x86_64.tar.gz',
+            'archlinux-bootstrap-x86_64.tar.gz.sig',
+            'release-key.pgp',
+        ]
+        for f in copy_cwd:
+            written = command_copy_files_xsh(cwd, logger, '{CWD_START}/{f}', '{name}:{cwd_inside}/', additional_env={'f': f, 'name': name, 'cwd_inside': cwd_inside})
+            if not written:
+                logger.error(f"failed to copy bootstrapping file {f=} into {name=} of disk {handle=}")
+                command_poweroff_image_xsh(cwd, logger, name)
+                started = False
+                return False
+        # build L2 inside L1
+        success = command_network_cmd_xsh(cwd, logger, name, False)
+        if not success:
+            logger.error("could not turn off network")
+            command_poweroff_image_xsh(cwd, logger, name)
+            started = False
+            return False
+        # XXX start hack
+        # TODO: do this hack only if :DISPLAY is defined
+        ro_mnt = command_mount_image_xsh(cwd, logger, handle, "ro-build")
+        if not ro_mnt:
+            logger.error("could not mount read-only disk for {handle=}")
+            logger.error("tailing log for tested build not available")
+        else:
+            logger.info(f"to see nested build log, tail: {ro_mnt}{cwd_inside}/build-nested-{handle}.log")
+        # XXX end hack
+        ## build-base-image.xsh --handle nested-d1 --cache --initial_build true --build_nested true --extract_nested false --ram 2048
+        #time.sleep(5)
+        #(success, st) = command_instance_shell_simple_xsh(cwd, logger, name,(
+        #    f"bash -c 'cd {cwd_inside}; rm -f build-nested-{handle}.log;"
+        #    f"date >> build-nested-{handle}.log; sync;"
+        #    '\''
+        #    ))
+        #(success, st) = command_instance_shell_simple_xsh(cwd, logger, name,(
+        #    f"bash -c 'cd {cwd_inside}; rm -f build-nested-{handle}.log;"
+        #    ' i=0; while [ $i -ne 5 ]; do date 2>&1 | tee '
+        #    f"build-nested-{handle}.log; sync;"
+        #    ' sleep 5; i=$(($i+1)); done;\''
+        #    ))
+        (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, f"bash -c 'cd {cwd_inside}; rm -f build-nested-{handle}.log; /root/minicluster/bin/commands/build-base-image.xsh --cache --handle nested-{handle} --build_nested false --extract_nested false 2>&1 | tee >> build-nested-{handle}.log'")
+        # XXX start hack
+        if ro_mnt:
+            # TODO: since we know the path of the file, we could kill it ourselves
+            # however, this is not a guarantee that any other files are not open from outside
+            logger.info("please kill now your tail command")
+            time.sleep(30)
+            command_umount_image_xsh(cwd, logger, f"{handle}-ro-build")
+        # XXX end hack
+        if not success:
+            logger.error(f"failed to build nested L2 image nested-{handle} in {name}:{cwd_inside}/")
+            command_poweroff_image_xsh(cwd, logger, name)
+            started = False
+            return False
+        # turn off the L1 image
+        if started:
+            command_poweroff_image_xsh(cwd, logger, name)
+        return True
+
+    if do_build_nested:
+        success = proc_build_nested(cwd, logger, handle, l2_ram)
+        if not success:
+            logger.error(f"building of L2 image inside L1 failed: {handle=}")
+            sys.exit(2)
+
+    if cache:
+        logger.info(f"SUCCESS inside!!!!")
+        sys.exit(0)
     raise Exception(f"TODO: migrate and remove below")
-    #if do_initial_build:
-    #    command_make_empty_image_xsh(cwd, logger, handle, d)
-    #    command_mount_image_xsh(cwd, logger, handle)
-    #    success = command_prepare_chroot_xsh(cwd, logger, handle, cache)
-    #    if not success:
-    #        sys.exit(1)
-    #    if do_build_l2:
-    #        cp -a @(f"{handle}.qcow2") @(f"pristine-{handle}.qcow2")
 
-    #if do_fix_image:
-    #    name = get_random_name(handle) + str(get_linenumber())
-    #    started = command_boot_image_xsh(cwd, logger, handle, name, 2048, True, False)
-    #    if not started:
-    #        sys.exit(1)
-    #    commands = [
-    #        "systemd-tmpfiles --create --clean --remove --boot",
-    #    # echo -e "shopt -s extglob\nchown -R root:root /!(sys|proc|run)" | bash
-    #        #TODO: this could use the input-data of the qga protocol
-    #        'echo -e "shopt -s extglob\nchown -R root:root /!(sys|proc|run)" | bash',
-    #        'systemctl poweroff',
-    #    ]
-    #    interval = 0.1
-    #    for i, command in enumerate(commands):
-    #        logger.info(f"---------------- {command=}")
-    #        if i == len(commands)-1:
-    #            $RAISE_SUBPROC_ERROR = False
-    #            interval = 0.005
-    #        (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, command, interval=interval)
-    #        if not success:
-    #            sys.exit(st['exitcode'])
-    #        # TODO: error handling
 
-    #image_started = False
-    #if do_test_image:
-    #    name = get_random_name(handle) + str(get_linenumber())
-    #    started = command_boot_image_xsh(cwd, logger, handle, name, vm_ram, True, False)
-    #    if not started:
-    #        sys.exit(1)
-    #    command_test_vm_xsh(cwd, logger, name)
-    #    command_poweroff_image_xsh(cwd, logger, name)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     if not image_started and do_build_l2:
         name = get_random_name(handle) + str(get_linenumber())

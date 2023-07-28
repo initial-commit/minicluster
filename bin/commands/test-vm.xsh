@@ -120,6 +120,7 @@ def command_test_vm_xsh(cwd, logger, name):
     }
     counts = { k: len(v) for k,v in tagged.items() }
     logger.info(f"{counts=}")
+    # TODO: better heuristics to wait for the system to settle
     assert len(startup_finished) == 1, "startup finished"
     assert len(reached_targets) == 12, "reached targets"
     assert len(finished) >= 18, "finished targets"

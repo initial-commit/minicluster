@@ -17,6 +17,7 @@ def command_instance_shell_simple_xsh(cwd, logger, name, command, interval=0.1, 
     s = f"{cwd}/qga-{name}.sock"
     conn = cluster.qmp.Connection(s, logger)
     env = ["{k}={v}" for k,v in env.items()]
+    # TODO: this blocks for long-running processes, which is not cool
     st = conn.guest_exec_wait(command, interval=interval, env=env)
     code = st['exitcode']
     if code == 0 and show_out:
@@ -41,6 +42,6 @@ if __name__ == '__main__':
     command = MINICLUSTER.ARGS.command
     name = MINICLUSTER.ARGS.name
     $RAISE_SUBPROC_ERROR = True
-    (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, command)
+    (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, command, show_out=True)
     if not success:
 	sys.exit(st['exitcode'])

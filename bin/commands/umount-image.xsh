@@ -22,6 +22,7 @@ def command_umount_image_xsh(cwd, logger, handle):
 	if pid is None:
 		logger.error(f"could not find pidfile for {mountpoint=}")
 		return False
+	# TODO: cannot unmount while other files are opened from outside, e.g. via tail -f
 	guestunmount @(mountpoint)
 
 	while pid and psutil.pid_exists(pid):

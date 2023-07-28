@@ -112,7 +112,7 @@ def command_prepare_chroot_xsh(cwd, logger, handle, cache):
     d=p"$XONSH_SOURCE".resolve().parent; source f'{d}/umount-image.xsh'
     command_umount_image_xsh(cwd, logger, handle)
 
-    guestfish_pid=$(guestfish --listen --network -a @(disk_file) -x)
+    guestfish_pid=$(guestfish --listen --network -a @(disk_file))
     guestfish_pid=re.findall(r'[0-9]+', guestfish_pid)
     guestfish_pid=int(guestfish_pid[0])
     logger.info(f"{guestfish_pid=}")
@@ -186,7 +186,7 @@ def command_prepare_chroot_xsh(cwd, logger, handle, cache):
         if not c:
             continue
         logger.info(f"{c=}")
-        p=![guestfish -x @(f'--remote={guestfish_pid}') -- @(c)]
+        p=![guestfish @(f'--remote={guestfish_pid}') -- @(c)]
         code = p.rtn
         logger.info(f"{code=} {c=}")
         if code != 0:

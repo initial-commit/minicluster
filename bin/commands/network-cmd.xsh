@@ -19,6 +19,7 @@ def command_network_cmd_xsh(cwd, logger, name, state):
 	conn.network_on()
     else:
 	conn.network_off()
+    return True
 
 
 if __name__ == '__main__':

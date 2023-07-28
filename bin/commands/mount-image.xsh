@@ -25,6 +25,10 @@ def command_mount_image_xsh(cwd, logger, handle, readonly=None):
     mount_args = [
         '-o', 'allow_other',
         '-o', f'uid={uid}', '-o', f'gid={gid}',
+        #'-o', 'sync_read',
+        #'-o', 'direct_io',
+        #'-o', 'kernel_cache',
+        #'-o', 'max_write=10',
         '--pid-file', pidfile,
         #'--no-fork', '--verbose', '--trace',
         '-a', disk_file,
