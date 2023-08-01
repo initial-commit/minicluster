@@ -27,10 +27,16 @@ class Handler(ABC):
     prev = None
     cmdline = []
     logger = None
+    prepare_commands = []
+    post_commands = []
+    chained_commands = []
     def __init__(self, logger, cmd_args, next=None):
         self.logger = logger.getChild(self.__class__.__name__)
 	self.cmd_args = cmd_args
 	self.next = next
+	if self.next:
+	    self.chained_commands = self.next.chained_commands
+	self.chained_commands.append(self)
 	if next:
 	    self.prev = self
 
@@ -39,7 +45,9 @@ class Handler(ABC):
 	    return self.prev.first()
 	return self
 
-    def tail_call_next(self, p):
+    def tail_call_next(self, p, pre_commands=[], post_commands=[]):
+	self.prepare_commands = pre_commands
+	self.post_commands = post_commands
 	if self.next:
 	    p.extend(self.next.handle())
 	return p
@@ -51,6 +59,21 @@ class Handler(ABC):
 	otherwise, tail-call them (preferred)
 	"""
 	pass
+
+    def get_pre_commands(self):
+	cmds = []
+	for cmd in self.chained_commands:
+	    if cmd.prepare_commands:
+		cmds.extend(cmd.prepare_commands)
+	return cmds
+
+    def get_post_commands(self):
+	cmds = []
+	for cmd in self.chained_commands:
+	    if cmd.post_commands:
+		cmds.extend(cmd.post_commands)
+	cmds.reverse()
+	return cmds
 
 class GenericParameters(Handler):
     def handle(self):
@@ -95,14 +118,39 @@ class UiParameters(Handler):
 	    '-device', 'virtserialport,chardev=qga0,name=org.qemu.guest_agent.0',
 	    '-pidfile', f'{cwd}/qemu-{name}.pid',
 	    #'-monitor', f'unix:{cwd}/qemu-monitor-{name}.sock,server,nowait',
-	    '-chardev', f'socket,path={cwd}/monitor-{name}.sock,server=on,wait=off,id=mon0',
-	    '-mon', 'chardev=mon0,mode=control,pretty=on',
+	    #'-chardev', f'socket,path={cwd}/monitor-{name}.sock,server=on,wait=off,id=mon0', '-mon', 'chardev=mon0,mode=control,pretty=on',
+	    '-chardev', f'socket,path={cwd}/monitor-{name}.sock,server=on,wait=off,id=mon0', '-mon', 'chardev=mon0',
 	    '--name', name,
+	    #'-chardev', 'pty,id=p1',
+	    #'-serial', 'pty',
+	    #'-chardev', f'socket,id=s1,server=off,path={cwd}/pci-serial.sock', '-device', 'pci-serial-2x,chardev1=s1',
+	    #'-chardev', f'file,id=s1,path={cwd}/pci-serial.sock', '-device', 'pci-serial-2x,chardev1=s1', # lspci -d 1b36:0003 -mm -nn -D
+		# see IRQ and port from device: setserial -g ttyS* | grep 16550A | grep -w 'IRQ: 20' | grep 'Port
+		# see IRQ and port for pci: lspci -d 1b36:* -v
+	    #'-chardev', f'file,id=s1,path={cwd}/pci-serial.sock', '-device', 'pci-serial-4x,chardev1=s1', # lspci -d 1b36:0003 -mm -nn -D
+	    '-chardev', f'pipe,id=serial1,path={cwd}/pci-serial1.pipe',
+	    '-chardev', f'pipe,id=serial2,path={cwd}/pci-serial2.pipe',
+	    '-chardev', f'pipe,id=serial3,path={cwd}/pci-serial3.pipe',
+	    '-chardev', f'pipe,id=serial4,path={cwd}/pci-serial4.pipe',
+	    '-device', 'pci-serial-4x,chardev1=serial1,chardev2=serial2,chardev3=serial3,chardev4=serial4', # lspci -d 1b36:0003 -mm -nn -D
+	    # from pci: lspci -d 1b36:* -v
+	    # TODO: vhost-user-vsock-pci
 	    #-chardev socket,id=mon1,host=localhost,port=4444,server=on,wait=off
 	    #-mon chardev=mon1,mode=control,pretty=on
 	]
+	prepare_commands = []
+	rm_commands = []
+	for i in range(1,5):
+	    prepare_commands.append(("mkfifo", f"{cwd}/pci-serial{i}.pipe.in"))
+	    prepare_commands.append(("mkfifo", f"{cwd}/pci-serial{i}.pipe.out"))
+	    rm_commands.append(("rm", f"{cwd}/pci-serial{i}.pipe.in"))
+	    rm_commands.append(("rm", f"{cwd}/pci-serial{i}.pipe.out"))
+	# scenario 1 at runtime
+	# mkfifo pci-serial.out
+	# mkfifo pci-serial.in
+	# chardev-add pipe,id=s1,path=pci-serial
 	p.extend(interactive_p)
-	return self.tail_call_next(p)
+	return self.tail_call_next(p, prepare_commands, rm_commands)
 
 class MediaParameters(Handler):
     # TODO: no floppy, no cd
@@ -142,16 +190,31 @@ def command_boot_image_xsh(cwd, logger, image, name, ram, network, interactive):
 
     params = kernel.handle()
     append = []
+    pre_commands = generic.get_pre_commands()
     params.extend(append)
     logger.info(f"{params=}")
     prev_err = $RAISE_SUBPROC_ERROR
     $RAISE_SUBPROC_ERROR = False
+    for c in pre_commands:
+	logger.info(f"pre command: {c}")
+	p=![@(c)]
+	if p.rtn != 0:
+	    logger.error(f"command failed with exit code {p.rtn}: {c}")
+	    return False
     p=![qemu-system-x86_64 @(params)]
     $RAISE_SUBPROC_ERROR = prev_err
     exit_code = p.rtn
     if exit_code != 0:
 	logger.error(f"failed to start qemu with {exit_code=}")
 	return False
+    if interactive:
+	post_commands = generic.get_post_commands()
+	for c in post_commands:
+	    logger.info(f"post command: {c}")
+	    p=![@(c)]
+	    if p.rtn != 0:
+		logger.error(f"command failed with exit code {p.rtn}: {c}")
+		return False
     if not interactive:
 	s = f"{cwd}/qga-{name}.sock"
 	logger.info(f"establishing connection")
