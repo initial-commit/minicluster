@@ -65,6 +65,7 @@ class Handler(ABC):
 	for cmd in self.chained_commands:
 	    if cmd.prepare_commands:
 		cmds.extend(cmd.prepare_commands)
+	cmds = sorted(list(set(cmds)))
 	return cmds
 
     def get_post_commands(self):
@@ -118,8 +119,8 @@ class UiParameters(Handler):
 	    '-device', 'virtserialport,chardev=qga0,name=org.qemu.guest_agent.0',
 	    '-pidfile', f'{cwd}/qemu-{name}.pid',
 	    #'-monitor', f'unix:{cwd}/qemu-monitor-{name}.sock,server,nowait',
-	    #'-chardev', f'socket,path={cwd}/monitor-{name}.sock,server=on,wait=off,id=mon0', '-mon', 'chardev=mon0,mode=control,pretty=on',
-	    '-chardev', f'socket,path={cwd}/monitor-{name}.sock,server=on,wait=off,id=mon0', '-mon', 'chardev=mon0',
+	    '-chardev', f'socket,path={cwd}/monitor-{name}.sock,server=on,wait=off,id=mon0', '-mon', 'chardev=mon0,mode=control,pretty=on',
+	    #'-chardev', f'socket,path={cwd}/monitor-{name}.sock,server=on,wait=off,id=mon0', '-mon', 'chardev=mon0',
 	    '--name', name,
 	    #'-chardev', 'pty,id=p1',
 	    #'-serial', 'pty',
@@ -141,14 +142,18 @@ class UiParameters(Handler):
 	prepare_commands = []
 	rm_commands = []
 	for i in range(1,5):
-	    prepare_commands.append(("mkfifo", f"{cwd}/pci-serial{i}.pipe.in"))
-	    prepare_commands.append(("mkfifo", f"{cwd}/pci-serial{i}.pipe.out"))
-	    rm_commands.append(("rm", f"{cwd}/pci-serial{i}.pipe.in"))
-	    rm_commands.append(("rm", f"{cwd}/pci-serial{i}.pipe.out"))
+	    if not pf"{cwd}/pci-serial{i}.pipe.in".exists():
+		prepare_commands.append(("mkfifo", f"{cwd}/pci-serial{i}.pipe.in"))
+		rm_commands.append(("rm", f"{cwd}/pci-serial{i}.pipe.in"))
+	    if not pf"{cwd}/pci-serial{i}.pipe.out".exists():
+		prepare_commands.append(("mkfifo", f"{cwd}/pci-serial{i}.pipe.out"))
+		rm_commands.append(("rm", f"{cwd}/pci-serial{i}.pipe.out"))
 	# scenario 1 at runtime
 	# mkfifo pci-serial.out
 	# mkfifo pci-serial.in
 	# chardev-add pipe,id=s1,path=pci-serial
+	prepare_commands = list(set(prepare_commands))
+	self.logger.info(f"{prepare_commands=}")
 	p.extend(interactive_p)
 	return self.tail_call_next(p, prepare_commands, rm_commands)
 

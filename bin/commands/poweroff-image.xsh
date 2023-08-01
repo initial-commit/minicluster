@@ -23,6 +23,11 @@ def command_poweroff_image_xsh(cwd, logger, name, interval=0.005):
 	if printed % 20 == 0:
 	    logger.info(f"waiting for machine to power off gracefully")
 	printed += 1
+    # TODO: the commands to be executed should be cached in a state file and retrieved from there
+    paths = list(pf"{cwd}/".glob("pci-serial*.pipe.in"))
+    paths.extend(list(pf"{cwd}/".glob("pci-serial*.pipe.out")))
+    for p in paths:
+	p.unlink()
     return True
 
 if __name__ == '__main__':
@@ -30,4 +35,5 @@ if __name__ == '__main__':
 
     logger = logging.getLogger(__name__)
     name = MINICLUSTER.ARGS.name
+    $RAISE_SUBPROC_ERROR = True
     command_poweroff_image_xsh(cwd, logger, name)

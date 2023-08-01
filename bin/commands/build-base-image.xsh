@@ -254,20 +254,24 @@ if __name__ == '__main__':
                 started = False
                 return False
         # build L2 inside L1
+        logger.info("!!!TURN OFF NETWORK!!!")
         success = command_network_cmd_xsh(cwd, logger, name, False)
+        logger.info("!!!NETWORK TURNED OFF!!!")
         if not success:
             logger.error("could not turn off network")
             command_poweroff_image_xsh(cwd, logger, name)
             started = False
             return False
         # XXX start hack
+        logger.info("!!!START HACK!!!")
         # TODO: do this hack only if :DISPLAY is defined
         ro_mnt = command_mount_image_xsh(cwd, logger, handle, "ro-build")
         if not ro_mnt:
             logger.error("could not mount read-only disk for {handle=}")
             logger.error("tailing log for tested build not available")
         else:
-            logger.info(f"to see nested build log, tail: {ro_mnt}{cwd_inside}/build-nested-{handle}.log")
+            #logger.info(f"to see nested build log, tail: {ro_mnt}{cwd_inside}/build-nested-{handle}.log")
+            logger.info(f"to see nested build log, tail: {cwd}/pci-serial1.pipe.out")
         # XXX end hack
         ## build-base-image.xsh --handle nested-d1 --cache --initial_build true --build_nested true --extract_nested false --ram 2048
         #time.sleep(5)
@@ -276,11 +280,17 @@ if __name__ == '__main__':
         #    f"date >> build-nested-{handle}.log; sync;"
         #    '\''
         #    ))
+        #(success, st) = command_instance_shell_simple_xsh(cwd, logger, name,(
+        #    f"bash -c 'cd {cwd_inside}; rm -f build-nested-{handle}.log;"
+        #    ' i=0; while [ $i -ne 5 ]; do date 2>&1 | tee -a -p '
+        #    f"build-nested-{handle}.log; sync build-nested-{handle}.log;"
+        #    ' sleep 5; i=$(($i+1)); done;\''
+        #    ))
         (success, st) = command_instance_shell_simple_xsh(cwd, logger, name,(
-            f"bash -c 'cd {cwd_inside}; rm -f build-nested-{handle}.log;"
-            ' i=0; while [ $i -ne 5 ]; do date 2>&1 | tee -a -p '
-            f"build-nested-{handle}.log; sync build-nested-{handle}.log;"
-            ' sleep 5; i=$(($i+1)); done;\''
+            f"bash -c 'cd {cwd_inside}; "
+            ' i=0; while [ $i -ne 100 ]; do date 2>&1 | tee -a -p '
+            f"/dev/ttyS4; "
+            ' sleep 1; i=$(($i+1)); done;\''
             ))
         #(success, st) = command_instance_shell_simple_xsh(cwd, logger, name, f"bash -c 'cd {cwd_inside}; rm -f build-nested-{handle}.log; /root/minicluster/bin/commands/build-base-image.xsh --cache --handle nested-{handle} --build_nested false --extract_nested false 2>&1 | tee >> build-nested-{handle}.log'")
         if not success:
