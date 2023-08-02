@@ -5,8 +5,6 @@ import shlex
 import base64
 import time
 import pathlib
-import fcntl
-import traceback
 import select
 
 

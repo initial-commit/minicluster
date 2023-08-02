@@ -49,13 +49,14 @@ if __name__ == '__main__':
     import psutil
     from cluster.functions import str2bool_exc as strtobool
     from cluster.functions import get_linenumber
+    from cluster.functions import PipeTailer
     MINICLUSTER.ARGPARSE.add_argument('--handle', required=True)
     MINICLUSTER.ARGPARSE.add_argument('--cache', action="store_true", default=False, help="Use local package cache")
     MINICLUSTER.ARGPARSE.add_argument('--initial_build', nargs='?', type=lambda b:bool(strtobool(b)), const=False, default=True, metavar='true|false')
     MINICLUSTER.ARGPARSE.add_argument('--build_nested', nargs='?', type=lambda b:bool(strtobool(b)), const=False, default=True, metavar='true|false')
     MINICLUSTER.ARGPARSE.add_argument('--extract_nested', nargs='?', type=lambda b:bool(strtobool(b)), const=False, default=True, metavar='true|false')
     # TODO: when exiting cleanly, cleanup
-    def_ram = 2**int(math.log2(psutil.virtual_memory().available // 2**20 * 2/3))
+    def_ram = 2**int(math.log2(psutil.virtual_memory().available // 2**20 * 3/3))
     MINICLUSTER.ARGPARSE.add_argument('--ram', default=def_ram, type=int)
     MINICLUSTER = MINICLUSTER.bootstrap_finished(MINICLUSTER)
 
@@ -254,45 +255,17 @@ if __name__ == '__main__':
                 started = False
                 return False
         # build L2 inside L1
-        logger.info("!!!TURN OFF NETWORK!!!")
         success = command_network_cmd_xsh(cwd, logger, name, False)
-        logger.info("!!!NETWORK TURNED OFF!!!")
         if not success:
             logger.error("could not turn off network")
             command_poweroff_image_xsh(cwd, logger, name)
             started = False
             return False
-        # XXX start hack
-        logger.info("!!!START HACK!!!")
-        # TODO: do this hack only if :DISPLAY is defined
-        ro_mnt = command_mount_image_xsh(cwd, logger, handle, "ro-build")
-        if not ro_mnt:
-            logger.error("could not mount read-only disk for {handle=}")
-            logger.error("tailing log for tested build not available")
-        else:
-            #logger.info(f"to see nested build log, tail: {ro_mnt}{cwd_inside}/build-nested-{handle}.log")
-            logger.info(f"to see nested build log, tail: {cwd}/pci-serial1.pipe.out")
-        # XXX end hack
-        ## build-base-image.xsh --handle nested-d1 --cache --initial_build true --build_nested true --extract_nested false --ram 2048
-        #time.sleep(5)
-        #(success, st) = command_instance_shell_simple_xsh(cwd, logger, name,(
-        #    f"bash -c 'cd {cwd_inside}; rm -f build-nested-{handle}.log;"
-        #    f"date >> build-nested-{handle}.log; sync;"
-        #    '\''
-        #    ))
-        #(success, st) = command_instance_shell_simple_xsh(cwd, logger, name,(
-        #    f"bash -c 'cd {cwd_inside}; rm -f build-nested-{handle}.log;"
-        #    ' i=0; while [ $i -ne 5 ]; do date 2>&1 | tee -a -p '
-        #    f"build-nested-{handle}.log; sync build-nested-{handle}.log;"
-        #    ' sleep 5; i=$(($i+1)); done;\''
-        #    ))
-        (success, st) = command_instance_shell_simple_xsh(cwd, logger, name,(
-            f"bash -c 'cd {cwd_inside}; "
-            ' i=0; while [ $i -ne 100 ]; do date 2>&1 | tee -a -p '
-            f"/dev/ttyS4; "
-            ' sleep 1; i=$(($i+1)); done;\''
-            ))
-        #(success, st) = command_instance_shell_simple_xsh(cwd, logger, name, f"bash -c 'cd {cwd_inside}; rm -f build-nested-{handle}.log; /root/minicluster/bin/commands/build-base-image.xsh --cache --handle nested-{handle} --build_nested false --extract_nested false 2>&1 | tee >> build-nested-{handle}.log'")
+        # TODO: reliably map ttyS4 and pci-serial1.pipe.out to each other
+        tailer = PipeTailer(f'{cwd}/pci-serial1.pipe.out', logger)
+        tailer.start()
+        # TODO: instead of using tee, set up logging to ttyS4 in bootstrap
+        (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, f"bash -c 'cd {cwd_inside}; /root/minicluster/bin/commands/build-base-image.xsh --cache --handle nested-{handle} --build_nested false --extract_nested false 2>&1 | tee -a -p /dev/ttyS4'")
         if not success:
             logger.error(f"failed to build nested L2 image nested-{handle} in {name}:{cwd_inside}/")
             command_poweroff_image_xsh(cwd, logger, name)
@@ -301,14 +274,8 @@ if __name__ == '__main__':
         # turn off the L1 image
         if started:
             command_poweroff_image_xsh(cwd, logger, name)
-        # XXX start hack
-        if ro_mnt:
-            time.sleep(10)
-            # TODO: since we know the path of the file, we could kill it ourselves
-            # however, this is not a guarantee that any other files are not open from outside
-            logger.info("please kill now your tail command")
-            command_umount_image_xsh(cwd, logger, f"{handle}-ro-build")
-        # XXX end hack
+        logger.info(f"joining tailer thread")
+        tailer.join(5)
         return True
 
     if do_build_nested:

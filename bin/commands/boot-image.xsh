@@ -172,7 +172,7 @@ class KernelParameters(Handler):
 	p = self.next.handle()
 	image = self.cmd_args['image']
 	# TODO: read root device from MediaParameters
-	kernel_append = 'nomodeset console=tty0 console=ttyS0,9600n8 root=/dev/vda2 rw norandmaps printk.devkmsg=on printk.time=y transparent_hugepage=never systemd.journald.forward_to_kmsg amd_iommu=on systemd.unified_cgroup_hierarchy=0'
+	kernel_append = 'nomodeset console=ttyS0,9600n8 root=/dev/vda2 rw norandmaps printk.devkmsg=on printk.time=y transparent_hugepage=never systemd.journald.forward_to_kmsg amd_iommu=on systemd.unified_cgroup_hierarchy=0'
 	#console=ttyS0,115200n8 earlyprintk=ttyS0,115200 debug loglevel=0-7
 	kernel = ['-kernel', f'{image}-vmlinuz-linux', '-initrd', f'{image}-initramfs-linux.img', '-append', kernel_append, ]
 	p.extend(kernel)
@@ -201,7 +201,7 @@ def command_boot_image_xsh(cwd, logger, image, name, ram, network, interactive):
     prev_err = $RAISE_SUBPROC_ERROR
     $RAISE_SUBPROC_ERROR = False
     for c in pre_commands:
-	logger.info(f"pre command: {c}")
+	logger.debug(f"pre command: {c}")
 	p=![@(c)]
 	if p.rtn != 0:
 	    logger.error(f"command failed with exit code {p.rtn}: {c}")
@@ -215,7 +215,7 @@ def command_boot_image_xsh(cwd, logger, image, name, ram, network, interactive):
     if interactive:
 	post_commands = generic.get_post_commands()
 	for c in post_commands:
-	    logger.info(f"post command: {c}")
+	    logger.debug(f"post command: {c}")
 	    p=![@(c)]
 	    if p.rtn != 0:
 		logger.error(f"command failed with exit code {p.rtn}: {c}")

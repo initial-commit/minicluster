@@ -9,6 +9,9 @@ import tarfile
 import pyzstd
 from contextlib import contextmanager
 import inspect
+import threading
+import select
+import pathlib
 
 _true_set = {'yes', 'true', 't', 'y', '1'}
 _false_set = {'no', 'false', 'f', 'n', '0'}
@@ -151,3 +154,61 @@ def pushd(new_dir):
 def get_linenumber():
     cf = inspect.currentframe()
     return cf.f_back.f_lineno
+
+
+class PipeTailer(threading.Thread):
+    pipes = None
+    logger = None
+
+    def __init__(self, pipes, logger, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.pipes = pathlib.Path(pipes)
+        # TODO: add names of the pipe to thread and to logger
+        self.logger = logger.getChild(self.__class__.__name__)
+        assert self.pipes.exists(), f"Pipe {pipes} does not exist"
+
+    def run(self):
+        poller = select.epoll()
+        fo = open(self.pipes, 'rb', 0)
+        file_obj = {}
+        file_obj[fo.fileno()] = fo
+        poller.register(fo)
+        keep_polling = True
+        while keep_polling:
+            events = poller.poll()
+            for fd, evt in events:
+                if evt & select.EPOLLIN:
+                    data = file_obj[fd].read(2**13)
+                    try:
+                        data = data.decode('utf-8')
+                    except UnicodeDecodeError:
+                        pass
+                    print(data, end='')
+                if evt & select.EPOLLOUT:
+                    print("POLLOUT")
+                if evt & select.EPOLLERR:
+                    print("POLLERR")
+                if evt & select.EPOLLPRI:
+                    print("pri")
+                if evt & select.EPOLLHUP:
+                    file_obj[fd].close()
+                    keep_polling = False
+                    break
+                if evt & select.EPOLLET:
+                    print("let")
+                if evt & select.EPOLLONESHOT:
+                    print("shot")
+                if evt & select.EPOLLEXCLUSIVE:
+                    print("excl")
+                if evt & select.EPOLLRDHUP:
+                    print("rdhup")
+                if evt & select.EPOLLRDNORM:
+                    print("rdnorm")
+                if evt & select.EPOLLRDBAND:
+                    print("rdband")
+                if evt & select.EPOLLWRNORM:
+                    print("wrnorm")
+                if evt & select.EPOLLWRBAND:
+                    print("wrband")
+                if evt & select.EPOLLMSG:
+                    print("msg")
