@@ -172,7 +172,8 @@ class KernelParameters(Handler):
 	p = self.next.handle()
 	image = self.cmd_args['image']
 	# TODO: read root device from MediaParameters
-	kernel_append = 'nomodeset console=ttyS0,9600n8 root=/dev/vda2 rw norandmaps printk.devkmsg=on printk.time=y transparent_hugepage=never systemd.journald.forward_to_kmsg amd_iommu=on systemd.unified_cgroup_hierarchy=0'
+	# the order of the console statements determines if the systemd service start protocol is visible or not/screen reset
+	kernel_append = 'console=tty0 console=ttyS0,19200n8 root=/dev/vda2 rw norandmaps printk.devkmsg=on printk.time=y transparent_hugepage=never systemd.journald.forward_to_kmsg amd_iommu=on systemd.unified_cgroup_hierarchy=0'
 	#console=ttyS0,115200n8 earlyprintk=ttyS0,115200 debug loglevel=0-7
 	kernel = ['-kernel', f'{image}-vmlinuz-linux', '-initrd', f'{image}-initramfs-linux.img', '-append', kernel_append, ]
 	p.extend(kernel)

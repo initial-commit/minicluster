@@ -275,7 +275,7 @@ if __name__ == '__main__':
         if started:
             command_poweroff_image_xsh(cwd, logger, name)
         logger.info(f"joining tailer thread")
-        tailer.join(5)
+        tailer.join()
         return True
 
     if do_build_nested:
