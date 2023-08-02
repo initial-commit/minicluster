@@ -85,6 +85,7 @@ def command_clean_image_xsh(cwd, logger, handle, repo_db):
 	    return False
 	rm_patterns = [
 	    #"rm -f /tmp/bootstrap-rootimage.sh", # TODO: this should be removed by us somewhere else
+	    "bash -c 'find /var/cache/pacman/pkg/ -type f -name '*.pkg.tar.*' | xargs shred -n 0 -z'",
 	    "bash -c 'yes | pacman -Scc'",
 	    "systemd-tmpfiles --create --clean --remove --boot",
 	    "find /run -type f -delete",
@@ -98,6 +99,7 @@ def command_clean_image_xsh(cwd, logger, handle, repo_db):
 	    "rm -rf /etc/.pwd.lock /etc/sudoers",
 	    "rm -rf /var/cache/ldconfig/aux-cache",
 	    "journalctl --vacuum-size=0M",
+	    "fstrim -avv",
 	]
 	for pattern in rm_patterns:
 	    logger.info(f"execute {pattern}")
@@ -121,4 +123,5 @@ if __name__ == '__main__':
     handle = MINICLUSTER.ARGS.handle
     repo_db = MINICLUSTER.ARGS.repo_db
     $RAISE_SUBPROC_ERROR = True
-    command_clean_image_xsh(cwd, logger, handle, repo_db)
+    is_clean = command_clean_image_xsh(cwd, logger, handle, repo_db)
+    #  TODO: assert is_clean, f"image {handle} is clean"

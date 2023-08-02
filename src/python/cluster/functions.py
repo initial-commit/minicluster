@@ -212,3 +212,4 @@ class PipeTailer(threading.Thread):
                     print("wrband")
                 if evt & select.EPOLLMSG:
                     print("msg")
+        # TODO: clean poller

@@ -33,7 +33,7 @@ class Connection(object, metaclass=CachedViaConstructorMeta):
         sock = pathlib.Path(sock).absolute()
         exists = sock.exists()
         self.logger.debug(f"starting for sock {sock=} {exists=}")
-        assert exists, "Socket for qmp agent does not exist"
+        assert exists, f"Socket for qmp agent does not exist: {sock}"
         self.sock_path = str(sock)
         resp = self._send_recv_rountrip("guest-sync-delimited", id=os.getpid())
         if 'return' not in resp or resp['return'] != os.getpid():

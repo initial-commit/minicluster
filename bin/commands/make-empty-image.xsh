@@ -69,7 +69,7 @@ def command_make_empty_image_xsh(cwd, logger, handle, d):
     mountpoint = f"{cwd}/{handle}"
     rm -rf @(disk_file)
     calculate_disk_sectors(d)
-    out=$(qemu-img create -f qcow2 @(disk_file) 20G).rstrip()
+    out=$(qemu-img create -f qcow2 -o preallocation=off @(disk_file) 20G).rstrip()
     logger.info(out)
 
     guestfish_pid=$(guestfish --listen)
