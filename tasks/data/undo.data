@@ -699,3 +699,13 @@ new [description:"doing a instance-shell command while another cmd sleep x is ru
 time 1690562860
 new [description:"resolve hack in build-base-image by using a character device for logs inside the vm" entry:"1690562860" modified:"1690562860" project:"bootstrap" status:"pending" uuid:"abc48943-695e-457e-84b1-2163b862c184"]
 ---
+time 1690899394
+new [description:"hotplug of 16550A over pcie - currently the bus does not support hotplug, so the boot params are hard-coded" entry:"1690899394" modified:"1690899394" project:"bootstrap" status:"pending" uuid:"33187f99-5586-4220-945c-63f95ac6a452"]
+---
+time 1690899469
+new [description:"redirect L2 logging during base-build over hard-coded 16550A pci device and poll it on L0" entry:"1690899469" modified:"1690899469" project:"bootstrap" status:"pending" uuid:"5b1775b1-8cf8-490c-8606-36e4d44fdd92"]
+---
+time 1690899477
+old [description:"redirect L2 logging during base-build over hard-coded 16550A pci device and poll it on L0" entry:"1690899469" modified:"1690899469" project:"bootstrap" status:"pending" uuid:"5b1775b1-8cf8-490c-8606-36e4d44fdd92"]
+new [description:"redirect L2 logging during base-build over hard-coded 16550A pci device and poll it on L0" entry:"1690899469" modified:"1690899477" project:"bootstrap" start:"1690899477" status:"pending" uuid:"5b1775b1-8cf8-490c-8606-36e4d44fdd92"]
+---
