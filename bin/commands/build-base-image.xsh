@@ -111,26 +111,40 @@ def extract_l2_assets(cwd, logger, handle, name, cwd_inside):
     if not success:
         logger.error(f"could not clean L2 image")
         return False
-    (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, 
-        f"bash -c 'cd {cwd_inside}; qemu-img convert -S 512 -o preallocation=off -O qcow2 {l2_image_path} {l2_image_path_temp} 2>&1 | tee -a -p /dev/ttyS4 && cp {l2_image_path_temp} {cwd_inside}/artefacts-{nested_handle}/{nested_handle}.qcow2'")
+    # TODO: read sector size from disk spec
+    (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, f"bash -c 'cd {cwd_inside}; qemu-img convert -S 4096 -o preallocation=off -O qcow2 {l2_image_path} {l2_image_path_temp} 2>&1 | tee -a -p /dev/ttyS4 && mv {l2_image_path_temp} {cwd_inside}/artefacts-{nested_handle}/{nested_handle}.qcow2'")
     if not success:
         logger.error(f"could not convert image")
         return False
-    l2_image_stat_after = conn.path_stat(f"{cwd_inside}/artefacts-{nested_handle}/{nested_handle}.qcow2")
+    l2_image_after = f"{cwd_inside}/artefacts-{nested_handle}/{nested_handle}.qcow2"
+    l2_image_base = pathlib.Path(l2_image_after).with_suffix('')
+    l2_image_stat_after = conn.path_stat(l2_image_after)
     assert l2_image_stat_after is not None, "Could not get stat of L2 image: {l2_image_path}"
     l2_size_after = l2_image_stat_after['ST_SIZE']
     logger.info(f"{l2_size_before=} {l2_size_after=}")
-    assert l2_size_before - l2_size_after > 0, f"The image has not gotten any smaller"
-    # TODO: test-vm
+    size_diff = l2_size_before - l2_size_after
+    assert size_diff > 0, f"The image has not gotten any smaller: {size_diff=}"
+    assert size_diff > 500 * 2**20, f"Cleaning up did not shrink the image by more than 500MB, but: {size_diff / 2**20} MB"
+    # sanity checks
+    # using the commands like this also serves as systems testing
+    (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, f"bash -c 'cd {cwd_inside}; /root/minicluster/bin/commands/boot-image.xsh --image {l2_image_base} --name t1 --interactive false'")
+    if not success:
+        logger.error(f"could not boot image for testing")
+        return False
+    (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, f"bash -c 'cd {cwd_inside}; /root/minicluster/bin/commands/test-vm.xsh --name t1'")
+    if not success:
+        logger.error(f"image testing failed")
+        return False
+    (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, f"bash -c 'cd {cwd_inside}; /root/minicluster/bin/commands/poweroff-image.xsh --name t1'")
+    if not success:
+        logger.error(f"image testing failed")
+        return False
     # TODO: assert that there are no more files unaccounted for in inside_cwd
     # copy artefacts
     command_mount_image_xsh(cwd, logger, handle, "ro-build")
     ro_dir_on_l0 = fp"{cwd}/{handle}-ro-build/".absolute()
     artefacts_dir_ro = fp"{ro_dir_on_l0}/{cwd_inside}/artefacts-nested-{handle}".absolute()
     rsync --delete -a --info=stats2,misc1,flist0 @(artefacts_dir_ro) @(f"{cwd}/")
-    # TODO: copy L2 image nested-handle.qcow2
-    # TODO: clean the image, assert that no files are uncovered (except whitelisted files)
-    # TODO: copy the artefacts of L2 inside L1 onto L0
     command_umount_image_xsh(cwd, logger, f"{handle}-ro-build")
     return True
 
@@ -153,8 +167,8 @@ def proc_initial_build(cwd, logger, handle, diskspec, cache):
     if not success:
         logger.error(f"failed to prepare chroot for {handle=}")
         return None
-        # TODO: make a backup
-        #cp -a @(f"{handle}.qcow2") @(f"pristine-{handle}.qcow2")
+    # TODO: make a backup
+    cp -a @(f"{handle}.qcow2") @(f"pristine-{handle}.qcow2")
     name = get_random_name(handle) + str(get_linenumber())
     started = command_boot_image_xsh(cwd, logger, handle, name, 2048, True, False)
     if not started:

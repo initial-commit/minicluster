@@ -88,12 +88,15 @@ def command_prepare_chroot_xsh(cwd, logger, handle, cache):
         echo cp -a @(r)/etc/pacman.d/gnupg/@(f) @(cwd)/bootstrap-overlay/etc/pacman.d/gnupg/@(f)
         cp -a @(r)/etc/pacman.d/gnupg/@(f) @(cwd)/bootstrap-overlay/etc/pacman.d/gnupg/@(f)
 
+    rm -rf @(r)
+
     find @(cwd)/bootstrap-overlay/ -type f -name '.keep' -delete
 
     # TODO: mount here instead of outside
 
     # TODO: overlays from the project
     cp -a @(cwd)/bootstrap-overlay/* @(mountpoint)/
+    rm -rf @(cwd)/bootstrap-overlay
     cp @(f"{cwd}/fstab-{handle}") @(mountpoint)/etc/fstab
 
     cp /etc/resolv.conf @(mountpoint)/etc/
