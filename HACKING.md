@@ -40,6 +40,17 @@ Terminal inside the guest
 stty rows 46 cols 189
 ```
 
+Collection of commands
+======================
+
+```
+# kill build-base-image
+poweroff-image.xsh --name @($(ps aux | grep qemu-system-x86_64 | grep -oP -- '--name [^ ]+' | cut -d " " -f2).rstrip())
+# build base with logging
+build-base-image.xsh --handle d1 --initial_build false --build_nested true --extract_nested true --extract_l1_assets true 2>&1 | tee -a @($(date +"%M%S%H-%a.build.log").rstrip()[1:-1])
+```
+
+
 TODOs
 =====
 
