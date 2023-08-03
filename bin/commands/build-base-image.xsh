@@ -45,6 +45,7 @@ if __name__ == '__main__':
     source @(f'{d}/copy-files.xsh')
     source @(f'{d}/network-cmd.xsh')
     source @(f'{d}/merge-pacman-repositories.xsh')
+    source @(f'{d}/extract-image-assets.xsh')
     import math
     import psutil
     from cluster.functions import str2bool_exc as strtobool
