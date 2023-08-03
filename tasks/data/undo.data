@@ -713,3 +713,14 @@ time 1690964086
 old [description:"redirect L2 logging during base-build over hard-coded 16550A pci device and poll it on L0" entry:"1690899469" modified:"1690899477" project:"bootstrap" start:"1690899477" status:"pending" uuid:"5b1775b1-8cf8-490c-8606-36e4d44fdd92"]
 new [description:"redirect L2 logging during base-build over hard-coded 16550A pci device and poll it on L0" end:"1690964086" entry:"1690899469" modified:"1690964086" project:"bootstrap" status:"completed" uuid:"5b1775b1-8cf8-490c-8606-36e4d44fdd92"]
 ---
+time 1691057511
+new [description:"integration test for PipeTailer used with nested VMs as in build-base-image" entry:"1691057511" modified:"1691057511" project:"bootstrap" status:"pending" uuid:"71d6a8ff-0c33-4c10-b743-e007ddefe2c2"]
+---
+time 1691057543
+old [description:"test the L2 image after extracting it into L0" entry:"1689859424" modified:"1689859424" project:"bootstrap" status:"pending" uuid:"e6dc2a14-2742-42a3-80a9-dca7acf5f33d"]
+new [description:"test the L2 image after extracting it into L0" entry:"1689859424" modified:"1691057543" project:"bootstrap" start:"1691057543" status:"pending" uuid:"e6dc2a14-2742-42a3-80a9-dca7acf5f33d"]
+---
+time 1691057595
+old [description:"resolve hack in build-base-image by using a character device for logs inside the vm" entry:"1690562860" modified:"1690562860" project:"bootstrap" status:"pending" uuid:"abc48943-695e-457e-84b1-2163b862c184"]
+new [description:"resolve hack in build-base-image by using a character device for logs inside the vm" entry:"1690562860" modified:"1691057595" project:"bootstrap" start:"1691057595" status:"pending" uuid:"abc48943-695e-457e-84b1-2163b862c184"]
+---
