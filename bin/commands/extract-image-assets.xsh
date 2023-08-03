@@ -48,7 +48,7 @@ def command_extract_image_assets_xsh(cwd, logger, handle, extract_files):
     cache_dir = fp"{ro_mount}/var/cache/pacman/pkg/".absolute()
     dest_db_name = f"{handle}-repo"
     dest_db_dir = fp"{artefacts_dir}/{dest_db_name}".absolute()
-    command_merge_pacman_repositories_xsh(logger, sync_dir, ["core", "extra"], cache_dir, dest_db_name, dest_db_dir)
+    command_merge_pacman_repositories_xsh(logger, sync_dir, ["core", "extra"], cache_dir, dest_db_name, dest_db_dir, True)
     command_umount_image_xsh(cwd, logger, f"{handle}-ro-build")
     logger.info("image unmounted")
     return (dest_db_dir, dest_db_name)

@@ -12,12 +12,15 @@ if __name__ == '__main__':
         else:
             raise NotADirectoryError(f"directory does not exist: {str(p)}")
 
+    from cluster.functions import str2bool_exc as strtobool
+
     MINICLUSTER.ARGPARSE.add_argument('--source_db_dir', type=parse_p, required=True, help="The directory in which the databases reside, e.g. core.db, default /var/lib/pacman/sync/")
     ## TODO: ensure that name.db exists
     MINICLUSTER.ARGPARSE.add_argument('--db_names', default=[], nargs='+', required=True, help="The database names, ex core, multilib, extra")
     MINICLUSTER.ARGPARSE.add_argument('--source_pkg_cache', type=parse_p, required=True, help="The directory containing the pkg files, default: /var/cache/pacman/pkg/")
     MINICLUSTER.ARGPARSE.add_argument('--dest_db_name', required=True, help="How you want to name the resulting package database")
     MINICLUSTER.ARGPARSE.add_argument('--dest_db_dir', required=True, type=lambda p: pathlib.Path(p).absolute(), help="The location where the new package database should be stored")
+    MINICLUSTER.ARGPARSE.add_argument('--only_explicit', nargs='?', type=lambda b:bool(strtobool(b)), const=False, default=False, metavar='true|false')
     MINICLUSTER = MINICLUSTER.bootstrap_finished(MINICLUSTER)
 
 import random
@@ -229,7 +232,7 @@ def store_pkg_info(logger, db, pkginfo, db_name, files):
                     cur.execute(sql, values)
             # TODO: safety net to ensure that all fields from pkginfo have been stored somewhere
 
-def command_merge_pacman_repositories_xsh(logger, source_db_dir, db_names, source_pkg_cache, dest_db_name, dest_db_dir):
+def command_merge_pacman_repositories_xsh(logger, source_db_dir, db_names, source_pkg_cache, dest_db_name, dest_db_dir, only_installed=False):
     db_extracted_dir = pathlib.Path(tempfile.mkdtemp(prefix="minicluster-merge-pacman-repositories-"))
     logger.info(f"{db_extracted_dir=}")
     for d in db_names:
@@ -249,7 +252,17 @@ def command_merge_pacman_repositories_xsh(logger, source_db_dir, db_names, sourc
     to_remove = []
     schema_path = None
     db = create_pkg_sqlitedb(logger, dest_db_dir, dest_db_name, schema_path)
-    for pkg_path in itertools.chain(source_pkg_cache.glob('*.pkg.tar.zst'), source_pkg_cache.glob('*.pkg.tar.xz')):
+    pkg_iter = itertools.chain(source_pkg_cache.glob('*.pkg.tar.zst'), source_pkg_cache.glob('*.pkg.tar.xz'))
+    if only_installed:
+        installed = $(pacman -Q).splitlines()
+        installed_raw = [v.replace(' ', '-', 1) for v in installed]
+        pkg_iter = [pf`{source_pkg_cache}/{v}.+?\\.pkg\\.tar\\.(zst|xz)$` for v in installed_raw]
+        pkg_iter = [item for sublist in pkg_iter for item in sublist]
+        assert len(installed_raw) == len(pkg_iter), f"the number of packages does not match: {len(installed_raw)=} vs {len(pkg_iter)=}, values: {installed_raw=} {pkg_iter=}"
+        logger.info(f"{installed=}")
+        logger.info(f"{installed_raw=}")
+        logger.info(f"{pkg_iter=}")
+    for pkg_path in pkg_iter:
         (pkginfo, db_name, files) = get_pkg_info(pkg_path, kv_reg, db_extracted_dir, db_names, logger)
         expected_d_name=f"{pkginfo['pkgname']}-{pkginfo['pkgver']}"
         exp_path = db_extracted_dir / db_name / expected_d_name
@@ -296,8 +309,9 @@ if __name__ == '__main__':
     source_pkg_cache = MINICLUSTER.ARGS.source_pkg_cache
     dest_db_name = MINICLUSTER.ARGS.dest_db_name
     dest_db_dir = MINICLUSTER.ARGS.dest_db_dir
+    only_explicit = MINICLUSTER.ARGS.only_explicit
 
     cwd = MINICLUSTER.CWD_START
     logger = logging.getLogger(__name__)
     $RAISE_SUBPROC_ERROR = True
-    command_merge_pacman_repositories_xsh(logger, source_db_dir, db_names, source_pkg_cache, dest_db_name, dest_db_dir)
+    command_merge_pacman_repositories_xsh(logger, source_db_dir, db_names, source_pkg_cache, dest_db_name, dest_db_dir, only_explicit)

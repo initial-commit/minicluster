@@ -12,6 +12,7 @@ import inspect
 import threading
 import select
 import pathlib
+import time
 
 _true_set = {'yes', 'true', 't', 'y', '1'}
 _false_set = {'no', 'false', 'f', 'n', '0'}
@@ -175,16 +176,24 @@ class PipeTailer(threading.Thread):
         file_obj[fo.fileno()] = fo
         poller.register(fo)
         keep_polling = True
+        buffer = ''
         while keep_polling:
-            events = poller.poll()
+            #time.sleep(0.1)
+            events = poller.poll(timeout=60)
             for fd, evt in events:
                 if evt & select.EPOLLIN:
-                    data = file_obj[fd].read(32)
+                    data = file_obj[fd].read(2**13)
                     try:
                         data = data.decode('utf-8')
+                        for line in data.splitlines(keepends=True):
+                            if line.endswith("\n"):
+                                line = f"INSIDE: {buffer}{line}"
+                                buffer = ''
+                                print(line, end='', flush=True)
+                            else:
+                                buffer += line
                     except UnicodeDecodeError:
-                        pass
-                    print(data, end='', flush=True)
+                        print(data, end='', flush=True)
                 if evt & select.EPOLLOUT:
                     logger.info("POLLOUT")
                     raise Exception("POLLOUT")

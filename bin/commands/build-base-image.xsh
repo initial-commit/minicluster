@@ -90,12 +90,17 @@ def extract_l2_assets(cwd, logger, handle, name, cwd_inside):
     # extract assets (kernel, initramfs, fstab, pacman repo)
     tailer = PipeTailer(f'{cwd}/pci-serial1.pipe.out', logger)
     tailer.start()
-    (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, f"bash -c 'cd {cwd_inside}; /root/minicluster/bin/commands/extract-image-assets.xsh --handle {nested_handle} 2>&1 | tee -a -p /dev/ttyS4'")
+    (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, (
+        f"bash -c 'cd {cwd_inside};"
+        f"/root/minicluster/bin/commands/extract-image-assets.xsh --handle {nested_handle} 2>&1 | "
+        #'awk "{print \'INSIDE\' $0}" | '
+        "tee -a -p /dev/ttyS4'"))
     if not success:
+        logger.error(f"fail to execute extract-image-assets.xsh")
         return False
     logger.info(f"joining tailer for extract-image-assets")
     #TODO: search for all tailer.join and assert that the thread is stopped
-    tailer.join(1)
+    tailer.join()
     # shrink L2 image
     conn = cluster.qmp.Connection(f'{cwd}/qga-{name}.sock', logger)
     l2_image_path = f'{cwd_inside}/{nested_handle}.qcow2'
@@ -108,7 +113,7 @@ def extract_l2_assets(cwd, logger, handle, name, cwd_inside):
     tailer.start()
     (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, f"bash -c 'cd {cwd_inside}; /root/minicluster/bin/commands/clean-image.xsh --handle {nested_handle} --repo_db artefacts-{nested_handle}/{nested_handle}-repo/{nested_handle}-repo.sqlite3 2>&1 | tee -a -p /dev/ttyS4'")
     logger.info(f"joining tailer after clean image")
-    tailer.join(1)
+    tailer.join()
     if not success:
         logger.error(f"could not clean L2 image")
         return False
@@ -281,9 +286,11 @@ if __name__ == '__main__':
     do_initial_build = MINICLUSTER.ARGS.initial_build
     do_build_nested = MINICLUSTER.ARGS.build_nested
     extract_nested = MINICLUSTER.ARGS.extract_nested
-    extract_l1_assets = MINICLUSTER.ARGS.extract_l1_assets
+    extract_assets = MINICLUSTER.ARGS.extract_l1_assets
     vm_ram = MINICLUSTER.ARGS.ram
     l2_ram = int(vm_ram / 2)
+    if do_build_nested:
+        assert vm_ram >= 8192, f"Not enough RAM to build L1 and L2 {vm_ram=} {l2_ram=}"
 
     cwd = MINICLUSTER.CWD_START
     logger = logging.getLogger(__name__)
@@ -328,8 +335,13 @@ if __name__ == '__main__':
             sys.exit(4)
         command_poweroff_image_xsh(cwd, logger, name)
 
-    if extract_l1_assets:
+    if extract_assets:
         logger.info(f"TODO")
+        l2_artefacts_dir = pf"{cwd}/artefacts-nested-{handle}"
+        success = extract_l1_assets(cwd, logger, handle, l2_artefacts_dir)
+        if not success:
+            logger.error("failed to extract L1 pacman repo")
+            sys.exit(5)
 
     if cache:
         logger.info(f"SUCCESS inside!!!!")

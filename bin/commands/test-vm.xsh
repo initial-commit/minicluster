@@ -123,7 +123,7 @@ def command_test_vm_xsh(cwd, logger, name):
     # TODO: better heuristics to wait for the system to settle
     assert len(startup_finished) == 1, "startup finished"
     assert len(reached_targets) == 12, "reached targets"
-    assert len(finished) >= 18, "finished targets"
+    assert len(finished) >= 18, f"finished targets: {len(finished)=}"
     assert len(started) >= 25, "started units"
     assert len(untagged) == 0, "untagged journal lines"
     #TODO: test for no .pacnew files in /etc
