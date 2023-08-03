@@ -169,6 +169,7 @@ class PipeTailer(threading.Thread):
 
     def run(self):
         poller = select.epoll()
+        logger = self.logger
         fo = open(self.pipes, 'rb', 0)
         file_obj = {}
         file_obj[fo.fileno()] = fo
@@ -178,38 +179,50 @@ class PipeTailer(threading.Thread):
             events = poller.poll()
             for fd, evt in events:
                 if evt & select.EPOLLIN:
-                    data = file_obj[fd].read(2**13)
+                    data = file_obj[fd].read(32)
                     try:
                         data = data.decode('utf-8')
                     except UnicodeDecodeError:
                         pass
-                    print(data, end='')
+                    print(data, end='', flush=True)
                 if evt & select.EPOLLOUT:
-                    print("POLLOUT")
+                    logger.info("POLLOUT")
+                    raise Exception("POLLOUT")
                 if evt & select.EPOLLERR:
-                    print("POLLERR")
+                    logger.info("POLLOUT")
+                    raise Exception("POLLERR")
                 if evt & select.EPOLLPRI:
-                    print("pri")
+                    logger.info("EPOLLPRI")
+                    raise Exception("EPOLLPRI")
                 if evt & select.EPOLLHUP:
                     file_obj[fd].close()
                     keep_polling = False
                     break
                 if evt & select.EPOLLET:
-                    print("let")
+                    logger.info("EPOLLET")
+                    raise Exception("EPOLLET")
                 if evt & select.EPOLLONESHOT:
-                    print("shot")
+                    logger.info("EPOLLONESHOT")
+                    raise Exception("EPOLLONESHOT")
                 if evt & select.EPOLLEXCLUSIVE:
-                    print("excl")
+                    logger.info("EPOLLEXCLUSIVE")
+                    raise Exception("EPOLLEXCLUSIVE")
                 if evt & select.EPOLLRDHUP:
-                    print("rdhup")
+                    logger.info("EPOLLRDHUP")
+                    raise Exception("EPOLLRDHUP")
                 if evt & select.EPOLLRDNORM:
-                    print("rdnorm")
+                    logger.info("EPOLLRDNORM")
+                    raise Exception("EPOLLRDNORM")
                 if evt & select.EPOLLRDBAND:
-                    print("rdband")
+                    logger.info("EPOLLRDBAND")
+                    raise Exception("EPOLLRDBAND")
                 if evt & select.EPOLLWRNORM:
-                    print("wrnorm")
+                    logger.info("EPOLLWRNORM")
+                    raise Exception("EPOLLWRNORM")
                 if evt & select.EPOLLWRBAND:
-                    print("wrband")
+                    logger.info("EPOLLWRBAND")
+                    raise Exception("EPOLLWRBAND")
                 if evt & select.EPOLLMSG:
-                    print("msg")
+                    logger.info("EPOLLMSG")
+                    raise Exception("EPOLLMSG")
         # TODO: clean poller
