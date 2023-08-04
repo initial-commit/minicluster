@@ -159,13 +159,41 @@ def extract_l2_assets(cwd, logger, handle, name, cwd_inside):
     command_umount_image_xsh(cwd, logger, f"{handle}-ro-build")
     return True
 
-def extract_l1_assets():
-    # TODO: mount ro
-    # TODO: assert md5 checksums are the same for initramfs and linux-kernel
-    # TODO: make L1 pacman repository (fat variant)
-    # TODO: assert that L1 repository only contains additions relative to L2 repository
-    # TODO: unmount ro
-    pass
+def extract_l1_assets(cwd, logger, handle, name, l2_artefacts_dir):
+    cwd_inside = '/root/minic'
+    (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, f"bash -c 'cd {cwd_inside}; rm -rf {handle}-repo; mkdir {handle}-repo'")
+    logger.info(f"building aggregated pacman repo for L1, please wait, it takes around 60 seconds")
+    (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, f"bash -c 'cd {cwd_inside}; /root/minicluster/bin/commands/merge-pacman-repositories.xsh --source_db_dir /var/lib/pacman/sync/ --db_names core extra --source_pkg_cache /var/cache/pacman/pkg/ --dest_db_name {handle}-repo --dest_db_dir {handle}-repo --only_explicit true'")
+    mountpoint = command_mount_image_xsh(cwd, logger, handle, "ro-build")
+    assert mountpoint is not None, f"Mountpoint not there: {mountpoint=}"
+    logger.debug(f"{mountpoint=} for extracting L1 repo for minicluster")
+
+    l1_db_dir = fp"{mountpoint}/{cwd_inside}/{handle}-repo".absolute()
+    l1_db_name = f"{handle}-repo"
+    l1_sqlite_p = l1_db_dir / f"{l1_db_name}.sqlite3"
+    nested_handle = f"nested-{handle}"
+    l2_db_dir = pf"{l2_artefacts_dir}" / f"{nested_handle}-repo/"
+    l2_sqlite_p = pf"{l2_artefacts_dir}" / f"{nested_handle}-repo/{nested_handle}-repo.sqlite3"
+
+    assert l1_sqlite_p.exists(), f"L1 db file does not exist: {l1_sqlite_p=}"
+    assert l2_sqlite_p.exists(), f"L2 db file does not exist: {l2_sqlite_p=}"
+    rsync --delete -a --info=stats2,misc1,flist0 @(l1_db_dir) @(f"{cwd}/tmp/")
+    l1_db_dir = pf"{cwd}/tmp/{handle}-repo".absolute()
+    l1_sqlite_p = l1_db_dir / f"{l1_db_name}.sqlite3"
+    assert l1_sqlite_p.exists(), f"L1 db file does not exist: {l1_sqlite_p=}"
+    sql = (
+        "\n"
+	f"attach 'file:{l1_sqlite_p}?mode=ro' as \"l1\";\n"
+	f"attach 'file:{l2_sqlite_p}?mode=ro' as \"l2\";\n"
+        """
+        select count(*) from l1.pkginfo;
+        select count(*) from l2.pkginfo;
+        """
+        )
+    logger.info(sql)
+    #time.sleep(60)
+    command_umount_image_xsh(cwd, logger, f"{handle}-ro-build")
+    return True
     
 def get_random_name(handle):
     r = ''.join((''.join(random.choice(string.ascii_lowercase)) for i in range(8)) )
@@ -346,10 +374,17 @@ if __name__ == '__main__':
     if extract_assets:
         logger.info(f"TODO")
         l2_artefacts_dir = pf"{cwd}/artefacts-nested-{handle}"
-        success = extract_l1_assets(cwd, logger, handle, l2_artefacts_dir)
+        name = get_random_name(handle) + str(get_linenumber())
+        started = command_boot_image_xsh(cwd, logger, handle, name, vm_ram, True, False)
+        if not started:
+            logger.error(f"failed to start {handle=} with ram {vm_ram=} and {name=} for the purpose of extracting L1 repo")
+            sys.exit(5)
+        success = extract_l1_assets(cwd, logger, handle, name, l2_artefacts_dir)
         if not success:
             logger.error("failed to extract L1 pacman repo")
+            command_poweroff_image_xsh(cwd, logger, name)
             sys.exit(5)
+        command_poweroff_image_xsh(cwd, logger, name)
 
     if cache:
         logger.info(f"SUCCESS inside!!!!")
