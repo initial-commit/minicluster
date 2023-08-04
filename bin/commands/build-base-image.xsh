@@ -122,7 +122,7 @@ def extract_l2_assets(cwd, logger, handle, name, cwd_inside):
     (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, (
     f"bash -c 'set -o pipefail; cd {cwd_inside};"
     f"qemu-img convert -S 4096 -o preallocation=off -O qcow2 {l2_image_path} {l2_image_path_temp} 2>&1 | "
-    f"tee -a -p /dev/ttyS4 && mv {l2_image_path_temp} {cwd_inside}/artefacts-{nested_handle}/{nested_handle}.qcow2; e=$?; "
+    f"tee -a -p /dev/ttyS4 && cp {l2_image_path_temp} {cwd_inside}/artefacts-{nested_handle}/{nested_handle}.qcow2; e=$?; "
     "echo -e -n \"\\x0\"{,,,,} | tr -d \" \" >> /dev/ttyS4; exit $e'"))
     if not success:
         logger.error(f"could not convert image")
