@@ -749,3 +749,15 @@ new [description:"create command to clean and trim images" end:"1691140338" entr
 time 1691140413
 new [description:"make pipetailer also show a common prefix for each line" entry:"1691140413" modified:"1691140413" project:"bootstrap" status:"pending" uuid:"a7a5b1cc-aa72-4bf1-8539-c30ee31c5f88"]
 ---
+time 1691170745
+old [annotation_1690548490:"https:\/\/www.firsttimersonly.com\/" description:"make an easy task on github for potential contributors: context for powering down the machine in build-base-image" entry:"1690546979" modified:"1690548490" project:"bootstrap" status:"pending" uuid:"9cf68286-1fc1-40af-9303-e1f89869a210"]
+new [annotation_1690548490:"https:\/\/www.firsttimersonly.com\/" description:"make an easy task on github for potential contributors: python context for powering down the machine in build-base-image" entry:"1690546979" modified:"1691170745" project:"bootstrap" status:"pending" uuid:"9cf68286-1fc1-40af-9303-e1f89869a210"]
+---
+time 1691171059
+old [annotation_1689889694:"factor: versions of all packages" annotation_1689889770:"factor: version of minicluster itself, sha of last commit + a checksum of the uncommitted diffs" annotation_1689889864:"factor: sha of the L-1 system that built it" annotation_1689889931:"factor: hostname that built it" annotation_1689889983:"factor: uid that built it" description:"command to show a version heuristic of a minicluster-based system" entry:"1689889628" modified:"1689889983" project:"bootstrap" status:"pending" uuid:"52e9c465-c395-4a74-bdd9-e48b0c8a3220"]
+new [annotation_1689889694:"factor: versions of all packages" annotation_1689889770:"factor: version of minicluster itself, sha of last commit + a checksum of the uncommitted diffs" annotation_1689889864:"factor: sha of the L-1 system that built it" annotation_1689889931:"factor: hostname that built it" annotation_1689889983:"factor: uid that built it" annotation_1691171059:"factor: sign the payload with the private key of the author" description:"command to show a version heuristic of a minicluster-based system" entry:"1689889628" modified:"1691171059" project:"bootstrap" status:"pending" uuid:"52e9c465-c395-4a74-bdd9-e48b0c8a3220"]
+---
+time 1691171332
+old [description:"make pipetailer also show a common prefix for each line" entry:"1691140413" modified:"1691140413" project:"bootstrap" status:"pending" uuid:"a7a5b1cc-aa72-4bf1-8539-c30ee31c5f88"]
+new [description:"make pipetailer also show a common prefix for each line" entry:"1691140413" modified:"1691171332" project:"bootstrap" start:"1691171332" status:"pending" uuid:"a7a5b1cc-aa72-4bf1-8539-c30ee31c5f88"]
+---
