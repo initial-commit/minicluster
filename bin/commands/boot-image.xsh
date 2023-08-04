@@ -210,7 +210,16 @@ def command_boot_image_xsh(cwd, logger, image, name, ram, network, interactive):
     kernel = KernelParameters(logger, cmd_args, media)
 
     params = kernel.handle()
-    append = []
+    append = [
+	#'-device', 'virtio-serial-pci,id=ser0',
+	#'-device', 'virtio-serial-device',
+	#'-chardev', f'socket,path={cwd}/foo,server=off,reconnect=1,id=foo,telnet=off',
+	#'-chardev', f'socket,path={cwd}/bar,server,nowait,id=foo,telnet=off',
+	#'-device', 'virtserialport,bus=ser0.0,chardev=foo,name=org.fedoraproject.port.0',
+	#'-device', 'virtioconsole,bus=ser0.1,chardev=bar,name=org.initial-commit.bar'
+	#'-chardev', f'socket,path={cwd}/vsock-pci.sock,id=chr0,server=on,wait=off',
+	#'-device', 'vhost-user-vsock-pci,disable-legacy=on,chardev=chr0',
+    ]
     pre_commands = generic.get_pre_commands()
     params.extend(append)
     logger.info(f"{params=}")

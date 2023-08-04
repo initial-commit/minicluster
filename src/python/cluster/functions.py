@@ -177,21 +177,31 @@ class PipeTailer(threading.Thread):
         poller.register(fo)
         keep_polling = True
         buffer = ''
+        line_count = 0
         while keep_polling:
-            #time.sleep(0.1)
-            events = poller.poll(timeout=60)
+            # TODO: use magic string from reserved characters in BMP
+            if buffer == '\x00\x00\x00\x00\x00':
+                keep_polling = False
+                # magic string, but still give it a chance to gather more data in the next 10 seconds
+            #if line_count < 50:
+            #    logger.info(f"XX polling {buffer=}")
+            events = poller.poll(timeout=10)
             for fd, evt in events:
                 if evt & select.EPOLLIN:
                     data = file_obj[fd].read(2**13)
                     try:
                         data = data.decode('utf-8')
+                        keep_polling = True
                         for line in data.splitlines(keepends=True):
                             if line.endswith("\n"):
-                                line = f"INSIDE: {buffer}{line}"
+                                line_count += 1
+                                line = f"INSIDE {line_count}: {buffer}{line}"
                                 buffer = ''
                                 print(line, end='', flush=True)
                             else:
                                 buffer += line
+                                #if line_count < 50:
+                                #    logger.info(f"XZ {buffer=}")
                     except UnicodeDecodeError:
                         print(data, end='', flush=True)
                 if evt & select.EPOLLOUT:
@@ -234,4 +244,6 @@ class PipeTailer(threading.Thread):
                 if evt & select.EPOLLMSG:
                     logger.info("EPOLLMSG")
                     raise Exception("EPOLLMSG")
+            #if line_count < 50:
+            #    logger.info(f"XY {keep_polling=} {buffer=}")
         # TODO: clean poller

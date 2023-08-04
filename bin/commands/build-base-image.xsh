@@ -93,13 +93,11 @@ def extract_l2_assets(cwd, logger, handle, name, cwd_inside):
     (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, (
         f"bash -c 'cd {cwd_inside};"
         f"/root/minicluster/bin/commands/extract-image-assets.xsh --handle {nested_handle} 2>&1 | "
-        #'awk "{print \'INSIDE\' $0}" | '
-        "tee -a -p /dev/ttyS4'"))
+        "tee -a -p /dev/ttyS4; echo -e -n \"\\x0\"{,,,,} | tr -d \" \" >> /dev/ttyS4'"))
     if not success:
         logger.error(f"fail to execute extract-image-assets.xsh")
         return False
     logger.info(f"joining tailer for extract-image-assets")
-    #TODO: search for all tailer.join and assert that the thread is stopped
     tailer.join()
     # shrink L2 image
     conn = cluster.qmp.Connection(f'{cwd}/qga-{name}.sock', logger)
@@ -111,14 +109,21 @@ def extract_l2_assets(cwd, logger, handle, name, cwd_inside):
     logger.info(f"{l2_image_stat_before=}")
     tailer = PipeTailer(f'{cwd}/pci-serial1.pipe.out', logger)
     tailer.start()
-    (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, f"bash -c 'cd {cwd_inside}; /root/minicluster/bin/commands/clean-image.xsh --handle {nested_handle} --repo_db artefacts-{nested_handle}/{nested_handle}-repo/{nested_handle}-repo.sqlite3 2>&1 | tee -a -p /dev/ttyS4'")
+    (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, (
+        f"bash -c 'cd {cwd_inside};"
+        f"/root/minicluster/bin/commands/clean-image.xsh --handle {nested_handle} --repo_db artefacts-{nested_handle}/{nested_handle}-repo/{nested_handle}-repo.sqlite3 2>&1 | "
+        "tee -a -p /dev/ttyS4; echo -e -n \"\\x0\"{,,,,} | tr -d \" \" >> /dev/ttyS4'"))
     logger.info(f"joining tailer after clean image")
     tailer.join()
     if not success:
         logger.error(f"could not clean L2 image")
         return False
     # TODO: read sector size from disk spec
-    (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, f"bash -c 'cd {cwd_inside}; qemu-img convert -S 4096 -o preallocation=off -O qcow2 {l2_image_path} {l2_image_path_temp} 2>&1 | tee -a -p /dev/ttyS4 && mv {l2_image_path_temp} {cwd_inside}/artefacts-{nested_handle}/{nested_handle}.qcow2'")
+    (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, (
+    f"bash -c 'cd {cwd_inside};"
+    f"qemu-img convert -S 4096 -o preallocation=off -O qcow2 {l2_image_path} {l2_image_path_temp} 2>&1 | "
+    f"tee -a -p /dev/ttyS4 && mv {l2_image_path_temp} {cwd_inside}/artefacts-{nested_handle}/{nested_handle}.qcow2; "
+    "echo -e -n \"\\x0\"{,,,,} | tr -d \" \" >> /dev/ttyS4'"))
     if not success:
         logger.error(f"could not convert image")
         return False
@@ -269,7 +274,10 @@ def proc_build_nested(cwd, logger, handle, l2_ram):
     tailer = PipeTailer(f'{cwd}/pci-serial1.pipe.out', logger)
     tailer.start()
     # TODO: instead of using tee, set up logging to ttyS4 in bootstrap
-    (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, f"bash -c 'cd {cwd_inside}; /root/minicluster/bin/commands/build-base-image.xsh --cache --handle nested-{handle} --build_nested false --extract_nested false --extract_l1_assets false 2>&1 | tee -a -p /dev/ttyS4'")
+    (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, (
+        f"bash -c 'cd {cwd_inside};"
+        "/root/minicluster/bin/commands/build-base-image.xsh --cache --handle nested-{handle} --build_nested false --extract_nested false --extract_l1_assets false 2>&1 | "
+        "tee -a -p /dev/ttyS4; echo -e -n \"\\x0\"{,,,,} | tr -d \" \" >> /dev/ttyS4'"))
     if not success:
         logger.error(f"failed to build nested L2 image nested-{handle} in {name}:{cwd_inside}/")
         command_poweroff_image_xsh(cwd, logger, name)
