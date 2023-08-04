@@ -64,7 +64,11 @@ def _bootstrap():
 
     ######################################################
     numeric_level = getattr(logging, loglevel.upper(), None)
-    logging.basicConfig(level=numeric_level, format="[%(asctime)s] [%(levelname)-8s] [%(name)s LN %(lineno)3d FN %(funcName)10s] - %(message)s")
+    logging.basicConfig(
+	level=numeric_level,
+	format="[%(asctime)s] [%(levelname)-8s] [%(name)s LN %(lineno)3d FN %(funcName)10s] - %(message)s",
+	#stream=sys.stdout
+	)
 
     #TODO: add time since start, make it human readable as a duration
     old_factory = logging.getLogRecordFactory()

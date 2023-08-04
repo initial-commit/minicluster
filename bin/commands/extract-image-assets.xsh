@@ -20,6 +20,7 @@ if __name__ == '__main__':
 import random
 import string
 import sys
+import time
 
 def get_random_name(handle):
     r = ''.join((''.join(random.choice(string.ascii_lowercase)) for i in range(8)) )
@@ -48,7 +49,11 @@ def command_extract_image_assets_xsh(cwd, logger, handle, extract_files):
     cache_dir = fp"{ro_mount}/var/cache/pacman/pkg/".absolute()
     dest_db_name = f"{handle}-repo"
     dest_db_dir = fp"{artefacts_dir}/{dest_db_name}".absolute()
-    command_merge_pacman_repositories_xsh(logger, sync_dir, ["core", "extra"], cache_dir, dest_db_name, dest_db_dir, True)
+    logger.info(f"{sync_dir=}")
+    logger.info(f"{cache_dir=}")
+    success = command_merge_pacman_repositories_xsh(logger, sync_dir, ["core", "extra"], cache_dir, dest_db_name, dest_db_dir, True)
+    if not success:
+        return (None, None)
     command_umount_image_xsh(cwd, logger, f"{handle}-ro-build")
     logger.info("image unmounted")
     return (dest_db_dir, dest_db_name)
@@ -58,4 +63,7 @@ if __name__ == '__main__':
     logger = logging.getLogger(__name__)
     handle = MINICLUSTER.ARGS.handle
     $RAISE_SUBPROC_ERROR = True
-    command_extract_image_assets_xsh(cwd, logger, handle, True)
+    (dest_db_dir, dest_db_name) = command_extract_image_assets_xsh(cwd, logger, handle, True)
+    if not dest_db_dir or not dest_db_name:
+        logger.error(f"could not extract assets: {dest_db_dir=} {dest_db_name=} from {handle=}")
+        sys.exit(1)

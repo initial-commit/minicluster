@@ -237,6 +237,9 @@ def command_merge_pacman_repositories_xsh(logger, source_db_dir, db_names, sourc
     logger.info(f"{db_extracted_dir=}")
     for d in db_names:
         d_file = source_db_dir / f"{d}.db"
+        if not d_file.exists():
+            logger.error(f"db file does not exist: {d_file}")
+            return False
         with tarfile.open(d_file, mode='r:*') as d_archive:
             d_archive_dir = db_extracted_dir / d
             d_archive_dir.mkdir()
@@ -259,9 +262,9 @@ def command_merge_pacman_repositories_xsh(logger, source_db_dir, db_names, sourc
         pkg_iter = [pf`{source_pkg_cache}/{v}.+?\\.pkg\\.tar\\.(zst|xz)$` for v in installed_raw]
         pkg_iter = [item for sublist in pkg_iter for item in sublist]
         assert len(installed_raw) == len(pkg_iter), f"the number of packages does not match: {len(installed_raw)=} vs {len(pkg_iter)=}, values: {installed_raw=} {pkg_iter=}"
-        logger.info(f"{installed=}")
-        logger.info(f"{installed_raw=}")
-        logger.info(f"{pkg_iter=}")
+        #logger.info(f"{installed=}")
+        #logger.info(f"{installed_raw=}")
+        #logger.info(f"{pkg_iter=}")
     for pkg_path in pkg_iter:
         (pkginfo, db_name, files) = get_pkg_info(pkg_path, kv_reg, db_extracted_dir, db_names, logger)
         expected_d_name=f"{pkginfo['pkgname']}-{pkginfo['pkgver']}"
@@ -302,6 +305,7 @@ def command_merge_pacman_repositories_xsh(logger, source_db_dir, db_names, sourc
     meta = [
         ('db_names', ' '.join(db_names)),
         ]
+    return True
 
 if __name__ == '__main__':
     source_db_dir = MINICLUSTER.ARGS.source_db_dir
