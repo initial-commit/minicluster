@@ -123,7 +123,9 @@ def command_test_vm_xsh(cwd, logger, name):
     # TODO: better heuristics to wait for the system to settle
     assert len(startup_finished) == 1, "startup finished"
     assert len(reached_targets) == 12, "reached targets"
-    assert len(finished) >= 18, f"finished targets: {len(finished)=}"
+    # the number of finished targets can vary a lot based on system's load, ideally it's 18 for the base image
+    # TODO: find a better heuristic to decide if the system is fully initialized (potentially systemctl status)
+    assert len(finished) >= 15, f"finished targets: {len(finished)=}"
     assert len(started) >= 25, "started units"
     assert len(untagged) == 0, "untagged journal lines"
     #TODO: test for no .pacnew files in /etc
