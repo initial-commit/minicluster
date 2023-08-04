@@ -12,6 +12,9 @@ It can be used in various ways:
 * for safe deployment to production of provably working systems
 * for testing dedicated hardware by giving control over the kernel and kernel
   drivers
+* as the name suggests, all of the above in a cluster, including features like
+  failover, backup, restore, observability (logging, monitoring, health-checks)
+  and more
 
 By combining these aspects within the same organization, it can cover the full
 needs, from development to deploying software into production.
