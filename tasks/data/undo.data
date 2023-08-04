@@ -724,3 +724,28 @@ time 1691057595
 old [description:"resolve hack in build-base-image by using a character device for logs inside the vm" entry:"1690562860" modified:"1690562860" project:"bootstrap" status:"pending" uuid:"abc48943-695e-457e-84b1-2163b862c184"]
 new [description:"resolve hack in build-base-image by using a character device for logs inside the vm" entry:"1690562860" modified:"1691057595" project:"bootstrap" start:"1691057595" status:"pending" uuid:"abc48943-695e-457e-84b1-2163b862c184"]
 ---
+time 1691131305
+new [description:"create a pty which can be attached to and get a login screen also when running a VM in the background" entry:"1691131305" modified:"1691131305" project:"bootstrap" status:"pending" uuid:"8ee0850b-c27e-4573-a86f-396426f1c67c"]
+---
+time 1691131339
+old [description:"resolve hack in build-base-image by using a character device for logs inside the vm" entry:"1690562860" modified:"1691057595" project:"bootstrap" start:"1691057595" status:"pending" uuid:"abc48943-695e-457e-84b1-2163b862c184"]
+new [description:"resolve hack in build-base-image by using a character device for logs inside the vm" end:"1691131339" entry:"1690562860" modified:"1691131339" project:"bootstrap" status:"completed" uuid:"abc48943-695e-457e-84b1-2163b862c184"]
+---
+time 1691134227
+new [description:"assert that minicluster repo has less packages than base repo" entry:"1691134227" modified:"1691134227" project:"bootstrap" status:"pending" uuid:"954dcc98-e4cb-4f99-bf18-b7efa54c7603"]
+---
+time 1691134241
+old [description:"assert that minicluster repo has less packages than base repo" entry:"1691134227" modified:"1691134227" project:"bootstrap" status:"pending" uuid:"954dcc98-e4cb-4f99-bf18-b7efa54c7603"]
+new [description:"assert that minicluster repo has less packages than base repo" entry:"1691134227" modified:"1691134241" project:"bootstrap" start:"1691134241" status:"pending" uuid:"954dcc98-e4cb-4f99-bf18-b7efa54c7603"]
+---
+time 1691134253
+old [description:"test the L2 image after extracting it into L0" entry:"1689859424" modified:"1691057543" project:"bootstrap" start:"1691057543" status:"pending" uuid:"e6dc2a14-2742-42a3-80a9-dca7acf5f33d"]
+new [description:"test the L2 image after extracting it into L0" end:"1691134253" entry:"1689859424" modified:"1691134253" project:"bootstrap" status:"completed" uuid:"e6dc2a14-2742-42a3-80a9-dca7acf5f33d"]
+---
+time 1691140338
+old [description:"create command to clean and trim images" entry:"1689859295" modified:"1690450296" project:"bootstrap" start:"1690450296" status:"pending" uuid:"dd33898b-137b-4e3b-8265-e6fc5f9a8251"]
+new [description:"create command to clean and trim images" end:"1691140338" entry:"1689859295" modified:"1691140338" project:"bootstrap" status:"completed" uuid:"dd33898b-137b-4e3b-8265-e6fc5f9a8251"]
+---
+time 1691140413
+new [description:"make pipetailer also show a common prefix for each line" entry:"1691140413" modified:"1691140413" project:"bootstrap" status:"pending" uuid:"a7a5b1cc-aa72-4bf1-8539-c30ee31c5f88"]
+---
