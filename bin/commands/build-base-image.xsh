@@ -88,7 +88,7 @@ def extract_l2_assets(cwd, logger, handle, name, cwd_inside):
     if not success:
         return False
     # extract assets (kernel, initramfs, fstab, pacman repo)
-    tailer = PipeTailer(f'{cwd}/pci-serial1.pipe.out', logger)
+    tailer = PipeTailer(f'{cwd}/pci-serial1.pipe.out', logger, "extract_l2_assets")
     tailer.start()
     (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, (
         f"bash -c 'set -o pipefail; cd {cwd_inside};"
@@ -107,7 +107,7 @@ def extract_l2_assets(cwd, logger, handle, name, cwd_inside):
     assert l2_image_stat_before is not None, "Could not get stat of L2 image: {l2_image_path}"
     l2_size_before = l2_image_stat_before['ST_SIZE']
     logger.info(f"{l2_image_stat_before=}")
-    tailer = PipeTailer(f'{cwd}/pci-serial1.pipe.out', logger)
+    tailer = PipeTailer(f'{cwd}/pci-serial1.pipe.out', logger, "clean L2 image inside L1")
     tailer.start()
     (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, (
         f"bash -c 'set -o pipefail; cd {cwd_inside};"
@@ -186,8 +186,8 @@ def extract_l1_assets(cwd, logger, handle, name, l2_artefacts_dir):
     assert l1_sqlite_p.exists(), f"L1 db file does not exist: {l1_sqlite_p=}"
     sql = (
         "\n"
-	f"attach 'file:{l1_sqlite_p}?mode=ro' as \"l1\";\n"
-	f"attach 'file:{l2_sqlite_p}?mode=ro' as \"l2\";\n"
+	f"attach 'file:{l1_sqlite_p}' as \"l1\";\n"
+	f"attach 'file:{l2_sqlite_p}' as \"l2\";\n"
         """
         select count(*) from l1.pkginfo;
         select count(*) from l2.pkginfo;
@@ -302,7 +302,7 @@ def proc_build_nested(cwd, logger, handle, l2_ram):
         started = False
         return False
     # TODO: reliably map ttyS4 and pci-serial1.pipe.out to each other
-    tailer = PipeTailer(f'{cwd}/pci-serial1.pipe.out', logger)
+    tailer = PipeTailer(f'{cwd}/pci-serial1.pipe.out', logger, "build L2 inside L1")
     tailer.start()
     # TODO: instead of using tee, set up logging to ttyS4 in bootstrap
     (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, (

@@ -160,10 +160,12 @@ def get_linenumber():
 class PipeTailer(threading.Thread):
     pipes = None
     logger = None
+    prefix = None
 
-    def __init__(self, pipes, logger, *args, **kwargs):
+    def __init__(self, pipes, logger, prefix=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.pipes = pathlib.Path(pipes)
+        self.prefix = prefix
         # TODO: add names of the pipe to thread and to logger
         self.logger = logger.getChild(self.__class__.__name__)
         assert self.pipes.exists(), f"Pipe {pipes} does not exist"
@@ -178,6 +180,9 @@ class PipeTailer(threading.Thread):
         keep_polling = True
         buffer = ''
         line_count = 0
+        prefix = ''
+        if self.prefix is not None:
+            prefix = f' {self.prefix}'
         while keep_polling:
             # TODO: use magic string from reserved characters in BMP
             if buffer == '\x00\x00\x00\x00\x00':
@@ -195,7 +200,7 @@ class PipeTailer(threading.Thread):
                         for line in data.splitlines(keepends=True):
                             if line.endswith("\n"):
                                 line_count += 1
-                                line = f"INSIDE {line_count}: {buffer}{line}"
+                                line = f"INSIDE {line_count}{prefix}: {buffer}{line}"
                                 buffer = ''
                                 print(line, end='', flush=True)
                             else:
