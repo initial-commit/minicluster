@@ -261,7 +261,7 @@ def command_merge_pacman_repositories_xsh(logger, source_db_dir, db_names, sourc
         installed_raw = [v.replace(' ', '-', 1) for v in installed]
         pkg_iter = [pf`{source_pkg_cache}/{v}.+?\\.pkg\\.tar\\.(zst|xz)$` for v in installed_raw]
         pkg_iter = [item for sublist in pkg_iter for item in sublist]
-        assert len(installed_raw) == len(pkg_iter), f"the number of packages does not match: {len(installed_raw)=} vs {len(pkg_iter)=}, values: {installed_raw=} {pkg_iter=}"
+        assert len(installed_raw) == len(pkg_iter), f"the number of packages does not match: {len(installed_raw)=} vs {len(pkg_iter)=}, values: {installed_raw[:10]=} {pkg_iter[:10]=}"
         #logger.info(f"{installed=}")
         #logger.info(f"{installed_raw=}")
         #logger.info(f"{pkg_iter=}")
