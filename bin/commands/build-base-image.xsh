@@ -164,6 +164,9 @@ def extract_l1_assets(cwd, logger, handle, name, l2_artefacts_dir):
     (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, f"bash -c 'cd {cwd_inside}; rm -rf {handle}-repo; mkdir {handle}-repo'")
     logger.info(f"building aggregated pacman repo for L1, please wait, it takes around 60 seconds")
     (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, f"bash -c 'cd {cwd_inside}; /root/minicluster/bin/commands/merge-pacman-repositories.xsh --source_db_dir /var/lib/pacman/sync/ --db_names core extra --source_pkg_cache /var/cache/pacman/pkg/ --dest_db_name {handle}-repo --dest_db_dir {handle}-repo --only_explicit true'")
+    if not success:
+        logger.error(f"failed to create the L1 package repo")
+        return False
     mountpoint = command_mount_image_xsh(cwd, logger, handle, "ro-build")
     assert mountpoint is not None, f"Mountpoint not there: {mountpoint=}"
     logger.debug(f"{mountpoint=} for extracting L1 repo for minicluster")
@@ -364,6 +367,7 @@ if __name__ == '__main__':
         if not started:
             logger.error(f"failed to start {handle=} with ram {vm_ram=} and {name=} for the purpose of extracting image")
             sys.exit(3)
+        # TODO: copy DIR_R to /root
         success = extract_l2_assets(cwd, logger, handle, name, cwd_inside)
         if not success:
             logger.error(f"failed to extract L2 assets")
@@ -379,6 +383,7 @@ if __name__ == '__main__':
         if not started:
             logger.error(f"failed to start {handle=} with ram {vm_ram=} and {name=} for the purpose of extracting L1 repo")
             sys.exit(5)
+        # TODO: copy DIR_R to /root
         success = extract_l1_assets(cwd, logger, handle, name, l2_artefacts_dir)
         if not success:
             logger.error("failed to extract L1 pacman repo")

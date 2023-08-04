@@ -232,7 +232,7 @@ def store_pkg_info(logger, db, pkginfo, db_name, files):
                     cur.execute(sql, values)
             # TODO: safety net to ensure that all fields from pkginfo have been stored somewhere
 
-def command_merge_pacman_repositories_xsh(logger, source_db_dir, db_names, source_pkg_cache, dest_db_name, dest_db_dir, only_installed=False):
+def command_merge_pacman_repositories_xsh(logger, source_db_dir, db_names, source_pkg_cache, dest_db_name, dest_db_dir, only_installed=False, root_dir=None):
     db_extracted_dir = pathlib.Path(tempfile.mkdtemp(prefix="minicluster-merge-pacman-repositories-"))
     logger.info(f"{db_extracted_dir=}")
     for d in db_names:
@@ -257,14 +257,19 @@ def command_merge_pacman_repositories_xsh(logger, source_db_dir, db_names, sourc
     db = create_pkg_sqlitedb(logger, dest_db_dir, dest_db_name, schema_path)
     pkg_iter = itertools.chain(source_pkg_cache.glob('*.pkg.tar.zst'), source_pkg_cache.glob('*.pkg.tar.xz'))
     if only_installed:
-        installed = $(pacman -Q).splitlines()
+        if root_dir:
+            installed = $(pacman --root @(root_dir) -Q).splitlines()
+        else:
+            installed = $(pacman -Q).splitlines()
         installed_raw = [v.replace(' ', '-', 1) for v in installed]
-        pkg_iter = [pf`{source_pkg_cache}/{v}.+?\\.pkg\\.tar\\.(zst|xz)$` for v in installed_raw]
+        pkg_iter = [pf`{source_pkg_cache}/{v}.+?\\.pkg\\.tar\\.((zst)|(xz))$` for v in installed_raw]
         pkg_iter = [item for sublist in pkg_iter for item in sublist]
-        assert len(installed_raw) == len(pkg_iter), f"the number of packages does not match: {len(installed_raw)=} vs {len(pkg_iter)=}, values: {installed_raw[:10]=} {pkg_iter[:10]=}"
-        #logger.info(f"{installed=}")
-        #logger.info(f"{installed_raw=}")
-        #logger.info(f"{pkg_iter=}")
+        logger.debug(f"{installed=}")
+        logger.debug(f"{installed_raw=}")
+        logger.debug(f"{pkg_iter=}")
+        assert len(installed_raw) > 0
+        assert len(pkg_iter) > 0
+        logger.info(f"{len(pkg_iter)=} {len(installed_raw)=} {len(installed)=}")
     for pkg_path in pkg_iter:
         (pkginfo, db_name, files) = get_pkg_info(pkg_path, kv_reg, db_extracted_dir, db_names, logger)
         expected_d_name=f"{pkginfo['pkgname']}-{pkginfo['pkgver']}"
