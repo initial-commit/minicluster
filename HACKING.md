@@ -48,6 +48,9 @@ Collection of commands
 poweroff-image.xsh --name @($(ps aux | grep qemu-system-x86_64 | grep -oP -- '--name [^ ]+' | cut -d " " -f2).rstrip())
 # build base with logging
 build-base-image.xsh --handle d1 --initial_build false --build_nested true --extract_nested true --extract_l1_assets true 2>&1 | tee -a @($(date +"%M%S%H-%a.build.log").rstrip()[1:-1])
+# send output of script to virtio socket
+./load1.xsh | socat -t 2 stdin,null-eof,escape=0 ./org.fedoraproject.port.0,end-close
+socat -v -ddd -t 2 exec:/root/load1.xsh pipe:/dev/vport3p1,wronly,shut-down
 ```
 
 

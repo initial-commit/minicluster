@@ -6,7 +6,7 @@ Minicluster is a library for setting up infrastructure.
 It can be used in various ways:
 
 * as a platform-engineering tool for developers
-* for black-box testing and system testing in failure scenarios
+* for black-box testing and system testing (also in failure scenarios)
 * to develop cloud-based Linux images
 * for setting up and operating homelabs
 * for safe deployment to production of provably working systems
@@ -14,7 +14,7 @@ It can be used in various ways:
   drivers
 
 By combining these aspects within the same organization, it can cover the full
-needs, from development to operating software.
+needs, from development to deploying software into production.
 
 Minicluster is optimized for
 
@@ -27,6 +27,15 @@ Minicluster is optimized for
 Minicluster has commands to do basic things. However, to model complex
 pipelines/processes, you'll have to write python code.
 
+Advantages
+==========
+
+WIP
+
+* it's a library, so you write just code in python (more languages once the API is stable)
+* it fosters knowledge by tackling the problems at the most fundamental level,
+  instead of buildins abstractions on top (it doesn't use yaml or the like)
+
 Example Use-Cases
 =================
 
@@ -35,7 +44,10 @@ The project is currently in the bootstrapping phase, examples will be added here
 License
 =======
 
-GNU AGPLv3, see LICENSE.txt for details.
+Minicluster is licensed under the GNU AGPLv3, see LICENSE.txt for details.
+
+For exceptions and/or business oportunities, contact me at 
+`Flavius Aspra <flavius.as+minicluster@gmail.com>`.
 
 ```
     Minicluster - craft your clusters easily and reliably.
