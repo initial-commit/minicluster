@@ -37,7 +37,12 @@ WIP
 
 * it's a library, so you write just code in python (more languages once the API is stable)
 * it fosters knowledge by tackling the problems at the most fundamental level,
-  instead of buildins abstractions on top (it doesn't use yaml or the like)
+  instead of building abstractions on top (it doesn't use yaml or the like)
+
+Disadvantages
+=============
+
+WIP
 
 Example Use-Cases
 =================
