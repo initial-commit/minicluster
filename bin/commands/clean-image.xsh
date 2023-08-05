@@ -24,6 +24,7 @@ def get_files_on_disk_unaccounted(logger, cwd, handle, repo_db):
     db_file = pf"{cwd}/{handle}-files.sqlite3"
     if db_file.exists():
 	db_file.unlink()
+    logger.info(f"creating db file {db_file=} to hold disk_files")
     sqlite3 @(db_file) "create table disk_files(path, type)"
     find @(mountpoint) -printf '"%P","%y"\n' | sqlite3 @(db_file) ".import --csv /dev/stdin disk_files"
     command_umount_image_xsh(cwd, logger, f"{handle}-compare")
@@ -108,6 +109,7 @@ def command_clean_image_xsh(cwd, logger, handle, repo_db):
 	command_poweroff_image_xsh(cwd, logger, name)
 
     files = get_files_on_disk_unaccounted(logger, cwd, handle, repo_db)
+    # TODO: get this to 0
     if len(files) > 0:
 	for f in files:
 	    logger.warning(f)

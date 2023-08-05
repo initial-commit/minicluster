@@ -197,6 +197,7 @@ def create_pkg_sqlitedb(logger, dest_db_dir, dest_db_name, schema_path):
 
 def store_pkg_info(logger, db, pkginfo, db_name, files):
     pkgname = pkginfo['pkgname']
+    logger.debug(f"store in db {pkgname=}")
     with db:
         with contextlib.closing(db.cursor()) as cur:
             values = []
@@ -231,8 +232,17 @@ def store_pkg_info(logger, db, pkginfo, db_name, files):
                     values = {'pkgname': pkgname, 'path': path}
                     cur.execute(sql, values)
             # TODO: safety net to ensure that all fields from pkginfo have been stored somewhere
+    logger.debug(f"package stored in db {pkgname=}")
 
 def command_merge_pacman_repositories_xsh(logger, source_db_dir, db_names, source_pkg_cache, dest_db_name, dest_db_dir, only_installed=False, root_dir=None):
+    logger.info((f"CALL command_merge_pacman_repositories_xsh("
+    f"{source_db_dir=}\n"
+    f"{db_names=}\n"
+    f"{source_pkg_cache=}\n"
+    f"{dest_db_name=}\n"
+    f"{dest_db_dir=}\n"
+    f"{only_installed=}\n"
+    f"{root_dir=})"))
     db_extracted_dir = pathlib.Path(tempfile.mkdtemp(prefix="minicluster-merge-pacman-repositories-"))
     logger.info(f"{db_extracted_dir=}")
     for d in db_names:
@@ -272,6 +282,7 @@ def command_merge_pacman_repositories_xsh(logger, source_db_dir, db_names, sourc
         logger.info(f"{len(pkg_iter)=} {len(installed_raw)=} {len(installed)=}")
     for pkg_path in pkg_iter:
         (pkginfo, db_name, files) = get_pkg_info(pkg_path, kv_reg, db_extracted_dir, db_names, logger)
+        logger.debug(f"PROCESSING: {pkg_path}")
         expected_d_name=f"{pkginfo['pkgname']}-{pkginfo['pkgver']}"
         exp_path = db_extracted_dir / db_name / expected_d_name
         assert db_name, f"Could not find {expected_d_name} in {db_extracted_dir}/*/"
@@ -323,4 +334,4 @@ if __name__ == '__main__':
     cwd = MINICLUSTER.CWD_START
     logger = logging.getLogger(__name__)
     $RAISE_SUBPROC_ERROR = True
-    command_merge_pacman_repositories_xsh(logger, source_db_dir, db_names, source_pkg_cache, dest_db_name, dest_db_dir, only_explicit)
+    command_merge_pacman_repositories_xsh(logger, source_db_dir, db_names, source_pkg_cache, dest_db_name, dest_db_dir, only_installed=only_explicit)

@@ -66,7 +66,8 @@ if __name__ == '__main__':
 import random
 import string
 import sys
-
+import sqlite3
+import contextlib
 
 def extract_l2_assets(cwd, logger, handle, name, cwd_inside):
     """In this function we want to use a lot of bash execution.
@@ -162,11 +163,19 @@ def extract_l2_assets(cwd, logger, handle, name, cwd_inside):
 def extract_l1_assets(cwd, logger, handle, name, l2_artefacts_dir):
     cwd_inside = '/root/minic'
     (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, f"bash -c 'cd {cwd_inside}; rm -rf {handle}-repo; mkdir {handle}-repo'")
+    assert success, f"Making directory for {cwd_inside}/{handle}-repo"
     logger.info(f"building aggregated pacman repo for L1, please wait, it takes around 60 seconds")
-    (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, f"bash -c 'cd {cwd_inside}; /root/minicluster/bin/commands/merge-pacman-repositories.xsh --source_db_dir /var/lib/pacman/sync/ --db_names core extra --source_pkg_cache /var/cache/pacman/pkg/ --dest_db_name {handle}-repo --dest_db_dir {handle}-repo --only_explicit true'")
+    tailer = PipeTailer(f'{cwd}/pci-serial1.pipe.out', logger, "build L2 pacman repo")
+    tailer.start()
+    (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, (
+        f"bash -c 'set -o pipefail; cd {cwd_inside}; "
+        f"/root/minicluster/bin/commands/merge-pacman-repositories.xsh --source_db_dir /var/lib/pacman/sync/ --db_names core extra --source_pkg_cache /var/cache/pacman/pkg/ --dest_db_name {handle}-repo --dest_db_dir {handle}-repo --only_explicit true 2>&1 | "
+        "tee -a -p /dev/ttyS4; e=$?; echo -e -n \"\\x0\"{,,,,} | tr -d \" \" >> /dev/ttyS4; exit $e'"))
     if not success:
         logger.error(f"failed to create the L1 package repo")
         return False
+    logger.info(f"joining tailer thread")
+    tailer.join()
     mountpoint = command_mount_image_xsh(cwd, logger, handle, "ro-build")
     assert mountpoint is not None, f"Mountpoint not there: {mountpoint=}"
     logger.debug(f"{mountpoint=} for extracting L1 repo for minicluster")
@@ -184,18 +193,32 @@ def extract_l1_assets(cwd, logger, handle, name, l2_artefacts_dir):
     l1_db_dir = pf"{cwd}/tmp/{handle}-repo".absolute()
     l1_sqlite_p = l1_db_dir / f"{l1_db_name}.sqlite3"
     assert l1_sqlite_p.exists(), f"L1 db file does not exist: {l1_sqlite_p=}"
-    sql = (
-        "\n"
-	f"attach 'file:{l1_sqlite_p}' as \"l1\";\n"
-	f"attach 'file:{l2_sqlite_p}' as \"l2\";\n"
-        """
-        select count(*) from l1.pkginfo;
-        select count(*) from l2.pkginfo;
-        """
-        )
-    logger.info(sql)
-    #time.sleep(60)
+    #time.sleep(5)
     command_umount_image_xsh(cwd, logger, f"{handle}-ro-build")
+    #time.sleep(5)
+    db = sqlite3.connect(':memory:')
+    db.execute(f"attach '{l1_sqlite_p}' as \"l1\";")
+    db.execute(f"attach '{l2_sqlite_p}' as \"l2\";")
+    #with contextlib.closing(db.cursor()) as cur:
+    #    cur.execute(f"attach 'file:{l1_sqlite_p}' as \"l1\";")
+    #    cur.execute(f"attach 'file:{l2_sqlite_p}' as \"l2\";")
+    with contextlib.closing(db.cursor()) as cur:
+        res = cur.execute(f"SELECT COUNT(*) FROM l1.pkginfo;")
+        (cnt_pkg_l1, ) = res.fetchone()
+        logger.info(f"{cnt_pkg_l1=}")
+    with contextlib.closing(db.cursor()) as cur:
+        res = cur.execute(f"SELECT COUNT(*) FROM l2.pkginfo;")
+        (cnt_pkg_l2, ) = res.fetchone()
+        logger.info(f"{cnt_pkg_l2=}")
+    with contextlib.closing(db.cursor()) as cur:
+        res = cur.execute(f"select COUNT(*) FROM l1.pkginfo INNER JOIN l2.pkginfo ON l1.pkginfo.pkgname = l2.pkginfo.pkgname AND l1.pkginfo.pkgver = l2.pkginfo.pkgver;")
+        (cnt_pkg_common, ) = res.fetchone()
+        logger.info(f"{cnt_pkg_common=}")
+    assert cnt_pkg_l1 > 0
+    assert cnt_pkg_l2 > 0
+    assert cnt_pkg_common > 0
+    assert cnt_pkg_l1 > cnt_pkg_l2
+    assert cnt_pkg_common == cnt_pkg_l2
     return True
     
 def get_random_name(handle):
@@ -376,14 +399,14 @@ if __name__ == '__main__':
         command_poweroff_image_xsh(cwd, logger, name)
 
     if extract_assets:
-        logger.info(f"TODO")
+        logger.info(f"START: extract_assets - the L1 pacman repo, deduplicated")
         l2_artefacts_dir = pf"{cwd}/artefacts-nested-{handle}"
         name = get_random_name(handle) + str(get_linenumber())
         started = command_boot_image_xsh(cwd, logger, handle, name, vm_ram, True, False)
         if not started:
             logger.error(f"failed to start {handle=} with ram {vm_ram=} and {name=} for the purpose of extracting L1 repo")
             sys.exit(5)
-        # TODO: copy DIR_R to /root
+        written = command_copy_files_xsh(cwd, logger, '{DIR_R}', f'{name}:/root', additional_env={'name': name})
         success = extract_l1_assets(cwd, logger, handle, name, l2_artefacts_dir)
         if not success:
             logger.error("failed to extract L1 pacman repo")

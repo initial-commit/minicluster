@@ -181,6 +181,7 @@ class PipeTailer(threading.Thread):
         buffer = ''
         line_count = 0
         prefix = ''
+        no_events_count = 0
         if self.prefix is not None:
             prefix = f' {self.prefix}'
         while keep_polling:
@@ -191,6 +192,14 @@ class PipeTailer(threading.Thread):
             #if line_count < 50:
             #    logger.info(f"XX polling {buffer=}")
             events = poller.poll(timeout=10)
+            if len(events) == 0:
+                no_events_count += 1
+                logger.warning(f"no output detected, waiting more ({no_events_count}/30)...")
+            else:
+                no_events_count = 0
+            if no_events_count >= 30:
+                logger.warning(f"no output/events generated for 300 seconds, stopping")
+                keep_polling = False
             for fd, evt in events:
                 if evt & select.EPOLLIN:
                     data = file_obj[fd].read(2**13)
