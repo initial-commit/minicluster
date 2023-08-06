@@ -81,7 +81,12 @@ class Handler(ABC):
 class GenericParameters(Handler):
     def handle(self):
 	ram = self.cmd_args['ram']
-	cpu = ['-cpu', 'host', '-smp', 'cores=4,threads=1,sockets=1', '-machine', 'type=q35,accel=kvm']
+	cpu = [
+	    '-cpu', 'host',
+	    '-smp', 'cores=4,threads=1,sockets=1',
+	    '-object', f'memory-backend-file,id=mem,size={ram}M,mem-path=/dev/shm,share=on',
+	    '-machine', 'type=q35,accel=kvm,memory-backend=mem',
+	]
 	boot = ['-boot', 'order=d,strict=off,menu=on']
 	kvm = ['--enable-kvm', '-m', ram,]
 	p = []
@@ -211,6 +216,7 @@ def command_boot_image_xsh(cwd, logger, image, name, ram, network, interactive):
 
     params = kernel.handle()
     append = [
+	'-device', 'amd-iommu',
 	#'-device', 'virtio-serial-pci,id=ser0',
 	#'-device', 'virtio-serial-device',
 	#'-chardev', f'socket,path={cwd}/foo,server=off,reconnect=1,id=foo,telnet=off',
