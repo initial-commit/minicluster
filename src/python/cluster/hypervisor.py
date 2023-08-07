@@ -72,6 +72,76 @@ class HypervisorConnection(object):
         assert 'return' in resp
         return True
 
+    def add_chardev(self, id, path):
+        payload = {
+            "execute": "chardev-add",
+            "arguments": {
+                "id": id,
+                "backend": {
+                    "type": "socket",
+                    "data": {
+                        "addr": {
+                            "type": "unix",
+                            "data": {
+                                "path": path,
+                            },
+                        },
+                        "server": False,
+                    },
+                },
+            },
+        }
+        resp = self.send_recv(payload)
+        self.logger.info(f"chardev-add {resp=}")
+        return True
+
+    def remove_chardev(self, id):
+        payload = {
+            "execute": "chardev-remove",
+            "arguments": {
+                "id": id,
+            }
+        }
+        resp = self.send_recv(payload)
+        self.logger.info(f"chardev-remove {resp=}")
+        return True
+
+    def add_virtiofs_device(self, queue_size, chardev, tag):
+        payload = {
+            "execute": "device_add",
+            "arguments": {
+                "driver": "vhost-user-fs-pci",
+                "queue-size": queue_size,
+                "chardev": chardev,
+                "tag": tag,
+                "bus": "pci.6",
+                "id": f"vfsd-{tag}",
+            },
+        }
+        resp = self.send_recv(payload)
+        self.logger.info(f"device_add virtiofs {resp=}")
+        return True
+
+    def remove_virtiofs_device(self, tag):
+        payload = {
+            "execute": "device_del",
+            "arguments": {
+                "id": f"vfsd-{tag}",
+            }
+        }
+        # TODO: read docs, we need to handle events DEVICE_DELETED and DEVICE_UNPLUG_GUEST_ERROR
+        resp = self.send_recv(payload)
+        self.logger.info(f"device_add virtiofs {resp=}")
+        return True
+
+    def query_schema(self):
+        payload = {
+            "execute": "query-qmp-schema",
+        }
+        resp = self.send_recv(payload)
+        self.logger.info(f"SCHEMA {resp=}")
+        return True
+
     def network_on(self):
         payload = {
             "execute": "set_link",

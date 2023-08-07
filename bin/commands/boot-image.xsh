@@ -225,6 +225,16 @@ def command_boot_image_xsh(cwd, logger, image, name, ram, network, interactive):
 	#'-device', 'virtioconsole,bus=ser0.1,chardev=bar,name=org.initial-commit.bar'
 	#'-chardev', f'socket,path={cwd}/vsock-pci.sock,id=chr0,server=on,wait=off',
 	#'-device', 'vhost-user-vsock-pci,disable-legacy=on,chardev=chr0',
+	'-device','pcie-root-port,port=0x8,chassis=1,id=pci.1,bus=pcie.0,multifunction=on,addr=0x7',
+	'-device','pcie-root-port,port=0x9,chassis=2,id=pci.2,bus=pcie.0,addr=0x7.0x1',
+	'-device','pcie-root-port,port=0xa,chassis=3,id=pci.3,bus=pcie.0,addr=0x7.0x2',
+	'-device','pcie-root-port,port=0xb,chassis=4,id=pci.4,bus=pcie.0,addr=0x7.0x3',
+	'-device','pcie-root-port,port=0xc,chassis=5,id=pci.5,bus=pcie.0,addr=0x7.0x4',
+	'-device','pcie-root-port,port=0xd,chassis=6,id=pci.6,bus=pcie.0,addr=0x7.0x5',
+	#'-chardev', 'socket,id=char0,path=/tmp/vfsd.sock',
+	#'-device','vhost-user-fs-pci,queue-size=1024,chardev=char0,tag=myfs,bus=pci.6',
+	#'-device','vhost-user-fs-pci,queue-size=1024,chardev=char0,tag=myfs',
+	#'-numa node,memdev=mem',
     ]
     pre_commands = generic.get_pre_commands()
     params.extend(append)
