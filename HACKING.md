@@ -51,6 +51,16 @@ build-base-image.xsh --handle d1 --initial_build false --build_nested true --ext
 # send output of script to virtio socket
 ./load1.xsh | socat -t 2 stdin,null-eof,escape=0 ./org.fedoraproject.port.0,end-close
 socat -v -ddd -t 2 exec:/root/load1.xsh pipe:/dev/vport3p1,wronly,shut-down
+
+# ctrl+a, c, then to add a chardev:
+chardev-add socket,id=char0,path=/tmp/vfsd.sock
+# beforehand, virtiofsd:
+unshare --fork --pid --mount-proc --kill-child=SIGTERM --map-auto --map-root-user --setuid 0 --setgid 0 env -i /usr/lib/virtiofsd --socket-path=/tmp/vfsd.soc
+k --shared-dir /mnt --announce-submounts --sandbox none
+
+device_add pcie-root-port,id=myroot,slot=0
+device_add vfio-pci,host=01:10.3,id=myid,bus=root
+#device_add vhost-user-fs-pci,queue-size=1024,chardev=char0,tag=myfs,bus=myroot,addr=01:00
 ```
 
 
