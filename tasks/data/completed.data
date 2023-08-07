@@ -1,3 +1,5 @@
+[description:"assert that minicluster repo has less packages than base repo" end:"1691229435" entry:"1691134227" modified:"1691229435" project:"bootstrap" status:"completed" uuid:"954dcc98-e4cb-4f99-bf18-b7efa54c7603"]
+[description:"make pipetailer also show a common prefix for each line" end:"1691229440" entry:"1691140413" modified:"1691229440" project:"bootstrap" status:"completed" uuid:"a7a5b1cc-aa72-4bf1-8539-c30ee31c5f88"]
 [description:"create command to clean and trim images" end:"1691140338" entry:"1689859295" modified:"1691140338" project:"bootstrap" status:"completed" uuid:"dd33898b-137b-4e3b-8265-e6fc5f9a8251"]
 [description:"test the L2 image after extracting it into L0" end:"1691134253" entry:"1689859424" modified:"1691134253" project:"bootstrap" status:"completed" uuid:"e6dc2a14-2742-42a3-80a9-dca7acf5f33d"]
 [description:"resolve hack in build-base-image by using a character device for logs inside the vm" end:"1691131339" entry:"1690562860" modified:"1691131339" project:"bootstrap" status:"completed" uuid:"abc48943-695e-457e-84b1-2163b862c184"]
