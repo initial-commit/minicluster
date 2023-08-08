@@ -15,6 +15,9 @@ import re
 import shlex
 
 def command_prepare_chroot_xsh(cwd, logger, handle, cache):
+    # TODO: list of packages to bootstrap from should be a parameter
+    # TODO: from those packages, extract the names of the repositories instead of hard-coding them here:
+    repositories = ["core", "extra"]
     mountpoint = f"{cwd}/{handle}"
     disk_file = f"{cwd}/{handle}.qcow2"
     unshare_pid=("--fork", "--pid", "--mount-proc",)
@@ -110,6 +113,8 @@ def command_prepare_chroot_xsh(cwd, logger, handle, cache):
         pacstrap_flags = '--cache'
     else:
         ping -c 1 8.8.8.8 -w 1
+        for repo in repositories:
+            unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) wget -O @(f"{mountpoint}/var/cache/pacman/pkg/{repo}.files.tar.gz") https://geo.mirror.pkgbuild.com/@(repo)/os/x86_64/@(repo).files.tar.gz
     unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) pacstrap.xsh @(mountpoint) @(pacstrap_flags) base linux mkinitcpio linux-firmware qemu-guest-agent
 
     d=p"$XONSH_SOURCE".resolve().parent; source f'{d}/umount-image.xsh'
