@@ -50,6 +50,15 @@ Example Use-Cases
 
 The project is currently in the bootstrapping phase, examples will be added here.
 
+
+FAQs
+====
+
+WIP
+
+* why archlinux, isn't it too unstable?
+* isn't it less secure to use a rolling release distro like archlinux?
+
 License
 =======
 
