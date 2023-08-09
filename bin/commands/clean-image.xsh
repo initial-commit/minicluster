@@ -66,7 +66,7 @@ def get_files_on_disk_unaccounted(logger, cwd, handle, repo_db):
         where repo_files.file is null
         order by path;"""
     )
-    lines = $(sqlite3 @(db_file) @(sql)).splitlines()
+    lines = list(filter(None, $(sqlite3 @(db_file) @(sql)).splitlines()))
     return lines
 
 def get_random_name(handle):
