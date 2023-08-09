@@ -17,6 +17,7 @@ import psutil
 import math
 import random
 import string
+import sys
 
 def get_files_on_disk_unaccounted(logger, cwd, handle, repo_db):
     mountpoint = command_mount_image_xsh(cwd, logger, handle, "compare")
@@ -57,6 +58,7 @@ def get_files_on_disk_unaccounted(logger, cwd, handle, repo_db):
 			and path not in ('var/lib/systemd/catalog', 'var/lib/systemd/catalog/database', 'var/lib/systemd/coredump', 'var/lib/systemd/linger', 'var/lib/systemd/pstore', 'var/lib/systemd/random-seed', 'var/lib/systemd/timers', 'var/lib/systemd/timers/stamp-archlinux-keyring-wkd-sync.timer', 'var/lib/systemd/timers/stamp-shadow.timer')
 			and path not in ('etc/.updated', 'var/.updated')
 			and path not in ('etc/systemd/network/80-dhcp.network')
+			and path not in ('etc/default/grub', 'etc/machine-id', 'etc/vconsole.conf', 'tmp/.ICE-unix', 'tmp/.X11-unix', 'tmp/.XIM-unix', 'tmp/.font-unix', 'tmp/bootstrap-rootimage.sh', 'usr/lib/udev/hwdb.bin', 'var/lib/dbus', 'var/lib/dbus/machine-id', 'var/lib/machines', 'var/lib/portables', 'var/lib/private', 'var/lib/systemd/ephemeral-trees', 'var/lib/tpm2-tss', 'var/lib/tpm2-tss/system', 'var/lib/tpm2-tss/system/keystore')
                 order by path
         )
         select disk.* from disk
@@ -109,10 +111,9 @@ def command_clean_image_xsh(cwd, logger, handle, repo_db):
 	command_poweroff_image_xsh(cwd, logger, name)
 
     files = get_files_on_disk_unaccounted(logger, cwd, handle, repo_db)
-    # TODO: get this to 0
     if len(files) > 0:
 	for f in files:
-	    logger.warning(f)
+	    logger.error(f)
 	logger.error(f"files unaccounted for on disk: {len(files)}")
 	return False
 
@@ -126,4 +127,5 @@ if __name__ == '__main__':
     repo_db = MINICLUSTER.ARGS.repo_db
     $RAISE_SUBPROC_ERROR = True
     is_clean = command_clean_image_xsh(cwd, logger, handle, repo_db)
-    #  TODO: assert is_clean, f"image {handle} is clean"
+    if not is_clean:
+	sys.exit(1)
