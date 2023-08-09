@@ -6,6 +6,7 @@ Minicluster is a library for setting up infrastructure.
 It can be used in various ways:
 
 * as a platform-engineering tool for developers
+* to test processes like: upgrade paths, backup restoration
 * for black-box testing and system testing (also in failure scenarios)
 * to develop cloud-based Linux images
 * for setting up and operating homelabs
