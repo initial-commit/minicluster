@@ -193,7 +193,8 @@ class KernelParameters(Handler):
 	    initrd = str(initrds[0].absolute())
 	# TODO: read root device from MediaParameters
 	# the order of the console statements determines if the systemd service start protocol is visible or not/screen reset
-	kernel_append = 'console=tty0 console=ttyS0,19200n8 root=/dev/vda2 rw norandmaps printk.devkmsg=on printk.time=y transparent_hugepage=never systemd.journald.forward_to_kmsg amd_iommu=on systemd.unified_cgroup_hierarchy=0'
+	# TODO: use infocmp & co to figure out a fitting terminal
+	kernel_append = 'console=tty0 console=ttyS0,19200n8 root=/dev/vda2 rw norandmaps printk.devkmsg=on printk.time=y transparent_hugepage=never systemd.journald.forward_to_kmsg amd_iommu=on systemd.unified_cgroup_hierarchy=0 TERM=screen.vte-256color'
 	#console=ttyS0,115200n8 earlyprintk=ttyS0,115200 debug loglevel=0-7
 	kernel = ['-kernel', kernel, '-initrd', initrd, '-append', kernel_append, ]
 	p.extend(kernel)
