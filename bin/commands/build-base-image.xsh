@@ -165,17 +165,23 @@ def extract_l1_assets(cwd, logger, handle, name, l2_artefacts_dir):
     (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, f"bash -c 'cd {cwd_inside}; rm -rf {handle}-repo; mkdir {handle}-repo'")
     assert success, f"Making directory for {cwd_inside}/{handle}-repo"
     logger.info(f"building aggregated pacman repo for L1, please wait, it takes around 60 seconds")
-    tailer = PipeTailer(f'{cwd}/pci-serial1.pipe.out', logger, "build L2 pacman repo")
+    tailer = PipeTailer(f'{cwd}/pci-serial1.pipe.out', logger, "build L1 pacman repo")
     tailer.start()
     (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, (
         f"bash -c 'set -o pipefail; cd {cwd_inside}; "
         f"/root/minicluster/bin/commands/merge-pacman-repositories.xsh --source_db_dir /var/lib/pacman/sync/ --db_names core extra --source_pkg_cache /var/cache/pacman/pkg/ --dest_db_name {handle}-repo --dest_db_dir {handle}-repo --only_explicit true 2>&1 | "
-        "tee -a -p /dev/ttyS4; e=$?; echo -e -n \"\\x0\"{,,,,} | tr -d \" \" >> /dev/ttyS4; exit $e'"))
+        f"tee -a -p /dev/ttyS4; e=$?; du --apparent-size -s -B1 {handle}-repo >> /dev/ttyS4; "
+        "echo -e -n \"\\x0\"{,,,,} | tr -d \" \" >> /dev/ttyS4; exit $e'"))
     if not success:
         logger.error(f"failed to create the L1 package repo")
         return False
     logger.info(f"joining tailer thread")
     tailer.join()
+    (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, f"du --apparent-size -s -B1 {cwd_inside}/{handle}-repo")
+    if not success:
+        logger.error(f"failed to get disk usage of directory inside: {cwd}/{handle}-repo")
+    logger.info(f"L1 repo usage: {st=}")
+    size_inside = int(st['out-data'].split()[0])
     mountpoint = command_mount_image_xsh(cwd, logger, handle, "ro-build")
     assert mountpoint is not None, f"Mountpoint not there: {mountpoint=}"
     logger.debug(f"{mountpoint=} for extracting L1 repo for minicluster")
@@ -190,11 +196,13 @@ def extract_l1_assets(cwd, logger, handle, name, l2_artefacts_dir):
     assert l1_sqlite_p.exists(), f"L1 db file does not exist: {l1_sqlite_p=}"
     assert l2_sqlite_p.exists(), f"L2 db file does not exist: {l2_sqlite_p=}"
     rsync --delete -a --info=stats2,misc1,flist0 @(l1_db_dir) @(f"{cwd}/tmp/")
+    size_outside = int($(du --apparent-size -s -B1 @(f"{cwd}/tmp/{handle}-repo/")).split()[0])
     l1_db_dir = pf"{cwd}/tmp/{handle}-repo".absolute()
     l1_sqlite_p = l1_db_dir / f"{l1_db_name}.sqlite3"
     assert l1_sqlite_p.exists(), f"L1 db file does not exist: {l1_sqlite_p=}"
     #time.sleep(5)
     command_umount_image_xsh(cwd, logger, f"{handle}-ro-build")
+    assert size_inside == size_outside, f"L1 repo inside and outside of the VM after copying have different sizes: {size_inside=} {size_outside=}"
     #time.sleep(5)
     db = sqlite3.connect(':memory:')
     db.execute(f"attach '{l1_sqlite_p}' as \"l1\";")

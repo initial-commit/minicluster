@@ -351,6 +351,7 @@ def command_merge_pacman_repositories_xsh(logger, source_db_dir, db_names, sourc
         shutil.rmtree(d)
     for d in set(db_dirs.values()):
         shutil.rmtree(d)
+    sync
     return True
 
 
