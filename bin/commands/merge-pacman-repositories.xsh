@@ -172,8 +172,8 @@ def get_pkg_info(pkg_path, kv_reg, db_extracted_dir, db_names, logger):
             db_name = d
             break
         else:
-            logger.warning(f"{exp_path=} not found, continue searching")
-    assert db_name is not None, "No db found for package {expected_d_name=}"
+            logger.debug(f"{exp_path=} not found, continue searching")
+    assert db_name is not None, f"No db found for package {expected_d_name=}"
     type_indicators = {tarfile.REGTYPE: 'f', tarfile.AREGTYPE: 'f', tarfile.SYMTYPE: 'l', tarfile.DIRTYPE: 'd', tarfile.LNKTYPE: ''}
     for f in pkgf:
         if f.name.startswith('.'):
@@ -285,6 +285,8 @@ def command_merge_pacman_repositories_xsh(logger, source_db_dir, db_names, sourc
             # TODO: once python 3.11.4 is out, add filter='data'
             f_archive.extractall(path=t_files_dir)
 
+    if dest_db_dir.exists():
+        shutil.rmtree(dest_db_dir)
     dest_db_dir.mkdir(parents=True)
     db = create_pkg_sqlitedb(logger, dest_db_dir, dest_db_name)
 
@@ -310,7 +312,7 @@ def command_merge_pacman_repositories_xsh(logger, source_db_dir, db_names, sourc
     for pkg_path in pkg_iter:
         (pkginfo, db_name, files) = get_pkg_info(pkg_path, kv_reg, t_db_dir, db_names, logger)
         assert db_name is not None, f"No db found for package {pkg_path}"
-        logger.info(f"PROCESSING: {pkg_path}")
+        logger.debug(f"PROCESSING: {pkg_path}")
         expected_d_name=f"{pkginfo['pkgname']}-{pkginfo['pkgver']}"
         shutil.copy(pkg_path, dest_db_dir)
         shutil.copy(f"{pkg_path}.sig", dest_db_dir)
@@ -319,7 +321,7 @@ def command_merge_pacman_repositories_xsh(logger, source_db_dir, db_names, sourc
         db_dir = db_dirs[db_name]
         src = t_db_dir / f"{db_name}/{expected_d_name}"
         assert src.exists()
-        logger.info(f"COPY TREE: {src=} to {db_dir=}")
+        logger.debug(f"COPY TREE: {src=} to {db_dir=}")
         shutil.copytree(src, db_dir / src.name)
         # files files
         files_dir = files_dirs[db_name]

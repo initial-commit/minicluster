@@ -189,10 +189,7 @@ def extract_l1_assets(cwd, logger, handle, name, l2_artefacts_dir):
 
     assert l1_sqlite_p.exists(), f"L1 db file does not exist: {l1_sqlite_p=}"
     assert l2_sqlite_p.exists(), f"L2 db file does not exist: {l2_sqlite_p=}"
-    # TODO: also copy /var/lib/pacman/local/{pkg} in a file smallrepo.files.tar and symlink smallrepo.files to it
-    echo rsync --delete -av --info=stats2,misc1,flist0 @(l1_db_dir) @(f"{cwd}/tmp/")
-    time.sleep(10)
-    rsync --delete -av --info=stats2,misc1,flist0 @(l1_db_dir) @(f"{cwd}/tmp/")
+    rsync --delete -a --info=stats2,misc1,flist0 @(l1_db_dir) @(f"{cwd}/tmp/")
     l1_db_dir = pf"{cwd}/tmp/{handle}-repo".absolute()
     l1_sqlite_p = l1_db_dir / f"{l1_db_name}.sqlite3"
     assert l1_sqlite_p.exists(), f"L1 db file does not exist: {l1_sqlite_p=}"
