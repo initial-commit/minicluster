@@ -34,7 +34,8 @@ import re
 import shutil
 import sqlite3
 import contextlib
-from cluster.functions import ZstdTarFile, pushd
+from cluster.functions import ZstdTarFile, pushd, make_archive
+import time
 
 def get_random_name(handle):
     r = ''.join((''.join(random.choice(string.ascii_lowercase)) for i in range(8)) )
@@ -170,6 +171,9 @@ def get_pkg_info(pkg_path, kv_reg, db_extracted_dir, db_names, logger):
             found = True
             db_name = d
             break
+        else:
+            logger.warning(f"{exp_path=} not found, continue searching")
+    assert db_name is not None, "No db found for package {expected_d_name=}"
     type_indicators = {tarfile.REGTYPE: 'f', tarfile.AREGTYPE: 'f', tarfile.SYMTYPE: 'l', tarfile.DIRTYPE: 'd', tarfile.LNKTYPE: ''}
     for f in pkgf:
         if f.name.startswith('.'):
@@ -181,7 +185,7 @@ def get_pkg_info(pkg_path, kv_reg, db_extracted_dir, db_names, logger):
     files.sort()
     return (pkginfo, db_name, files)
 
-def create_pkg_sqlitedb(logger, dest_db_dir, dest_db_name, schema_path):
+def create_pkg_sqlitedb(logger, dest_db_dir, dest_db_name):
     db_file = pathlib.Path(f"{dest_db_dir}/{dest_db_name}.sqlite3").absolute()
     logger.info(f"creating sqlite db for repository: {db_file=}")
     if db_file.exists():
@@ -235,6 +239,8 @@ def store_pkg_info(logger, db, pkginfo, db_name, files):
     logger.debug(f"package stored in db {pkgname=}")
 
 def command_merge_pacman_repositories_xsh(logger, source_db_dir, db_names, source_pkg_cache, dest_db_name, dest_db_dir, only_installed=False, root_dir=None):
+    if root_dir is None:
+        root_dir = pathlib.Path('/')
     logger.info((f"CALL command_merge_pacman_repositories_xsh("
     f"{source_db_dir=}\n"
     f"{db_names=}\n"
@@ -243,28 +249,46 @@ def command_merge_pacman_repositories_xsh(logger, source_db_dir, db_names, sourc
     f"{dest_db_dir=}\n"
     f"{only_installed=}\n"
     f"{root_dir=})"))
-    db_extracted_dir = pathlib.Path(tempfile.mkdtemp(prefix="minicluster-merge-pacman-repositories-"))
-    logger.info(f"{db_extracted_dir=}")
+
+    #where we extract the .files.tar.gz files
+    t_files_dir = pathlib.Path(tempfile.mkdtemp(prefix="minicluster-files-unarchived-"))
+    #where we extract the .db files, each db in a subdirectory (core/, extra/ ...)
+    t_db_dir = pathlib.Path(tempfile.mkdtemp(prefix="minicluster-db-unarchived-"))
+    kv_reg = re.compile('^(?P<var>[a-zA-Z_]+)[^=]*=(?P<val>.+)')
+
+    logger.info(f"{t_files_dir=}")
+    logger.info(f"{t_db_dir=}")
+    files_dirs = {}
+    db_dirs = {}
+
     for d in db_names:
         d_file = source_db_dir / f"{d}.db"
-        if not d_file.exists():
-            logger.error(f"db file does not exist: {d_file}")
-            return False
+        f_file = source_pkg_cache / f"{d}.files.tar.gz"
+        assert d_file.exists()
+        assert f_file.exists()
+        db_dirs[d] = pathlib.Path("/tmp/minicluster-db-new")
+        files_dirs[d] = pathlib.Path("/tmp/minicluster-files-new")
+        if not db_dirs[d].exists():
+            db_dirs[d].mkdir()
+        if not files_dirs[d].exists():
+            files_dirs[d].mkdir()
+        # heavier operations, you can arrange for these to be skipped on subsequent runs during development
+        # by commenting out these lines
         with tarfile.open(d_file, mode='r:*') as d_archive:
-            d_archive_dir = db_extracted_dir / d
-            d_archive_dir.mkdir()
-            d_archive.extractall(d_archive_dir)
-    #go through each pkg file in source_pkg_cache
-    kv_reg = re.compile('^(?P<var>[a-zA-Z_]+)[^=]*=(?P<val>.+)')
-    temp_db_uncompressed_dir = pathlib.Path(f"{dest_db_dir}/{dest_db_name}").absolute()
-    if dest_db_dir.exists():
-        shutil.rmtree(dest_db_dir)
-    temp_db_uncompressed_dir.mkdir(parents=True)
-    logger.info(f"{temp_db_uncompressed_dir=}")
-    logger.info(f"creating database {dest_db_name} in {dest_db_dir}")
-    to_remove = []
-    schema_path = None
-    db = create_pkg_sqlitedb(logger, dest_db_dir, dest_db_name, schema_path)
+            d_archive_dir = t_db_dir / d
+            if not d_archive_dir.exists():
+                d_archive_dir.mkdir()
+            # TODO: once python 3.11.4 is out, add filter='data'
+            d_archive.extractall(path=d_archive_dir)
+            logger.info(f"{d_archive_dir=}")
+        with pushd(t_files_dir), tarfile.open(f_file, mode='r:*') as f_archive:
+            # TODO: once python 3.11.4 is out, add filter='data'
+            f_archive.extractall(path=t_files_dir)
+
+    dest_db_dir.mkdir(parents=True)
+    db = create_pkg_sqlitedb(logger, dest_db_dir, dest_db_name)
+
+    # decide which pkg files to consider
     pkg_iter = itertools.chain(source_pkg_cache.glob('*.pkg.tar.zst'), source_pkg_cache.glob('*.pkg.tar.xz'))
     if only_installed:
         if root_dir:
@@ -277,51 +301,56 @@ def command_merge_pacman_repositories_xsh(logger, source_db_dir, db_names, sourc
         logger.debug(f"{installed=}")
         logger.debug(f"{installed_raw=}")
         logger.debug(f"{pkg_iter=}")
+        logger.info(f"{len(pkg_iter)=} {len(installed_raw)=} {len(installed)=}")
         assert len(installed_raw) > 0
         assert len(pkg_iter) > 0
-        logger.info(f"{len(pkg_iter)=} {len(installed_raw)=} {len(installed)=}")
+        assert len(pkg_iter) == len(installed)
+
+    # go through each considered pkg file
     for pkg_path in pkg_iter:
-        (pkginfo, db_name, files) = get_pkg_info(pkg_path, kv_reg, db_extracted_dir, db_names, logger)
-        logger.debug(f"PROCESSING: {pkg_path}")
+        (pkginfo, db_name, files) = get_pkg_info(pkg_path, kv_reg, t_db_dir, db_names, logger)
+        assert db_name is not None, f"No db found for package {pkg_path}"
+        logger.info(f"PROCESSING: {pkg_path}")
         expected_d_name=f"{pkginfo['pkgname']}-{pkginfo['pkgver']}"
-        exp_path = db_extracted_dir / db_name / expected_d_name
-        assert db_name, f"Could not find {expected_d_name} in {db_extracted_dir}/*/"
-        #logger.info(f"copy {exp_path} to {temp_db_uncompressed_dir}")
-        shutil.copytree(exp_path, temp_db_uncompressed_dir / exp_path.name)
         shutil.copy(pkg_path, dest_db_dir)
         shutil.copy(f"{pkg_path}.sig", dest_db_dir)
-        files_f = temp_db_uncompressed_dir / exp_path.name / "files"
-        #logger.info(f"{files_f=}")
-        to_remove.append(files_f)
-        with open(files_f, "w") as files_fp:
-            for (line, t) in files:
-                files_fp.write(line + "\n")
         store_pkg_info(logger, db, pkginfo, db_name, files[1:])
-
+        # db files
+        db_dir = db_dirs[db_name]
+        src = t_db_dir / f"{db_name}/{expected_d_name}"
+        assert src.exists()
+        logger.info(f"COPY TREE: {src=} to {db_dir=}")
+        shutil.copytree(src, db_dir / src.name)
+        # files files
+        files_dir = files_dirs[db_name]
+        src = t_files_dir / expected_d_name
+        assert src.exists()
+        logger.debug(f"COPY TREE: {src=} to {files_dir=}")
+        shutil.copytree(src, files_dir / src.name)
     db.close()
-    # now create database files
-    cwd = pathlib.Path(f"{dest_db_dir}/{dest_db_name}")
-    root_dir = "."
-    base_dir = "."
-    with pushd(cwd):
-        base_name = pathlib.Path(f"{dest_db_dir}/{dest_db_name}.files")
-        files_db = shutil.make_archive(base_name=base_name, format='tar', root_dir=root_dir, base_dir=base_dir, verbose=True, dry_run=False, logger=logger)
-        logger.info(f"{files_db=}")
-        base_name.symlink_to(f"{dest_db_name}.files.tar")
-        for to_rem in to_remove:
-            pathlib.Path(to_rem).unlink()
-        base_name = pathlib.Path(f"{dest_db_dir}/{dest_db_name}.db")
-        db = shutil.make_archive(base_name=base_name, format='tar', root_dir=root_dir, base_dir=base_dir, verbose=True, dry_run=False, logger=logger)
-        logger.info(f"{db=}")
-        base_name.symlink_to(f"{dest_db_name}.db.tar")
 
-    shutil.rmtree(cwd)
-    shutil.rmtree(db_extracted_dir)
-    # TODO save db_create_start, db_create_end, the params to this function
-    meta = [
-        ('db_names', ' '.join(db_names)),
-        ]
+    with pushd("/tmp/minicluster-files-new"):
+        res = make_archive("/tmp/minicluster-files-new", f"{dest_db_name}.files.tar.gz", f"{dest_db_dir}/", only_dirs=True)
+        rm -rf *
+        cd @(dest_db_dir)
+        base_name = pathlib.Path(f"{dest_db_dir}/{dest_db_name}.files")
+        base_name.symlink_to(f"{dest_db_name}.files.tar.gz")
+    with pushd("/tmp/minicluster-db-new"):
+        res = make_archive("/tmp/minicluster-db-new", f"{dest_db_name}.db.tar.gz", f"{dest_db_dir}/", only_dirs=True)
+        rm -rf *
+        cd @(dest_db_dir)
+        base_name = pathlib.Path(f"{dest_db_dir}/{dest_db_name}.db")
+        base_name.symlink_to(f"{dest_db_name}.db.tar.gz")
+
+    logger.info(f"repo {dest_db_name} created at {dest_db_dir}/")
+    shutil.rmtree(t_files_dir)
+    shutil.rmtree(t_db_dir)
+    for d in set(files_dirs.values()):
+        shutil.rmtree(d)
+    for d in set(db_dirs.values()):
+        shutil.rmtree(d)
     return True
+
 
 if __name__ == '__main__':
     source_db_dir = MINICLUSTER.ARGS.source_db_dir

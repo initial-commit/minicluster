@@ -261,3 +261,16 @@ class PipeTailer(threading.Thread):
             #if line_count < 50:
             #    logger.info(f"XY {keep_polling=} {buffer=}")
         # TODO: clean poller
+
+
+def make_archive(root_dir, base_name, tar_location, only_dirs=False):
+    root_dir = pathlib.Path(root_dir).absolute()
+    tar_location = pathlib.Path(tar_location).absolute()
+    tar_path = tar_location / base_name
+    with tarfile.open(name=tar_path, mode='w:gz') as tar:
+        for child in sorted(root_dir.iterdir()):
+            if only_dirs and not child.is_dir():
+                continue
+            arcname = child.relative_to(root_dir)
+            tar.add(child, arcname)
+    return tar_path

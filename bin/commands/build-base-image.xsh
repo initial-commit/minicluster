@@ -333,7 +333,7 @@ def proc_build_nested(cwd, logger, handle, l2_ram):
     # TODO: instead of using tee, set up logging to ttyS4 in bootstrap
     (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, (
         f"bash -c 'set -o pipefail; cd {cwd_inside};"
-        f"/root/minicluster/bin/commands/build-base-image.xsh --cache --handle nested-{handle} --build_nested false --extract_nested false --extract_l1_assets false 2>&1 | "
+        f"/root/minicluster/bin/commands/build-base-image.xsh --cache --handle nested-{handle} --initial_build true --build_nested false --extract_nested false --extract_l1_assets false 2>&1 | "
         "tee -a -p /dev/ttyS4; e=$?; echo -e -n \"\\x0\"{,,,,} | tr -d \" \" >> /dev/ttyS4; exit $e'"))
     if not success:
         logger.error(f"failed to build nested L2 image nested-{handle} in {name}:{cwd_inside}/")
