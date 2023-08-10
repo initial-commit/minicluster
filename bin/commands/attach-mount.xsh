@@ -55,7 +55,7 @@ def command_attach_mount_xsh(cwd, logger, name, dir_outside, dir_inside, tag):
     if not success:
 	return False
     # TODO: it is actually possible to use just virtiofsd
-    lxc-usernsexec -s -m @(m_param) -- /usr/lib/virtiofsd --socket-group @(group_name) --socket-path @(s_path) --shared-dir @(dir_outside) --announce-submounts --sandbox none &
+    /usr/lib/virtiofsd --socket-group @(group_name) --socket-path @(s_path) --shared-dir share --announce-submounts --sandbox namespace --uid-map :0:1000:1: --gid-map :0:1000:1: &
     success_count = wait_for_files(logger, wait_files, 5)
     if success_count != 2:
 	logger.error("virtiofsd did not start correctly")

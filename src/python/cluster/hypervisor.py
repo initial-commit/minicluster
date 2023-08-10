@@ -20,7 +20,7 @@ class HypervisorConnection(object):
         exists = pathlib.Path(self.sock_path).exists()
         assert exists, "qemu monitor socket exists"
         resp = self.recv_json()
-        self.logger.info(f"{resp=}")
+        self.logger.debug(f"{resp=}")
         resp = self.send_recv({"execute": "qmp_capabilities"})
         self.logger.debug(f"{resp=}")
 
@@ -87,13 +87,16 @@ class HypervisorConnection(object):
                             },
                         },
                         "server": False,
+                        #"logfile": f"{path}.log", # stored the binary data transferred (?)
+                        "reconnect": 1,
                     },
                 },
             },
         }
+        self.logger.debug(f"chardev-add: {payload=}")
         resp = self.send_recv(payload)
-        self.logger.info(f"chardev-add {resp=}")
-        return True
+        self.logger.debug(f"chardev-add {resp=}")
+        return 'return' in resp
 
     def remove_chardev(self, id):
         payload = {
@@ -102,9 +105,10 @@ class HypervisorConnection(object):
                 "id": id,
             }
         }
+        self.logger.debug(f"chardev-remove: {payload=}")
         resp = self.send_recv(payload)
-        self.logger.info(f"chardev-remove {resp=}")
-        return True
+        self.logger.debug(f"chardev-remove {resp=}")
+        return 'return' in resp
 
     def add_virtiofs_device(self, queue_size, chardev, tag):
         payload = {
@@ -118,9 +122,10 @@ class HypervisorConnection(object):
                 "id": f"vfsd-{tag}",
             },
         }
+        self.logger.debug(f"device_add: {payload=}")
         resp = self.send_recv(payload)
-        self.logger.info(f"device_add virtiofs {resp=}")
-        return True
+        self.logger.debug(f"device_add virtiofs {resp=}")
+        return 'return' in resp
 
     def remove_virtiofs_device(self, tag):
         payload = {
@@ -130,9 +135,10 @@ class HypervisorConnection(object):
             }
         }
         # TODO: read docs, we need to handle events DEVICE_DELETED and DEVICE_UNPLUG_GUEST_ERROR
+        self.logger.debug(f"device_del: {payload=}")
         resp = self.send_recv(payload)
-        self.logger.info(f"device_add virtiofs {resp=}")
-        return True
+        self.logger.debug(f"device_del virtiofs {resp=}")
+        return 'return' in resp
 
     def query_schema(self):
         payload = {
