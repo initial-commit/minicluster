@@ -1,3 +1,6 @@
+[description:"interactively test installing from the L1 repo in a promoted L2 image" end:"1691650194" entry:"1691230054" modified:"1691650194" project:"bootstrap" status:"completed" tags:"next" tags_next:"x" uuid:"4471d5ba-a3ff-4d49-8c2b-7b8427aef4b1"]
+[description:"TEST TEST" end:"1691595284" entry:"1691595201" modified:"1691595291" project:"bootstrap" status:"deleted" tags:"next" tags_next:"x" uuid:"818af52f-fc32-4dec-9622-7c2f388baa88"]
+[description:"test adding and removing directories as devices" end:"1691594228" entry:"1691230081" modified:"1691594228" project:"bootstrap" status:"completed" uuid:"db73f26c-2ef5-4de2-82c0-1c7f46a560ff"]
 [description:"assert that minicluster repo has less packages than base repo" end:"1691229435" entry:"1691134227" modified:"1691229435" project:"bootstrap" status:"completed" uuid:"954dcc98-e4cb-4f99-bf18-b7efa54c7603"]
 [description:"make pipetailer also show a common prefix for each line" end:"1691229440" entry:"1691140413" modified:"1691229440" project:"bootstrap" status:"completed" uuid:"a7a5b1cc-aa72-4bf1-8539-c30ee31c5f88"]
 [description:"create command to clean and trim images" end:"1691140338" entry:"1689859295" modified:"1691140338" project:"bootstrap" status:"completed" uuid:"dd33898b-137b-4e3b-8265-e6fc5f9a8251"]

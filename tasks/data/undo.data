@@ -810,3 +810,44 @@ new [description:"commands to attach and detach a directory for sharing" entry:"
 time 1691318037
 new [description:"test inotify with virtiofsd" entry:"1691318037" modified:"1691318037" project:"bootstrap" status:"pending" uuid:"a1716f40-588a-4fb5-ba99-46654c529850"]
 ---
+time 1691594228
+old [description:"test adding and removing directories as devices" entry:"1691230081" modified:"1691230807" project:"bootstrap" start:"1691230807" status:"pending" uuid:"db73f26c-2ef5-4de2-82c0-1c7f46a560ff"]
+new [description:"test adding and removing directories as devices" end:"1691594228" entry:"1691230081" modified:"1691594228" project:"bootstrap" status:"completed" uuid:"db73f26c-2ef5-4de2-82c0-1c7f46a560ff"]
+---
+time 1691595201
+new [description:"TEST TEST" entry:"1691595201" modified:"1691595201" project:"bootstrap" status:"pending" uuid:"818af52f-fc32-4dec-9622-7c2f388baa88"]
+---
+time 1691595268
+old [description:"TEST TEST" entry:"1691595201" modified:"1691595201" project:"bootstrap" status:"pending" uuid:"818af52f-fc32-4dec-9622-7c2f388baa88"]
+new [description:"TEST TEST" entry:"1691595201" modified:"1691595268" project:"bootstrap" status:"pending" tags:"next" tags_next:"x" uuid:"818af52f-fc32-4dec-9622-7c2f388baa88"]
+---
+time 1691595291
+old [description:"TEST TEST" entry:"1691595201" modified:"1691595268" project:"bootstrap" status:"pending" tags:"next" tags_next:"x" uuid:"818af52f-fc32-4dec-9622-7c2f388baa88"]
+new [description:"TEST TEST" end:"1691595284" entry:"1691595201" modified:"1691595291" project:"bootstrap" status:"deleted" tags:"next" tags_next:"x" uuid:"818af52f-fc32-4dec-9622-7c2f388baa88"]
+---
+time 1691595318
+old [description:"interactively test installing from the L1 repo in a promoted L2 image" entry:"1691230054" modified:"1691230805" project:"bootstrap" start:"1691230805" status:"pending" uuid:"4471d5ba-a3ff-4d49-8c2b-7b8427aef4b1"]
+new [description:"interactively test installing from the L1 repo in a promoted L2 image" entry:"1691230054" modified:"1691595318" project:"bootstrap" start:"1691230805" status:"pending" tags:"next" tags_next:"x" uuid:"4471d5ba-a3ff-4d49-8c2b-7b8427aef4b1"]
+---
+time 1691595321
+old [description:"commands to attach and detach a directory for sharing" entry:"1691315381" modified:"1691316357" project:"bootstrap" start:"1691316357" status:"pending" uuid:"2f084dc4-fbe6-44a4-b2a4-4a12c535bed0"]
+new [description:"commands to attach and detach a directory for sharing" entry:"1691315381" modified:"1691595321" project:"bootstrap" start:"1691316357" status:"pending" tags:"next" tags_next:"x" uuid:"2f084dc4-fbe6-44a4-b2a4-4a12c535bed0"]
+---
+time 1691598461
+new [description:"watchdog: BUG: soft lockup - CPU#2 stuck for 309s! WHEN: copying huge files (2G+) over virtiofs" entry:"1691598461" modified:"1691598461" project:"bootstrap" status:"pending" uuid:"178d076a-a25a-4609-99e7-73f1840173bf"]
+---
+time 1691650194
+old [description:"interactively test installing from the L1 repo in a promoted L2 image" entry:"1691230054" modified:"1691595318" project:"bootstrap" start:"1691230805" status:"pending" tags:"next" tags_next:"x" uuid:"4471d5ba-a3ff-4d49-8c2b-7b8427aef4b1"]
+new [description:"interactively test installing from the L1 repo in a promoted L2 image" end:"1691650194" entry:"1691230054" modified:"1691650194" project:"bootstrap" status:"completed" tags:"next" tags_next:"x" uuid:"4471d5ba-a3ff-4d49-8c2b-7b8427aef4b1"]
+---
+time 1691650913
+old [description:"process to promote the assets at the end of build-base-image" entry:"1691229614" modified:"1691229620" project:"bootstrap" start:"1691229620" status:"pending" uuid:"e9ffbb17-23c2-462b-820c-eefbc99b8168"]
+new [description:"process to promote the assets at the end of build-base-image" entry:"1691229614" modified:"1691650913" project:"bootstrap" status:"pending" uuid:"e9ffbb17-23c2-462b-820c-eefbc99b8168"]
+---
+time 1691654929
+new [description:"timeout on tasks: echo 0 > \/proc\/sys\/kernel\/hung_task_timeout_secs" entry:"1691654929" modified:"1691654929" project:"bootstrap" status:"pending" uuid:"b5191738-0a8a-4e30-b35d-c5e63bf8f95e"]
+---
+time 1691669276
+old [description:"commands to attach and detach a directory for sharing" entry:"1691315381" modified:"1691595321" project:"bootstrap" start:"1691316357" status:"pending" tags:"next" tags_next:"x" uuid:"2f084dc4-fbe6-44a4-b2a4-4a12c535bed0"]
+new [description:"commands to attach and detach a directory for sharing" end:"1691669276" entry:"1691315381" modified:"1691669276" project:"bootstrap" status:"completed" tags:"next" tags_next:"x" uuid:"2f084dc4-fbe6-44a4-b2a4-4a12c535bed0"]
+---
