@@ -13,6 +13,7 @@ class HypervisorConnection(object):
     _socket = None
     logger = None
     _buf = None
+    events_buffer = []
 
     def __init__(self, sock, logger):
         self.logger = logger.getChild(self.__class__.__name__)
@@ -69,8 +70,11 @@ class HypervisorConnection(object):
         resp = self.send_recv(payload)
         self.logger.info(f"received set_link")
         self.logger.info(f"{resp=}")
-        assert 'return' in resp
-        return True
+        if 'return' not in resp:
+            self.logger.error("error response, see below original payload and response")
+            self.logger.error(f"{payload=}")
+            self.logger.error(f"{resp=}")
+        return 'return' in resp
 
     def add_chardev(self, id, path):
         payload = {
@@ -96,6 +100,10 @@ class HypervisorConnection(object):
         self.logger.debug(f"chardev-add: {payload=}")
         resp = self.send_recv(payload)
         self.logger.debug(f"chardev-add {resp=}")
+        if 'return' not in resp:
+            self.logger.error("error response, see below original payload and response")
+            self.logger.error(f"{payload=}")
+            self.logger.error(f"{resp=}")
         return 'return' in resp
 
     def remove_chardev(self, id):
@@ -108,6 +116,10 @@ class HypervisorConnection(object):
         self.logger.debug(f"chardev-remove: {payload=}")
         resp = self.send_recv(payload)
         self.logger.debug(f"chardev-remove {resp=}")
+        if 'return' not in resp:
+            self.logger.error("error response, see below original payload and response")
+            self.logger.error(f"{payload=}")
+            self.logger.error(f"{resp=}")
         return 'return' in resp
 
     def add_virtiofs_device(self, queue_size, chardev, tag):
@@ -125,6 +137,10 @@ class HypervisorConnection(object):
         self.logger.debug(f"device_add: {payload=}")
         resp = self.send_recv(payload)
         self.logger.debug(f"device_add virtiofs {resp=}")
+        if 'return' not in resp:
+            self.logger.error("error response, see below original payload and response")
+            self.logger.error(f"{payload=}")
+            self.logger.error(f"{resp=}")
         return 'return' in resp
 
     def remove_virtiofs_device(self, tag):
@@ -138,6 +154,12 @@ class HypervisorConnection(object):
         self.logger.debug(f"device_del: {payload=}")
         resp = self.send_recv(payload)
         self.logger.debug(f"device_del virtiofs {resp=}")
+        if 'return' not in resp:
+            self.logger.error("error response, see below original payload and response")
+            self.logger.error(f"{payload=}")
+            self.logger.error(f"{resp=}")
+        data = self.get_one_event_blocking()
+        self.logger.info(f"received one event: {data=}")
         return 'return' in resp
 
     def query_schema(self):
@@ -158,6 +180,12 @@ class HypervisorConnection(object):
         assert 'return' in resp
         return True
 
+    def get_one_event_blocking(self):
+        if len(self.events_buffer) == 0:
+            return self.recv_json()
+        else:
+            return self.events_buffer.pop(0)
+
     def send_recv(self, payload):
         s = self._get_socket()
         payload = json.dumps(payload).encode('utf-8')
@@ -165,7 +193,7 @@ class HypervisorConnection(object):
         s.sendall(payload)
         return self.recv_json()
 
-    def recv_json(self):
+    def _raw_recv_json(self):
         s = self._get_socket()
         if not self._buf:
             self._buf = bytearray()
@@ -193,3 +221,15 @@ class HypervisorConnection(object):
         t = self._buf.decode('utf-8')
         self._buf = None
         return json.loads(t)
+
+    def recv_json(self):
+        return_received = False
+        data = None
+        while not return_received:
+            json_data = self._raw_recv_json()
+            if 'events' in json_data:
+                self.events_buffer.append(json_data)
+            else:
+                return_received = True
+                data = json_data
+        return data
