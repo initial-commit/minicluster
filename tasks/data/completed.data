@@ -1,3 +1,4 @@
+[description:"commands to attach and detach a directory for sharing" end:"1691669276" entry:"1691315381" modified:"1691669276" project:"bootstrap" status:"completed" tags:"next" tags_next:"x" uuid:"2f084dc4-fbe6-44a4-b2a4-4a12c535bed0"]
 [description:"interactively test installing from the L1 repo in a promoted L2 image" end:"1691650194" entry:"1691230054" modified:"1691650194" project:"bootstrap" status:"completed" tags:"next" tags_next:"x" uuid:"4471d5ba-a3ff-4d49-8c2b-7b8427aef4b1"]
 [description:"TEST TEST" end:"1691595284" entry:"1691595201" modified:"1691595291" project:"bootstrap" status:"deleted" tags:"next" tags_next:"x" uuid:"818af52f-fc32-4dec-9622-7c2f388baa88"]
 [description:"test adding and removing directories as devices" end:"1691594228" entry:"1691230081" modified:"1691594228" project:"bootstrap" status:"completed" uuid:"db73f26c-2ef5-4de2-82c0-1c7f46a560ff"]
