@@ -1,6 +1,15 @@
 import pygit2
 import re
 
+META_REQUIRED = [
+    'pkgbase',
+    'pkgname',
+    'pkgdesc',
+    'pkgver',
+    'url',
+    'pkgrel',
+]
+
 META_UNIQUE = [
     'pkgbase',
     'pkgname',
@@ -54,6 +63,19 @@ ARCHITECTURES = [
     'x86_32',
     'x86_64',
     'x86_64_v3',
+]
+
+METALIST_CHECKSUM_PREFIXES = [
+    'b2sums_',
+    'cksums_',
+    'md5sum_',  # TODO: validate
+    'md5sums_',
+    'sha1sums_',
+    'sha224sums_',
+    'sha256sums_',
+    'sha265sums_',
+    'sha384sums_',
+    'sha512sums_',
 ]
 
 _metalist_architecture_prefixes = [
@@ -121,9 +143,7 @@ def aur_repo_iterator(repo):
         pkg = br.split('/', 1)[1]
         if pkg in ['HEAD', 'main', ]:
             continue
-        #if pkg not in ['arm-linux-gnueabihf-ncurses', '0ad-git']:
-        #    continue
-        #if pkg not in ['jamomacore-git', 'pam_autologin']:
+        #if pkg not in ['arm-linux-gnueabihf-ncurses', '0ad-git', 'jamomacore-git', 'pam_autologin']:
         #    continue
         tree = repo.revparse_single(br).tree
         if '.SRCINFO' in tree:
@@ -188,5 +208,9 @@ def aur_repo_iterator(repo):
                 for meta in meta_tail:
                     data = {**meta_base, **meta}
                     pkgid = f"{data['pkgname']}-{data['pkgver']}-{data['pkgrel']}"
+                    if 'epoch' in data:
+                        epoch = int(data['epoch'])
+                        if epoch > 0:
+                            pkgid = f"{data['pkgname']}-{epoch}:{data['pkgver']}-{data['pkgrel']}"
                     yield (pkgid, data)
     #collected_unknown_keys = list(set(collected_unknown_keys))
