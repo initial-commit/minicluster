@@ -47,6 +47,14 @@ def _bootstrap():
     if str(bin) not in $PATH:
         $PATH.append(str(bin))
 
+    for p in map(pathlib.Path, $PATH):
+        b = p / 'bootstrap.xsh'
+        if not b.exists():
+            continue
+        src = p.parent.parent / 'src' / 'python'
+        if src.exists() and str(src.resolve()) not in sys.path:
+            sys.path.append(str(src))
+
     ######################################################
     # arguments
     args = {}

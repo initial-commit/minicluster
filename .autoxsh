@@ -1,4 +1,5 @@
 $PATH.append(p"$PWD/bin/commands")
+$PATH.append(p"$PWD/layouts/repobuilder/bin/commands")
 pip show -q --no-input python-dateutil || pip install python-dateutil --user
 pip show -q --no-input psutil || pip install psutil --user
 $TASKRC=p"$PWD/tasks/.taskrc"
