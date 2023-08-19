@@ -851,3 +851,10 @@ time 1691669276
 old [description:"commands to attach and detach a directory for sharing" entry:"1691315381" modified:"1691595321" project:"bootstrap" start:"1691316357" status:"pending" tags:"next" tags_next:"x" uuid:"2f084dc4-fbe6-44a4-b2a4-4a12c535bed0"]
 new [description:"commands to attach and detach a directory for sharing" end:"1691669276" entry:"1691315381" modified:"1691669276" project:"bootstrap" status:"completed" tags:"next" tags_next:"x" uuid:"2f084dc4-fbe6-44a4-b2a4-4a12c535bed0"]
 ---
+time 1692370820
+new [description:"command which can check if all sources are available on the internet" entry:"1692370820" modified:"1692370820" project:"aur" status:"pending" uuid:"6151c08a-d123-4778-9f66-e66293357c44"]
+---
+time 1692370873
+old [description:"command which can check if all sources are available on the internet" entry:"1692370820" modified:"1692370820" project:"aur" status:"pending" uuid:"6151c08a-d123-4778-9f66-e66293357c44"]
+new [description:"command which can check if all sources are available on the internet" entry:"1692370820" modified:"1692370873" project:"aur" start:"1692370873" status:"pending" uuid:"6151c08a-d123-4778-9f66-e66293357c44"]
+---
