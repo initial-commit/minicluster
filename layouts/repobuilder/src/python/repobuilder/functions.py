@@ -1,5 +1,12 @@
 import pygit2
 import re
+import requests
+from bs4 import BeautifulSoup
+from lxml import html
+import dateutil.parser
+from urllib.parse import urlparse
+import time
+
 
 META_REQUIRED = [
     'pkgbase',
@@ -214,3 +221,107 @@ def aur_repo_iterator(repo):
                             pkgid = f"{data['pkgname']}-{epoch}:{data['pkgver']}-{data['pkgrel']}"
                     yield (pkgid, data)
     #collected_unknown_keys = list(set(collected_unknown_keys))
+
+
+def get_soup_stats(soup):
+    multiple_spaces = re.compile(r"\s+")
+    stats = soup.select_one('#pkglist-results .pkglist-stats > p').get_text().strip()
+    stats = multiple_spaces.sub(' ', stats)
+    return tuple(map(int, re.findall(r'\b\d+\b', stats)))
+
+
+def get_tree_header(tree):
+    header = tree.xpath('//thead/tr/th')
+    header = [e.text_content().strip() for e in header]
+    header = [re.sub(r'\W|^(?=\d)', '', h) for h in header]
+    return list(map(str.lower, (filter(None, header))))
+
+
+def get_tr_data(tr, header):
+    tds = tr.xpath('td')
+    tds = dict(zip(header, tds))
+    lastupdated = tds['lastupdated']
+    flagged = 'flagged' == lastupdated.get('class')
+
+    vals = [td.text_content().strip() for td in tds.values()]
+    data = dict(zip(header, vals))
+    data['votes'] = int(data.get('votes', 0))
+    data['popularity'] = float(data.get('popularity', 0.0))
+    data['lastupdated'] = dateutil.parser.parse(data.get('lastupdated', '1970-01-01 00:00 (UTC)'), fuzzy=True)
+    data['flagged'] = flagged
+    return data
+
+
+def get_next_url(soup, currenturl):
+    if not currenturl:
+        return None
+    navbar = soup.select_one('div.pkglist-stats:first-child p.pkglist-nav').encode_contents()
+
+    #print(navbar)
+    tree = html.fromstring(str(navbar))
+    next_link = tree.xpath('.//a[contains(text(), "Next")]/@href')
+    if not next_link or len(next_link) != 1:
+        return None
+    parsed_uri = urlparse(currenturl)
+    result = '{uri.scheme}://{uri.netloc}{next_link}'.format(uri=parsed_uri, next_link=next_link[0])
+    return result
+
+
+def aurweb_pkg_iter_simple(perpage=2500, since_limit=None, precise_limit=False):
+    if isinstance(since_limit, str):
+        since_limit = dateutil.parser.parse(since_limit, fuzzy=True)
+    keywords = ''
+    nexturl = f'https://aur.archlinux.org/packages?O=0&SeB=nd&K={keywords}&outdated=&SB=l&SO=d&PP={perpage}&submit=Go'
+    packages_start_count = None
+    while nexturl:
+        req = requests.get(nexturl)
+
+        soup = BeautifulSoup(req.text, "lxml")
+        if not packages_start_count:
+            (packages_start_count, current_page, total_pages) = get_soup_stats(soup)
+            packages_count = packages_start_count
+        else:
+            (packages_count, current_page, total_pages) = get_soup_stats(soup)
+
+        results_tbl = soup.select_one('table.results')
+        tree = html.fromstring(str(results_tbl))
+        header = get_tree_header(tree)
+        for tr in tree.xpath('//tbody/tr'):
+            data = get_tr_data(tr, header)
+            lastupdated = data['lastupdated']
+            if precise_limit and lastupdated <= since_limit:
+                nexturl = None
+                break
+            yield (packages_count, data)
+            if not precise_limit and lastupdated < since_limit:
+                nexturl = None
+                break
+        nexturl = get_next_url(soup, nexturl)
+        if nexturl:
+            time.sleep(2)
+
+
+def aurweb_pkg_iter(since_limit='1970-01-01 00:00 (UTC)'):
+    if isinstance(since_limit, str):
+        since_limit = dateutil.parser.parse(since_limit, fuzzy=True)
+    data = {'lastupdated': since_limit}
+    yielded_cnt = 0
+    newest_update = None
+    start_packages_count = None
+    first_run = True
+    precise_limit = False
+    while first_run or yielded_cnt > 0:
+        first_run = False
+        yielded_cnt = 0
+        for packages_count, data in aurweb_pkg_iter_simple(since_limit=since_limit, precise_limit=precise_limit):
+            if not start_packages_count:
+                start_packages_count = packages_count
+            if newest_update and data['lastupdated'] > newest_update:
+                newest_update = data['lastupdated']
+            if not newest_update:
+                newest_update = data['lastupdated']
+            yield data
+            yielded_cnt += 1
+        if newest_update and newest_update > since_limit:
+            since_limit = newest_update
+        precise_limit = True
