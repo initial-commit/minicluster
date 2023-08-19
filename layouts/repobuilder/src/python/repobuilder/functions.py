@@ -249,6 +249,17 @@ def get_tr_data(tr, header):
     data['popularity'] = float(data.get('popularity', 0.0))
     data['lastupdated'] = dateutil.parser.parse(data.get('lastupdated', '1970-01-01 00:00 (UTC)'), fuzzy=True)
     data['flagged'] = flagged
+    pkgid = f"{data['name']}-{data['version']}"
+    version = data.pop('version')
+    verparse = re.compile(r'((?P<epoch>\d+):)?(?P<version>.+?)-(?P<rel>\d+)')
+    m = verparse.match(version)
+    assert m is not None, f"Version could not be parsed {version=} {data=}"
+    verparse = m.groupdict()
+    data['pkgrel'] = int(verparse['rel'])
+    data['pkgver'] = verparse['version']
+    if 'epoch' in verparse and verparse['epoch']:
+        data['epoch'] = int(verparse['epoch'])
+    data['pkgid'] = pkgid
     return data
 
 
@@ -302,6 +313,8 @@ def aurweb_pkg_iter_simple(perpage=2500, since_limit=None, precise_limit=False):
 
 
 def aurweb_pkg_iterator(since_limit='1970-01-01 00:00 (UTC)'):
+    if not since_limit:
+        since_limit = '1970-01-01 00:00 (UTC)'
     if isinstance(since_limit, str):
         since_limit = dateutil.parser.parse(since_limit, fuzzy=True)
     data = {'lastupdated': since_limit}

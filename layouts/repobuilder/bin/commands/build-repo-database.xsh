@@ -13,6 +13,7 @@ import pathlib
 import pygit2
 import repobuilder.functions
 import sqlite3
+import contextlib
 
 def create_pkg_sqlitedb(logger, db_file):
     logger.info(f"creating sqlite db for repository: {db_file=}")
@@ -20,7 +21,12 @@ def create_pkg_sqlitedb(logger, db_file):
         db_file.unlink()
     db = sqlite3.connect(db_file)
     with contextlib.closing(db.cursor()) as cur:
-        cur.execute('CREATE TABLE pkginfo (pkgid, reponame, pkgname, pkgbase, pkgver, pkgrel, epoch, pkgdesc, url, builddate, options, size, arch, source, license, "group", packager_name, packager_email, sources)')
+        cur.execute(('CREATE TABLE pkginfo '
+        '(pkgid TEXT, reponame TEXT, pkgname TEXT, pkgbase TEXT, pkgver TEXT, pkgrel INTEGER, epoch INTEGER, '
+        'pkgdesc TEXT, url TEXT, builddate TEXT, options TEXT, size INTEGER, arch TEXT, source TEXT, license TEXT, '
+        '"group" TEXT, packager_name TEXT, packager_email TEXT, sources TEXT, popularity REAL, '
+        'votes INTEGER, lastupdated TEXT, flagged INTEGER'
+        ') STRICT'))
         cur.execute('CREATE TABLE dependencies (pkgname, deptype, otherpkg, operator, version, reason)')
         cur.execute('CREATE TABLE backs_up (pkgname, path)')
         cur.execute('CREATE TABLE meta (key, value)')
@@ -88,13 +94,40 @@ if __name__ == '__main__':
     aurweb = MINICLUSTER.ARGS.aurweb
 
     existing_db = db_file.exists()
+    if not existing_db:
+        db = create_pkg_sqlitedb(logger, db_file)
+    else:
+        db = sqlite3.connect(db_file)
 
     $RAISE_SUBPROC_ERROR = True
     $XONSH_SHOW_TRACEBACK = True
 
+    def upsert_aurweb_package(rawdata, db):
+        with db:
+            with contextlib.closing(db.cursor()) as cur:
+                values = {
+                    'pkgid': rawdata['pkgid'],
+                    'reponame': 'aurweb',
+                    'pkgname': rawdata['name'],
+                    'pkgver': rawdata['pkgver'],
+                    'pkgrel': rawdata['pkgrel'],
+                    'epoch': rawdata.get('epoch', None),
+                    'pkgdesc': rawdata['description'],
+                    'packager_name': rawdata['maintainer'],
+                    'popularity': rawdata['popularity'],
+                    'votes': rawdata['votes'],
+                    'lastupdated': rawdata['lastupdated'],
+                    'flagged': rawdata['flagged'],
+                }
+                sql = ("INSERT INTO pkginfo(pkgid, reponame, pkgname, pkgver, pkgrel, epoch, pkgdesc, packager_name, popularity, votes, lastupdated, flagged)"
+                "VALUES(:pkgid, :reponame, :pkgname, :pkgver, :pkgrel, :epoch, :pkgdesc, :packager_name, :popularity, :votes, :lastupdated, :flagged)")
+                cur.execute(sql, values)
+
     if aurweb:
-        for data in repobuilder.functions.aurweb_pkg_iterator():
+        since_limit = None
+        for data in repobuilder.functions.aurweb_pkg_iterator(since_limit=since_limit):
             logger.info(f"{data=}")
+            upsert_aurweb_package(data, db)
 
     if aur_clone:
         if pf"{aur_clone}/.git".exists():
