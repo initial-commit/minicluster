@@ -301,7 +301,7 @@ def aurweb_pkg_iter_simple(perpage=2500, since_limit=None, precise_limit=False):
             time.sleep(2)
 
 
-def aurweb_pkg_iter(since_limit='1970-01-01 00:00 (UTC)'):
+def aurweb_pkg_iterator(since_limit='1970-01-01 00:00 (UTC)'):
     if isinstance(since_limit, str):
         since_limit = dateutil.parser.parse(since_limit, fuzzy=True)
     data = {'lastupdated': since_limit}

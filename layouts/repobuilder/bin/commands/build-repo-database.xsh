@@ -2,7 +2,9 @@
 
 if __name__ == '__main__':
     d=p"$XONSH_SOURCE".resolve().parent; source @(f'{d}/bootstrap.xsh')
-    MINICLUSTER.ARGPARSE.add_argument('--aur_clone', required=True)
+    from cluster.functions import str2bool_exc as strtobool
+    MINICLUSTER.ARGPARSE.add_argument('--aur_clone', required=False, default=None)
+    MINICLUSTER.ARGPARSE.add_argument('--aurweb', nargs='?', type=lambda b:bool(strtobool(b)), const=False, default=True, metavar='true|false')
     MINICLUSTER.ARGPARSE.add_argument('--db_file', required=True)
     MINICLUSTER = MINICLUSTER.bootstrap_finished(MINICLUSTER)
 
@@ -18,8 +20,7 @@ def create_pkg_sqlitedb(logger, db_file):
         db_file.unlink()
     db = sqlite3.connect(db_file)
     with contextlib.closing(db.cursor()) as cur:
-        cur.execute("CREATE TABLE files (pkgname, file, type)")
-        cur.execute('CREATE TABLE pkginfo (pkgname, pkgbase, pkgver, pkgrel, epoch, pkgdesc, url, builddate, options, size, arch, source, license, "group", packager_name, packager_email)')
+        cur.execute('CREATE TABLE pkginfo (pkgid, reponame, pkgname, pkgbase, pkgver, pkgrel, epoch, pkgdesc, url, builddate, options, size, arch, source, license, "group", packager_name, packager_email, sources)')
         cur.execute('CREATE TABLE dependencies (pkgname, deptype, otherpkg, operator, version, reason)')
         cur.execute('CREATE TABLE backs_up (pkgname, path)')
         cur.execute('CREATE TABLE meta (key, value)')
@@ -62,32 +63,53 @@ def normalize_meta(pkgid, meta):
             backups[k] = v
         else:
             raise Exception(f"unhandled key for {pkgid=} {k=} with {v=}")
+
+    if 'source' not in pkginfo:
+        pkginfo['source'] = []
+    sources['source'] = pkginfo['source']
+    sources = {k:v for k,v in sources.items() if v}
+    pkginfo['source'] = sources
+
     newmeta['pkginfo'] = pkginfo
     newmeta['dependencies'] = dependencies
     newmeta['checksums'] = checksums
-    newmeta['sources'] = sources
+    newmeta['noextract'] = noextract
+    newmeta['backups'] = backups
     return (True, newmeta)
 
 if __name__ == '__main__':
     cwd = MINICLUSTER.CWD_START
     logger = logging.getLogger(__name__)
 
-    aur_clone = pathlib.Path(MINICLUSTER.ARGS.aur_clone)
+    aur_clone = MINICLUSTER.ARGS.aur_clone
+    if aur_clone:
+        aur_clone = pathlib.Path(aur_clone)
     db_file = pathlib.Path(MINICLUSTER.ARGS.db_file)
+    aurweb = MINICLUSTER.ARGS.aurweb
 
-    if pf"{aur_clone}/.git".exists():
-        aur_clone = aur_clone / '.git'
-
-    assert not db_file.exists()
+    existing_db = db_file.exists()
 
     $RAISE_SUBPROC_ERROR = True
     $XONSH_SHOW_TRACEBACK = True
 
-    repo = pygit2.Repository(aur_clone)
-    i = 0
-    for (pkgid, meta) in repobuilder.functions.aur_repo_iterator(repo):
-        print(i, pkgid, meta)
-        (success, newmeta) = normalize_meta(pkgid, meta)
-        print(f"{newmeta=}")
-        print("=======================")
-        i += 1
+    if aurweb:
+        for data in repobuilder.functions.aurweb_pkg_iterator():
+            logger.info(f"{data=}")
+
+    if aur_clone:
+        if pf"{aur_clone}/.git".exists():
+            aur_clone = aur_clone / '.git'
+
+        if aur_clone.exists():
+            repo = pygit2.Repository(aur_clone)
+            i = 0
+            for (pkgid, meta) in repobuilder.functions.aur_repo_iterator(repo):
+                #print(i, pkgid, meta)
+                (success, newmeta) = normalize_meta(pkgid, meta)
+                sources = newmeta['pkginfo']['source']
+                deps = newmeta['dependencies']
+                if not sources:
+                    print(i, pkgid, sources, deps)
+                #print(f"{newmeta=}")
+                #print("=======================")
+                i += 1
