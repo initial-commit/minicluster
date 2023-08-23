@@ -334,8 +334,9 @@ def aurweb_pkg_iterator(since_limit='1970-01-01 00:00 (UTC)'):
                 newest_update = data['lastupdated']
             if not newest_update:
                 newest_update = data['lastupdated']
-            yield data
+            yield (data, False)
             yielded_cnt += 1
         if newest_update and newest_update > since_limit:
             since_limit = newest_update
         precise_limit = True
+    yield (None, True)

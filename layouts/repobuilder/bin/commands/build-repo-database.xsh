@@ -126,26 +126,29 @@ if __name__ == '__main__':
     $RAISE_SUBPROC_ERROR = True
     $XONSH_SHOW_TRACEBACK = True
 
-    def upsert_aurweb_package(rawdata, db):
+    def upsert_aurweb_package(rawbatch, db):
+        buffer = []
+        for rawdata in rawbatch:
+            values = {
+                'pkgid': rawdata['pkgid'],
+                'reponame': 'aurweb',
+                'pkgname': rawdata['name'],
+                'pkgver': rawdata['pkgver'],
+                'pkgrel': rawdata['pkgrel'],
+                'epoch': rawdata.get('epoch', None),
+                'pkgdesc': rawdata['description'],
+                'packager_name': rawdata['maintainer'],
+                'popularity': rawdata['popularity'],
+                'votes': rawdata['votes'],
+                'lastupdated': rawdata['lastupdated'],
+                'flagged': rawdata['flagged'],
+            }
+            buffer.append(values)
         with db:
             with contextlib.closing(db.cursor()) as cur:
-                values = {
-                    'pkgid': rawdata['pkgid'],
-                    'reponame': 'aurweb',
-                    'pkgname': rawdata['name'],
-                    'pkgver': rawdata['pkgver'],
-                    'pkgrel': rawdata['pkgrel'],
-                    'epoch': rawdata.get('epoch', None),
-                    'pkgdesc': rawdata['description'],
-                    'packager_name': rawdata['maintainer'],
-                    'popularity': rawdata['popularity'],
-                    'votes': rawdata['votes'],
-                    'lastupdated': rawdata['lastupdated'],
-                    'flagged': rawdata['flagged'],
-                }
                 sql = ("INSERT INTO pkginfo(pkgid, reponame, pkgname, pkgver, pkgrel, epoch, pkgdesc, packager_name, popularity, votes, lastupdated, flagged)"
                 "VALUES(:pkgid, :reponame, :pkgname, :pkgver, :pkgrel, :epoch, :pkgdesc, :packager_name, :popularity, :votes, :lastupdated, :flagged)")
-                cur.execute(sql, values)
+                cur.executemany(sql, buffer)
     #pkginfo {'pkgbase': '0ad-git', 'pkgdesc': 'Cross-platform, 3D and historically-based real-time strategy game - built from git development version.', 'pkgver': 'A26.r920.gc4a0ae4ff', 'pkgrel': '1', 'epoch': '1', 'url': 'http://play0ad.com/', 'arch': ['i686', 'x86_64'], 'license': ['GPL2', 'CCPL'], 'options': ['!lto'], 'source': {'source': ['git+https://github.com/0ad/0ad.git', 'patch.patch']}, 'pkgname': '0ad-git'}
     #dependencies {'makedepends': ['boost', 'cmake', 'mesa', 'zip', 'libsm', 'rust', 'python', 'git', 'enet', 'fmt', 'gloox', 'glu', 'libgl', 'libminiupnpc.so', 'libogg', 'libpng', 'libsodium', 'libvorbis', 'miniupnpc', 'nspr', 'openal', 'sdl2', 'wxwidgets-gtk3'], 'depends': ['0ad-data', 'binutils', 'boost-libs', 'curl', 'enet', 'libogg', 'libpng', 'libvorbis', 'libxml2', 'openal', 'sdl2', 'wxwidgets-gtk3', 'zlib', 'libgl', 'glu', 'fmt', 'gloox', 'miniupnpc', 'libminiupnpc.so', 'icu', 'nspr', 'libsodium', 'which'], 'provides': ['0ad'], 'conflicts': ['0ad']}
     #checksums {'md5sums': ['SKIP', 'dcbd62e1fb4669c24318c8fe66143c4f']}
@@ -200,9 +203,16 @@ if __name__ == '__main__':
 
     if aurweb:
         since_limit = None
-        for data in repobuilder.functions.aurweb_pkg_iterator(since_limit=since_limit):
-            logger.info(f"{data=}")
-            upsert_aurweb_package(data, db)
+        buffer = []
+        i = 0
+        for (data, last) in repobuilder.functions.aurweb_pkg_iterator(since_limit=since_limit):
+            if not last:
+                buffer.append(data)
+            if len(buffer) == 2500 or last:
+                upsert_aurweb_package(buffer, db)
+                buffer = []
+                logger.info(f"{i=}")
+            i += 1
 
     if aur_clone:
         if pf"{aur_clone}/.git".exists():
