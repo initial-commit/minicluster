@@ -151,6 +151,7 @@ def aur_repo_iterator(repo):
         if pkg in ['HEAD', 'main', ]:
             continue
         #if pkg not in ['arm-linux-gnueabihf-ncurses', '0ad-git', 'jamomacore-git', 'pam_autologin']:
+        #if pkg not in ['0ad-git', ]:
         #    continue
         tree = repo.revparse_single(br).tree
         if '.SRCINFO' in tree:

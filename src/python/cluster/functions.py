@@ -12,7 +12,7 @@ import inspect
 import threading
 import select
 import pathlib
-import time
+import re
 
 _true_set = {'yes', 'true', 't', 'y', '1'}
 _false_set = {'no', 'false', 'f', 'n', '0'}
@@ -274,3 +274,24 @@ def make_archive(root_dir, base_name, tar_location, only_dirs=False):
             arcname = child.relative_to(root_dir)
             tar.add(child, arcname)
     return tar_path
+
+
+def depend_parse(raw_vals):
+    regex = (
+            #r"^([^\\p{L}]*)?(?P<otherpkg>[^=<>: ]+)"
+            r"^([^0-9_A-Za-z-]*)?(?P<otherpkg>[^=<>: ]+)"
+            r"(\s*(?P<operator>[=<>]+)\s*"
+                r"(("
+                r"((?P<epoch>\d+)?:(?=[^:]+))?"
+                r"(?P<version>[^:]+?)"
+                r")|$)"
+            r")?"
+            r"(:\s*(?P<reason>.+)?)?$"
+        )
+    e=re.compile(regex)
+    results = []
+    for raw_v in raw_vals:
+        m = e.match(raw_v)
+        assert m is not None, f"Could not parse depends-type value {raw_v=} {raw_vals=}"
+        results.append(m.groupdict())
+    return results

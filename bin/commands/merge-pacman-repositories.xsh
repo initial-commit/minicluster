@@ -67,6 +67,7 @@ def ensure_fields(pkginfo):
                 raise Exception(f"field {f} should be a list, it is instead {pkginfo[f]=}")
     return pkginfo | normalized
 
+#TODO: use the implementation from functions instead
 def depend_parse(raw_vals):
     regex = (
             "^(?P<otherpkg>[^=<>: ]+)"
