@@ -219,7 +219,8 @@ def aur_repo_iterator(repo):
                         epoch = int(data['epoch'])
                         if epoch > 0:
                             pkgid = f"{data['pkgname']}-{epoch}:{data['pkgver']}-{data['pkgrel']}"
-                    yield (pkgid, data)
+                    yield (pkgid, data, False)
+    yield (None, None, True)
     #collected_unknown_keys = list(set(collected_unknown_keys))
 
 
