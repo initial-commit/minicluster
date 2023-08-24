@@ -5,6 +5,7 @@ if __name__ == '__main__':
     from cluster.functions import str2bool_exc as strtobool
     MINICLUSTER.ARGPARSE.add_argument('--aur_clone', required=False, default=None)
     MINICLUSTER.ARGPARSE.add_argument('--aurweb', nargs='?', type=lambda b:bool(strtobool(b)), const=False, default=True, metavar='true|false')
+    MINICLUSTER.ARGPARSE.add_argument('--db_names', default=[], nargs='+', required=False, help="The database names, ex core, multilib, extra")
     MINICLUSTER.ARGPARSE.add_argument('--db_file', required=True)
     MINICLUSTER = MINICLUSTER.bootstrap_finished(MINICLUSTER)
 
@@ -34,24 +35,13 @@ def create_pkg_sqlitedb(logger, db_file):
         cur.execute('CREATE TABLE dependencies (pkgname TEXT, deptype TEXT, otherpkg TEXT, operator TEXT, version TEXT, reason TEXT)')
         cur.execute('CREATE TABLE backs_up (pkgname, path)')
         cur.execute('CREATE TABLE meta (key, value)')
-        cur.execute("""CREATE VIEW packages_removed_from_aurweb AS with aur as (
-select
-	pkgname
-from
-	pkginfo p
-where
-	p.reponame = 'aur'),
-aurweb as (
-select
-	pkgname
-from
-	pkginfo p
-where
-	p.reponame = 'aurweb')
-
-select aur.pkgname from aur
-left join aurweb on aur.pkgname = aurweb.pkgname
-where aurweb.pkgname is null;""")
+        cur.execute(("CREATE VIEW packages_removed_from_aurweb AS "
+            "WITH aur AS (SELECT pkgname FROM pkginfo p WHERE p.reponame = 'aur'), "
+            "aurweb AS (SELECT pkgname FROM pkginfo p WHERE p.reponame = 'aurweb') "
+            "SELECT aur.pkgname FROM aur "
+            "LEFT JOIN aurweb ON aur.pkgname = aurweb.pkgname "
+            "WHERE aurweb.pkgname IS NULL;")
+        )
     return db
 
 def normalize_meta(pkgid, meta, known_packages, logger):
@@ -128,6 +118,105 @@ def normalize_meta(pkgid, meta, known_packages, logger):
     newmeta['backups'] = backups
     return (True, newmeta)
 
+def upsert_aurweb_package(rawbatch, db):
+    packages = []
+    buffer = []
+    for rawdata in rawbatch:
+        values = {
+            'pkgid': rawdata['pkgid'],
+            'reponame': 'aurweb',
+            'pkgname': rawdata['name'],
+            'pkgver': rawdata['pkgver'],
+            'pkgrel': rawdata['pkgrel'],
+            'epoch': rawdata.get('epoch', None),
+            'pkgdesc': rawdata['description'],
+            'packager_name': rawdata['maintainer'],
+            'popularity': rawdata['popularity'],
+            'votes': rawdata['votes'],
+            'lastupdated': rawdata['lastupdated'],
+            'flagged': rawdata['flagged'],
+        }
+        packages.append(values['pkgname'])
+        buffer.append(values)
+    with db:
+        with contextlib.closing(db.cursor()) as cur:
+            sql = ("INSERT INTO pkginfo(pkgid, reponame, pkgname, pkgver, pkgrel, epoch, pkgdesc, packager_name, popularity, votes, lastupdated, flagged)"
+            "VALUES(:pkgid, :reponame, :pkgname, :pkgver, :pkgrel, :epoch, :pkgdesc, :packager_name, :popularity, :votes, :lastupdated, :flagged)")
+            cur.executemany(sql, buffer)
+    return packages
+
+def upsert_aur_package(rawbatch, db, logger):
+    buffer = []
+    buffer_dependencies = []
+    for rawdata in rawbatch:
+        pkginfo = rawdata.pop('pkginfo')
+        dependencies = rawdata.pop('dependencies')
+        logger.info(f"{dependencies=}")
+        for deptype, depvals in dependencies.items():
+            logger.info(f"===========================================")
+            logger.info(f"{pkginfo['pkgname']}\t{deptype}\t{depvals=}")
+            depvals = list(filter(None, depvals))
+            try:
+                vals = cluster.functions.depend_parse(depvals)
+                logger.info(f"INITIAL {vals=}")
+            except AssertionError:
+                logger.error(f"{deptype=} {depvals=} {pkginfo=}")
+                raise
+            #logger.info(f"{vals=}")
+            for depdict in vals:
+                depdict['deptype'] = deptype
+                depdict['pkgname'] = pkginfo['pkgname']
+                buffer_dependencies.append(depdict)
+        #logger.info(f"{dependencies=}")
+        checksums = rawdata.pop('checksums')
+        noextract = rawdata.pop('noextract')
+        backups = rawdata.pop('backups')
+        assert len(rawdata) == 0, f"Unhandled keys in rawdata: {rawdata.keys()}"
+        values = {
+            'pkgid': pkginfo['pkgid'],
+            'reponame': 'aur',
+            'pkgname': pkginfo['pkgname'],
+            'pkgbase': pkginfo['pkgbase'],
+            'pkgver': pkginfo['pkgver'],
+            'pkgrel': float(pkginfo['pkgrel']),
+            'epoch': pkginfo.get('epoch', None),
+            'pkgdesc': pkginfo.get('pkgdesc', None),
+            'url': pkginfo.get('url', None),
+            'arch': json.dumps(pkginfo.get('arch', None)),
+            'license': json.dumps(pkginfo.get('license', None)),
+            'options': json.dumps(pkginfo.get('options', None)),
+            'source': json.dumps(pkginfo.get('source', None)),
+            'checksums': json.dumps(checksums),
+            'noextract': json.dumps(pkginfo.get('noextract', None)),
+        }
+        logger.info(f"{values=}")
+        buffer.append(values)
+    with db:
+        with contextlib.closing(db.cursor()) as cur:
+            sql = ("INSERT INTO pkginfo(pkgid, reponame, pkgname, pkgbase, pkgver, pkgrel, epoch, pkgdesc, url, arch, license, options, source, checksums, noextract)"
+            "VALUES(:pkgid, :reponame, :pkgname, :pkgbase, :pkgver, :pkgrel, :epoch, :pkgdesc, :url, :arch, :license, :options, :source, :checksums, :noextract)")
+            cur.executemany(sql, buffer)
+    with db:
+        with contextlib.closing(db.cursor()) as cur:
+            sql = ("INSERT INTO dependencies(pkgname, deptype, otherpkg, operator, version, reason)"
+            "VALUES(:pkgname, :deptype, :otherpkg, :operator, :version, :reason)")
+            #logger.info(f"{buffer_dependencies=}")
+            cur.executemany(sql, buffer_dependencies)
+
+def get_removed_packages(db, prev_db_file, fromrepo):
+    with db:
+        with contextlib.closing(db.cursor()) as cur:
+            sql = f"attach database '{prev_db_file}' as before;"
+            cur.execute(sql)
+        with contextlib.closing(db.cursor()) as cur:
+            sql = f"SELECT t0.pkgname AS pkgname_before FROM before.pkginfo AS t0 LEFT JOIN pkginfo AS t1 ON t0.pkgname = t1.pkgname WHERE t1.pkgname IS NULL AND t0.reponame = '{fromrepo}'"
+            for row in cur.execute(sql):
+                yield row[0]
+        with contextlib.closing(db.cursor()) as cur:
+            sql = f"detach database before;"
+            cur.execute(sql)
+
+
 if __name__ == '__main__':
     cwd = MINICLUSTER.CWD_START
     logger = logging.getLogger(__name__)
@@ -147,103 +236,6 @@ if __name__ == '__main__':
     $RAISE_SUBPROC_ERROR = True
     $XONSH_SHOW_TRACEBACK = True
 
-    def upsert_aurweb_package(rawbatch, db):
-        packages = []
-        buffer = []
-        for rawdata in rawbatch:
-            values = {
-                'pkgid': rawdata['pkgid'],
-                'reponame': 'aurweb',
-                'pkgname': rawdata['name'],
-                'pkgver': rawdata['pkgver'],
-                'pkgrel': rawdata['pkgrel'],
-                'epoch': rawdata.get('epoch', None),
-                'pkgdesc': rawdata['description'],
-                'packager_name': rawdata['maintainer'],
-                'popularity': rawdata['popularity'],
-                'votes': rawdata['votes'],
-                'lastupdated': rawdata['lastupdated'],
-                'flagged': rawdata['flagged'],
-            }
-            packages.append(values['pkgname'])
-            buffer.append(values)
-        with db:
-            with contextlib.closing(db.cursor()) as cur:
-                sql = ("INSERT INTO pkginfo(pkgid, reponame, pkgname, pkgver, pkgrel, epoch, pkgdesc, packager_name, popularity, votes, lastupdated, flagged)"
-                "VALUES(:pkgid, :reponame, :pkgname, :pkgver, :pkgrel, :epoch, :pkgdesc, :packager_name, :popularity, :votes, :lastupdated, :flagged)")
-                cur.executemany(sql, buffer)
-        return packages
-
-    def upsert_aur_package(rawbatch, db, logger):
-        buffer = []
-        buffer_dependencies = []
-        for rawdata in rawbatch:
-            pkginfo = rawdata.pop('pkginfo')
-            dependencies = rawdata.pop('dependencies')
-            logger.info(f"{dependencies=}")
-            for deptype, depvals in dependencies.items():
-                logger.info(f"===========================================")
-                logger.info(f"{pkginfo['pkgname']}\t{deptype}\t{depvals=}")
-                depvals = list(filter(None, depvals))
-                try:
-                    vals = cluster.functions.depend_parse(depvals)
-                    logger.info(f"INITIAL {vals=}")
-                except AssertionError:
-                    logger.error(f"{deptype=} {depvals=} {pkginfo=}")
-                    raise
-                #logger.info(f"{vals=}")
-                for depdict in vals:
-                    depdict['deptype'] = deptype
-                    depdict['pkgname'] = pkginfo['pkgname']
-                    buffer_dependencies.append(depdict)
-            #logger.info(f"{dependencies=}")
-            checksums = rawdata.pop('checksums')
-            noextract = rawdata.pop('noextract')
-            backups = rawdata.pop('backups')
-            assert len(rawdata) == 0, f"Unhandled keys in rawdata: {rawdata.keys()}"
-            values = {
-                'pkgid': pkginfo['pkgid'],
-                'reponame': 'aur',
-                'pkgname': pkginfo['pkgname'],
-                'pkgbase': pkginfo['pkgbase'],
-                'pkgver': pkginfo['pkgver'],
-                'pkgrel': float(pkginfo['pkgrel']),
-                'epoch': pkginfo.get('epoch', None),
-                'pkgdesc': pkginfo.get('pkgdesc', None),
-                'url': pkginfo.get('url', None),
-                'arch': json.dumps(pkginfo.get('arch', None)),
-                'license': json.dumps(pkginfo.get('license', None)),
-                'options': json.dumps(pkginfo.get('options', None)),
-                'source': json.dumps(pkginfo.get('source', None)),
-                'checksums': json.dumps(checksums),
-                'noextract': json.dumps(pkginfo.get('noextract', None)),
-            }
-            logger.info(f"{values=}")
-            buffer.append(values)
-        with db:
-            with contextlib.closing(db.cursor()) as cur:
-                sql = ("INSERT INTO pkginfo(pkgid, reponame, pkgname, pkgbase, pkgver, pkgrel, epoch, pkgdesc, url, arch, license, options, source, checksums, noextract)"
-                "VALUES(:pkgid, :reponame, :pkgname, :pkgbase, :pkgver, :pkgrel, :epoch, :pkgdesc, :url, :arch, :license, :options, :source, :checksums, :noextract)")
-                cur.executemany(sql, buffer)
-        with db:
-            with contextlib.closing(db.cursor()) as cur:
-                sql = ("INSERT INTO dependencies(pkgname, deptype, otherpkg, operator, version, reason)"
-                "VALUES(:pkgname, :deptype, :otherpkg, :operator, :version, :reason)")
-                #logger.info(f"{buffer_dependencies=}")
-                cur.executemany(sql, buffer_dependencies)
-
-    def get_removed_packages(db, prev_db_file, fromrepo):
-        with db:
-            with contextlib.closing(db.cursor()) as cur:
-                sql = f"attach database '{prev_db_file}' as before;"
-                cur.execute(sql)
-            with contextlib.closing(db.cursor()) as cur:
-                sql = f"SELECT t0.pkgname AS pkgname_before FROM before.pkginfo AS t0 LEFT JOIN pkginfo AS t1 ON t0.pkgname = t1.pkgname WHERE t1.pkgname IS NULL AND t0.reponame = '{fromrepo}'"
-                for row in cur.execute(sql):
-                    yield row[0]
-            with contextlib.closing(db.cursor()) as cur:
-                sql = f"detach database before;"
-                cur.execute(sql)
     def get_packages_ops(db, prev_db_file):
         pass
 
@@ -268,8 +260,10 @@ if __name__ == '__main__':
                 logger.info(f"{i=}")
             i += 1
     else:
-        res = db.execute("SELECT pkgname FROM pkginfo WHERE reponame='aurweb'")
-        known_packages = [v[0] for v in res.fetchall()]
+        with db:
+            with contextlib.closing(db.cursor()) as cur:
+                res = cur.execute("SELECT pkgname FROM pkginfo WHERE reponame='aurweb'")
+                known_packages = [v[0] for v in res.fetchall()]
     known_packages = set(known_packages)
 
     if aur_clone:
