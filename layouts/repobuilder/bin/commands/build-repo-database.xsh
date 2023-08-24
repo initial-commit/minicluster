@@ -226,6 +226,7 @@ if __name__ == '__main__':
         aur_clone = pathlib.Path(aur_clone)
     db_file = pathlib.Path(MINICLUSTER.ARGS.db_file)
     aurweb = MINICLUSTER.ARGS.aurweb
+    db_names = MINICLUSTER.ARGS.db_names
 
     existing_db = db_file.exists()
     if not existing_db:
@@ -244,6 +245,84 @@ if __name__ == '__main__':
 
     #for x in get_removed_packages(db, 'test.sqlite3', 'aurweb', 'aurweb'):
     #    print(x)
+
+    def extract_desc(fp, package):
+        key_transforms = {
+            'FILENAME': {'name': 'filename'},
+            'NAME': {'name': 'pkgname'},
+            'DESC': {'name': 'pkgdesc'},
+            'BASE': {'name': 'pkgbase'},
+            'VERSION': {'name': 'pkgver'},
+            'CSIZE': {'name': 'download_size'},
+            'ISIZE': {'name': 'install_size'},
+            'MD5SUM': {'name': 'package_md5sum'},
+            'SHA256SUM': {'name': 'package_shasum'},
+            'LICENSE': {'name': 'license', 'type': list},
+            'ARCH': {'name': 'package_arch'},
+            'PGPSIG': {'name': 'pgpsig'},
+            'URL': {'name': 'url'},
+            'BUILDDATE': {'name': 'builddate'}, # format timestamp with TZ
+            'PACKAGER': {'name': 'packager_name'},
+            'PACKAGER_EMAIL': {'name': 'packager_email'},
+            'GROUPS': {'name': 'group', 'type': list},
+            'PROVIDES': {'name': 'provides', 'type': list},
+            'DEPENDS': {'name': 'depends', 'type': list},
+            'MAKEDEPENDS': {'name': 'makedepends', 'type': list},
+            'REPLACES': {'name': 'replaces', 'type': list},
+            'CONFLICTS': {'name': 'conflicts', 'type': list},
+            'CHECKDEPENDS': {'name': 'checkdepends', 'type': list},
+            'OPTDEPENDS': {'name': 'optdepends', 'type': list},
+        }
+        #PACKAGER
+        f = map(lambda v: v.decode('utf-8').strip(), fp.readlines())
+        lines = [l for l in f if l]
+        vals = {}
+        k = None
+        for line in lines:
+            if line.startswith('%') and line.endswith('%'):
+                k = line[1:-1]
+                continue
+            if k:
+                if k not in vals:
+                    vals[k] = line # we have the first value
+                else:
+                    if not isinstance(vals[k], list):
+                        backup = vals[k] # we have the second value
+                        vals[k] = [backup, line]
+                    else:
+                        vals[k].append(line) # we have subsequent values
+        vals['PACKAGER_EMAIL'] = vals['PACKAGER']
+        norm_vals = {}
+        for k, v in vals.items():
+            assert k in key_transforms, f"spec for key not available in package {package=} {k=}"
+            spec = key_transforms[k]
+            new_k = spec['name']
+            norm_vals[new_k] = v
+        return norm_vals
+
+    for db_name in db_names:
+        import requests
+        import tarfile
+        import io
+        logger.info(f"import db {db_name=}")
+        base_link = f"https://geo.mirror.pkgbuild.com/{db_name}/os/x86_64/"
+        files_link = f"{base_link}{db_name}.files.tar.gz"
+        db_link = f"{base_link}{db_name}.db.tar.gz"
+        links_link = f"{base_link}{db_name}.links.tar.gz"
+        res = requests.get(db_link, allow_redirects=True)
+        assert res.status_code == 200, f"Response for {dblink=} is not 200"
+        #TODO: assert bytes
+        #TODO: cache and add If-Newer-Than
+        f_in_mem = io.BytesIO(res.content)
+        tar = tarfile.open(fileobj=f_in_mem)
+        for tinfo in tar.getmembers():
+            if not tinfo.isfile():
+                continue
+            name = tinfo.name
+            lines = extract_desc(tar.extractfile(tinfo), name)
+            logger.info(f"{name}\t{lines=}")
+
+    # TODO: also set known_packages
 
     known_packages = []
     if aurweb:
