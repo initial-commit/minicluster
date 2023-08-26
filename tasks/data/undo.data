@@ -858,3 +858,6 @@ time 1692370873
 old [description:"command which can check if all sources are available on the internet" entry:"1692370820" modified:"1692370820" project:"aur" status:"pending" uuid:"6151c08a-d123-4778-9f66-e66293357c44"]
 new [description:"command which can check if all sources are available on the internet" entry:"1692370820" modified:"1692370873" project:"aur" start:"1692370873" status:"pending" uuid:"6151c08a-d123-4778-9f66-e66293357c44"]
 ---
+time 1693051479
+new [description:"instead of crawling aur, use https:\/\/lists.archlinux.org\/archives\/list\/aur-general@lists.archlinux.org\/message\/D4YC6Y7L4T5VSEONUCLHOX2R4NJKNIDP\/" entry:"1693051479" modified:"1693051479" project:"aur" status:"pending" uuid:"86783f66-3513-461b-9d08-07a0a5c1da34"]
+---

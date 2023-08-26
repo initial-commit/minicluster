@@ -49,3 +49,4 @@
 [description:"watchdog: BUG: soft lockup - CPU#2 stuck for 309s! WHEN: copying huge files (2G+) over virtiofs" entry:"1691598461" modified:"1691598461" project:"bootstrap" status:"pending" uuid:"178d076a-a25a-4609-99e7-73f1840173bf"]
 [description:"timeout on tasks: echo 0 > \/proc\/sys\/kernel\/hung_task_timeout_secs" entry:"1691654929" modified:"1691654929" project:"bootstrap" status:"pending" uuid:"b5191738-0a8a-4e30-b35d-c5e63bf8f95e"]
 [description:"command which can check if all sources are available on the internet" entry:"1692370820" modified:"1692370873" project:"aur" start:"1692370873" status:"pending" uuid:"6151c08a-d123-4778-9f66-e66293357c44"]
+[description:"instead of crawling aur, use https:\/\/lists.archlinux.org\/archives\/list\/aur-general@lists.archlinux.org\/message\/D4YC6Y7L4T5VSEONUCLHOX2R4NJKNIDP\/" entry:"1693051479" modified:"1693051479" project:"aur" status:"pending" uuid:"86783f66-3513-461b-9d08-07a0a5c1da34"]
