@@ -253,6 +253,7 @@ def get_tr_data(tr, header):
     data['flagged'] = flagged
     pkgid = f"{data['name']}-{data['version']}"
     version = data.pop('version')
+    # TODO: this regex is duplicated, extract
     verparse = re.compile(r'((?P<epoch>\d+):)?(?P<version>.+?)-(?P<rel>\d+)')
     m = verparse.match(version)
     assert m is not None, f"Version could not be parsed {version=} {data=}"

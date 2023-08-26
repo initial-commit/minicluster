@@ -18,6 +18,8 @@ import sqlite3
 import contextlib
 import re
 import json
+from datetime import datetime
+import pytz
 
 def create_pkg_sqlitedb(logger, db_file):
     logger.info(f"creating sqlite db for repository: {db_file=}")
@@ -247,31 +249,51 @@ if __name__ == '__main__':
     #    print(x)
 
     def extract_desc(fp, package):
+        verparse = re.compile(r'((?P<epoch>\d+):)?(?P<version>.+?)-(?P<rel>\d+)')
+        tr_list = lambda v: v if isinstance(v, list) else [v]
+        tr_version = lambda v: verparse.match(v).groupdict()['version']
+        def tr_rel(v):
+            v = verparse.match(v).groupdict()['rel']
+            if v:
+                return int(v)
+            return None
+        def tr_epoch(v):
+            v = verparse.match(v).groupdict()['epoch']
+            if v:
+                return int(v)
+            return None
+        tr_int = lambda v: int(v) if v is not None else None
+        tr_timestamp = lambda v: datetime.fromtimestamp(int(v), pytz.utc)
+        tr_packager_name = lambda v: cluster.functions.contact_parse(v)['realname']
+        tr_packager_email = lambda v: cluster.functions.contact_parse(v)['email']
+        tr_deps = lambda v: cluster.functions.depend_parse(tr_list(v))
         key_transforms = {
             'FILENAME': {'name': 'filename'},
             'NAME': {'name': 'pkgname'},
             'DESC': {'name': 'pkgdesc'},
             'BASE': {'name': 'pkgbase'},
-            'VERSION': {'name': 'pkgver'},
-            'CSIZE': {'name': 'download_size'},
-            'ISIZE': {'name': 'install_size'},
+            'VERSION': {'name': 'pkgver', 'tr': tr_version, },
+            'PKGREL': {'name': 'pkgrel', 'tr': tr_rel, },
+            'EPOCH': {'name': 'epoch', 'tr': tr_epoch, },
+            'CSIZE': {'name': 'download_size', 'tr': tr_int, },
+            'ISIZE': {'name': 'install_size', 'tr': tr_int, },
             'MD5SUM': {'name': 'package_md5sum'},
             'SHA256SUM': {'name': 'package_shasum'},
-            'LICENSE': {'name': 'license', 'type': list},
+            'LICENSE': {'name': 'license', 'tr': tr_list},
             'ARCH': {'name': 'package_arch'},
             'PGPSIG': {'name': 'pgpsig'},
             'URL': {'name': 'url'},
-            'BUILDDATE': {'name': 'builddate'}, # format timestamp with TZ
-            'PACKAGER': {'name': 'packager_name'},
-            'PACKAGER_EMAIL': {'name': 'packager_email'},
-            'GROUPS': {'name': 'group', 'type': list},
-            'PROVIDES': {'name': 'provides', 'type': list},
-            'DEPENDS': {'name': 'depends', 'type': list},
-            'MAKEDEPENDS': {'name': 'makedepends', 'type': list},
-            'REPLACES': {'name': 'replaces', 'type': list},
-            'CONFLICTS': {'name': 'conflicts', 'type': list},
-            'CHECKDEPENDS': {'name': 'checkdepends', 'type': list},
-            'OPTDEPENDS': {'name': 'optdepends', 'type': list},
+            'BUILDDATE': {'name': 'builddate', 'tr': tr_timestamp, }, # format timestamp with TZ
+            'PACKAGER': {'name': 'packager_name', 'tr': tr_packager_name, },
+            'PACKAGER_EMAIL': {'name': 'packager_email', 'tr': tr_packager_email, },
+            'GROUPS': {'name': 'group', 'tr': tr_list},
+            'PROVIDES': {'name': 'provides', 'tr': tr_deps},
+            'DEPENDS': {'name': 'depends', 'tr': tr_deps},
+            'MAKEDEPENDS': {'name': 'makedepends', 'tr': tr_deps},
+            'REPLACES': {'name': 'replaces', 'tr': tr_deps},
+            'CONFLICTS': {'name': 'conflicts', 'tr': tr_deps},
+            'CHECKDEPENDS': {'name': 'checkdepends', 'tr': tr_deps},
+            'OPTDEPENDS': {'name': 'optdepends', 'tr': tr_deps},
         }
         #PACKAGER
         f = map(lambda v: v.decode('utf-8').strip(), fp.readlines())
@@ -292,13 +314,38 @@ if __name__ == '__main__':
                     else:
                         vals[k].append(line) # we have subsequent values
         vals['PACKAGER_EMAIL'] = vals['PACKAGER']
+        vals['EPOCH'] = vals['VERSION']
+        vals['PKGREL'] = vals['VERSION']
         norm_vals = {}
         for k, v in vals.items():
             assert k in key_transforms, f"spec for key not available in package {package=} {k=}"
             spec = key_transforms[k]
             new_k = spec['name']
+            if 'tr' in spec:
+                v = spec['tr'](v)
             norm_vals[new_k] = v
-        return norm_vals
+        dependencies = {
+            'provides': norm_vals.pop('provides', None),
+            'depends': norm_vals.pop('depends', None),
+            'makedepends': norm_vals.pop('makedepends', None),
+            'replaces': norm_vals.pop('replaces', None),
+            'conflicts': norm_vals.pop('conflicts', None),
+            'checkdepends': norm_vals.pop('checkdepends', None),
+            'optdepends': norm_vals.pop('optdepends', None),
+        }
+        return (norm_vals, dependencies)
+
+    def pkg_db_file_desc_iter(f_in_mem, logger):
+        tar = tarfile.open(fileobj=f_in_mem)
+        for tinfo in tar.getmembers():
+            if not tinfo.isfile():
+                continue
+            name = tinfo.name.split('/')[0]
+            #if name not in ['dialog-1:1.3_20230209-1', 'acl-2.3.1-3']:
+            #    continue
+            pkginfo, dependencies = extract_desc(tar.extractfile(tinfo), name)
+            yield (name, pkginfo, dependencies, False)
+        yield (None, None, None, True)
 
     for db_name in db_names:
         import requests
@@ -309,18 +356,26 @@ if __name__ == '__main__':
         files_link = f"{base_link}{db_name}.files.tar.gz"
         db_link = f"{base_link}{db_name}.db.tar.gz"
         links_link = f"{base_link}{db_name}.links.tar.gz"
+        ### db_link .db file
         res = requests.get(db_link, allow_redirects=True)
         assert res.status_code == 200, f"Response for {dblink=} is not 200"
         #TODO: assert bytes
         #TODO: cache and add If-Newer-Than
         f_in_mem = io.BytesIO(res.content)
-        tar = tarfile.open(fileobj=f_in_mem)
-        for tinfo in tar.getmembers():
-            if not tinfo.isfile():
-                continue
-            name = tinfo.name
-            lines = extract_desc(tar.extractfile(tinfo), name)
-            logger.info(f"{name}\t{lines=}")
+        buffer = []
+        for pkgid, pkginfo, dependencies, last in pkg_db_file_desc_iter(f_in_mem, logger):
+            if not last:
+                buffer.append((pkginfo, dependencies))
+            if len(buffer) == 2500 or last:
+                logger.info("TODO: store")
+                buffer = []
+            #for k, v in pkginfo.items():
+            #    logger.info(f"{pkgid}\t{k=}\t{v=}")
+            #for k, v in dependencies.items():
+            #    logger.info(f"{pkgid}\t{k=}\t{v=}")
+        ### others:
+        logger.info(files_link)
+        logger.info(links_link)
 
     # TODO: also set known_packages
 

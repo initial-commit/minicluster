@@ -295,3 +295,13 @@ def depend_parse(raw_vals):
         assert m is not None, f"Could not parse depends-type value {raw_v=} {raw_vals=}"
         results.append(m.groupdict())
     return results
+
+def contact_parse(raw_val):
+    regex = r"^(?P<realname>[^<]+)<(?P<email>[^@]+@.+)>"
+    e = re.compile(regex)
+    m = e.match(raw_val)
+    assert m is not None, f"Could not parse contact for {raw_val=}"
+    data = m.groupdict()
+    data['realname'] = data['realname'].strip()
+    data['email'] = data['email'].strip()
+    return data
