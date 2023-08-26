@@ -32,11 +32,12 @@ def create_pkg_sqlitedb(logger, db_file):
         'pkgdesc TEXT, url TEXT, builddate TEXT, options TEXT, size INTEGER, arch TEXT, source TEXT, license TEXT, '
         'checksums TEXT, noextract TEXT, '
         '"group" TEXT, packager_name TEXT, packager_email TEXT, sources TEXT, popularity REAL, '
+        'filename TEXT, download_size INTEGER, install_size INTEGER, package_md5sum TEXT, package_shasum TEXT, pgpsig TEXT, package_arch TEXT, '
         'votes INTEGER, lastupdated TEXT, flagged INTEGER'
         ') STRICT'))
         cur.execute('CREATE TABLE dependencies (pkgname TEXT, deptype TEXT, otherpkg TEXT, operator TEXT, version TEXT, reason TEXT)')
-        cur.execute('CREATE TABLE backs_up (pkgname, path)')
-        cur.execute('CREATE TABLE meta (key, value)')
+        cur.execute('CREATE TABLE backs_up (pkgname TEXT, path TEXT)')
+        cur.execute('CREATE TABLE meta (key TEXT, reponame TEXT, value TEXT)')
         cur.execute(("CREATE VIEW packages_removed_from_aurweb AS "
             "WITH aur AS (SELECT pkgname FROM pkginfo p WHERE p.reponame = 'aur'), "
             "aurweb AS (SELECT pkgname FROM pkginfo p WHERE p.reponame = 'aurweb') "
@@ -44,6 +45,12 @@ def create_pkg_sqlitedb(logger, db_file):
             "LEFT JOIN aurweb ON aur.pkgname = aurweb.pkgname "
             "WHERE aurweb.pkgname IS NULL;")
         )
+        cur.execute(('CREATE TABLE files'
+            '(pkgid TEXT, reponame TEXT, fpath TEXT, mime_short TEXT, mime_long TEXT)'
+        ))
+        cur.execute(('CREATE TABLE links'
+            '(pkgid TEXT, reponame TEXT, link TEXT)'
+        ))
     return db
 
 def normalize_meta(pkgid, meta, known_packages, logger):
@@ -202,7 +209,6 @@ def upsert_aur_package(rawbatch, db, logger):
         with contextlib.closing(db.cursor()) as cur:
             sql = ("INSERT INTO dependencies(pkgname, deptype, otherpkg, operator, version, reason)"
             "VALUES(:pkgname, :deptype, :otherpkg, :operator, :version, :reason)")
-            #logger.info(f"{buffer_dependencies=}")
             cur.executemany(sql, buffer_dependencies)
 
 def get_removed_packages(db, prev_db_file, fromrepo):
@@ -341,11 +347,38 @@ if __name__ == '__main__':
             if not tinfo.isfile():
                 continue
             name = tinfo.name.split('/')[0]
-            #if name not in ['dialog-1:1.3_20230209-1', 'acl-2.3.1-3']:
-            #    continue
             pkginfo, dependencies = extract_desc(tar.extractfile(tinfo), name)
             yield (name, pkginfo, dependencies, False)
         yield (None, None, None, True)
+
+
+    def upsert_binary_package(db_name, buffer, db, logger):
+        pkginfos = []
+        dependencies = []
+        for (pkgid, pkginfo, dep) in buffer:
+            pkginfo['reponame'] = db_name
+            pkginfo['pkgid'] = pkgid
+            for k, v in pkginfo.items():
+                if isinstance(v, list):
+                    pkginfo[k] = json.dumps(v)
+            pkginfos.append(pkginfo)
+            for deptype, depvals in dep.items():
+                if not depvals:
+                    continue
+                for depdict in depvals:
+                    depdict['deptype'] = deptype
+                    depdict['pkgname'] = pkginfo['pkgname']
+                    dependencies.append(depdict)
+        with db:
+            with contextlib.closing(db.cursor()) as cur:
+                sql = ("INSERT INTO pkginfo(pkgid, reponame, pkgname, pkgbase, pkgver, pkgrel, epoch, pkgdesc, url, package_arch, license, packager_name, packager_email, builddate, filename, download_size, install_size, package_md5sum, package_shasum, pgpsig, package_arch)"
+                "VALUES(:pkgid, :reponame, :pkgname, :pkgbase, :pkgver, :pkgrel, :epoch, :pkgdesc, :url, :package_arch, :license, :packager_name, :packager_email, :builddate, :filename, :download_size, :install_size, :package_md5sum, :package_shasum, :pgpsig, :package_arch)")
+                cur.executemany(sql, pkginfos)
+        with db:
+            with contextlib.closing(db.cursor()) as cur:
+                sql = ("INSERT INTO dependencies(pkgname, deptype, otherpkg, operator, version, reason)"
+                "VALUES(:pkgname, :deptype, :otherpkg, :operator, :version, :reason)")
+                cur.executemany(sql, dependencies)
 
     for db_name in db_names:
         import requests
@@ -365,14 +398,10 @@ if __name__ == '__main__':
         buffer = []
         for pkgid, pkginfo, dependencies, last in pkg_db_file_desc_iter(f_in_mem, logger):
             if not last:
-                buffer.append((pkginfo, dependencies))
+                buffer.append((pkgid, pkginfo, dependencies))
             if len(buffer) == 2500 or last:
-                logger.info("TODO: store")
+                upsert_binary_package(db_name, buffer, db, logger)
                 buffer = []
-            #for k, v in pkginfo.items():
-            #    logger.info(f"{pkgid}\t{k=}\t{v=}")
-            #for k, v in dependencies.items():
-            #    logger.info(f"{pkgid}\t{k=}\t{v=}")
         ### others:
         logger.info(files_link)
         logger.info(links_link)
@@ -409,8 +438,6 @@ if __name__ == '__main__':
             i = 0
             buffer = []
             for (pkgid, meta, last) in repobuilder.functions.aur_repo_iterator(repo):
-                #if pkgid not in ['0ad-git-1:A26.r920.gc4a0ae4ff-1']:
-                #    continue
                 if not last:
                     (success, newmeta) = normalize_meta(pkgid, meta, known_packages, logger)
                     if newmeta['pkginfo']['pkgname'] in known_packages:
