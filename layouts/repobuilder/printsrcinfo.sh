@@ -2,6 +2,7 @@
 
 source '/usr/share/makepkg/lint_pkgbuild.sh'
 source '/usr/share/makepkg/util/pkgbuild.sh'
+source '/usr/share/makepkg/util/option.sh'
 source '/usr/share/makepkg/srcinfo.sh'
 
 source_safe() {

@@ -156,8 +156,9 @@ def aur_repo_iterator(repo, extractor, errorlogger):
         rev = repo.revparse_single(br)
         tree = rev.tree
         own_srcinfo = None
+        errorlogger.info(f"==================================== {pkg=}")
         if 'PKGBUILD' in tree:
-            lines = tree['PKGBUILD'].data.decode('utf-8')
+            lines = tree['PKGBUILD'].data.decode('utf-8', 'backslashreplace')
             own_srcinfo = extractor(lines.encode('utf-8'))
             if own_srcinfo:
                 own_srcinfo = own_srcinfo.rstrip().splitlines()
@@ -165,7 +166,7 @@ def aur_repo_iterator(repo, extractor, errorlogger):
                     errorlogger.debug(f".SRCINFO-SHOULD-BE:{line}")
             # TODO: copy file to extractor and printsrcinfo inside via input-data
         if '.SRCINFO' in tree:
-            lines = tree['.SRCINFO'].data.decode('utf-8').strip()
+            lines = tree['.SRCINFO'].data.decode('utf-8', 'backslashreplace').strip()
             lines = lines.splitlines()
             # TODO: compare .SRCINFO to makepkg --printsrcinfo and issue a warning
             meta = {}
