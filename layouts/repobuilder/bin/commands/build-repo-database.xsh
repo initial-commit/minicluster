@@ -2,11 +2,18 @@
 
 if __name__ == '__main__':
     d=p"$XONSH_SOURCE".resolve().parent; source @(f'{d}/bootstrap.xsh')
+    source_command 'make-empty-image.xsh'
+    source_command 'boot-image.xsh'
+    source_command 'poweroff-image.xsh'
+    source_command 'copy-files.xsh'
     from cluster.functions import str2bool_exc as strtobool
+    import sys
     MINICLUSTER.ARGPARSE.add_argument('--aur_clone', required=False, default=None)
     MINICLUSTER.ARGPARSE.add_argument('--aurweb', nargs='?', type=lambda b:bool(strtobool(b)), const=False, default=True, metavar='true|false')
     MINICLUSTER.ARGPARSE.add_argument('--db_names', default=[], nargs='+', required=False, help="The database names, ex core, multilib, extra")
     MINICLUSTER.ARGPARSE.add_argument('--db_file', required=True)
+    MINICLUSTER.ARGPARSE.add_argument('--image', help="The image to use to execute unsafe operations in isolation, e.g. makepkg", required='--aur_clone' in sys.argv)
+    MINICLUSTER.ARGPARSE.add_argument('--name', help="The name of the VM", required='--aur_clone' in sys.argv)
     MINICLUSTER = MINICLUSTER.bootstrap_finished(MINICLUSTER)
 
 import logging
@@ -235,12 +242,18 @@ if __name__ == '__main__':
     db_file = pathlib.Path(MINICLUSTER.ARGS.db_file)
     aurweb = MINICLUSTER.ARGS.aurweb
     db_names = MINICLUSTER.ARGS.db_names
+    image = MINICLUSTER.ARGS.image
+    name = MINICLUSTER.ARGS.name
 
     existing_db = db_file.exists()
     if not existing_db:
         db = create_pkg_sqlitedb(logger, db_file)
     else:
         db = sqlite3.connect(db_file)
+
+    if image:
+        image = pathlib.Path(image).resolve()
+        assert image.exists()
 
     $RAISE_SUBPROC_ERROR = True
     $XONSH_SHOW_TRACEBACK = True
@@ -420,7 +433,7 @@ if __name__ == '__main__':
                 pkgnames = upsert_aurweb_package(buffer, db)
                 known_packages.extend(pkgnames)
                 buffer = []
-                logger.info(f"{i=}")
+                logger.info(f"aurweb packages processed: {i+1}")
             i += 1
     else:
         with db:
@@ -434,10 +447,48 @@ if __name__ == '__main__':
             aur_clone = aur_clone / '.git'
 
         if aur_clone.exists():
+            cwd_image = str(image.parent)
+            base_handle = image.stem
+            new_img = command_make_derived_image_xsh(cwd_image, logger, base_handle, name)
+            assert new_img is not None
+            cwd_image = str(new_img.parent)
+            new_img = str(new_img)
+            booted = command_boot_image_xsh(cwd_image, logger, new_img, name, 1024, True, False)
+            assert booted
+            s = f"{cwd_image}/qga-{name}.sock"
+            conn = cluster.qmp.Connection(s, logger)
+            # load PKGBUILD to var
+            fp = open('/home/flav/checkouts/archlinux/aur/PKGBUILD', 'rb')
+            pkgbuild_data = fp.read()
+            logger.info(f"{pkgbuild_data=}")
+            fp.close()
+            # copy script to /tmp
+            written = command_copy_files_xsh(cwd_image, logger, "{DIR_M}/printsrcinfo.sh", '{name}:/tmp/printsrcinfo.sh', additional_env={'name': name})
+            assert written > 1
+            st = conn.guest_exec_wait('chmod +x /tmp/printsrcinfo.sh')
+            assert st['exitcode'] == 0
+            # execute script inside with input-data
+            class Extractor(object):
+                def __init__(self, conn, logger):
+                    self.conn = conn
+                    self.logger = logger.getChild(self.__class__.__name__)
+                def __call__(self, pkgbuild_data):
+                    st = self.conn.guest_exec_wait('/tmp/printsrcinfo.sh', input_data=pkgbuild_data)
+                    if st['exitcode'] != 0 or len(st['err-data'].strip()) > 0:
+                        logger.error(f"cannot extract srcinfo from pkgbuild: {st=}")
+                        return None
+                    return st['out-data']
+
+            extractor = Extractor(conn, logger)
+            errorlogger = logger
+
             repo = pygit2.Repository(aur_clone)
             i = 0
             buffer = []
-            for (pkgid, meta, last) in repobuilder.functions.aur_repo_iterator(repo):
+            for (pkgid, meta, last) in repobuilder.functions.aur_repo_iterator(repo, extractor, errorlogger):
+                #if pkgid and 'mediasort' not in pkgid:
+                #    continue
+                #logger.info(f"{pkgid=} {meta=}")
                 if not last:
                     (success, newmeta) = normalize_meta(pkgid, meta, known_packages, logger)
                     if newmeta['pkginfo']['pkgname'] in known_packages:
@@ -446,3 +497,5 @@ if __name__ == '__main__':
                     upsert_aur_package(buffer, db, logger)
                     buffer = []
                 i += 1
+
+            command_poweroff_image_xsh(cwd_image, logger, name)

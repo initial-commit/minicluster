@@ -71,7 +71,8 @@ class Connection(object, metaclass=CachedViaConstructorMeta):
                       'env': env,
                       'capture-output': capture_output}
         if input_data:
-            input_data = base64.b64encode(input_data)
+            assert isinstance(input_data, bytes), f"input data is in the wrong format: {input_data=}"
+            input_data = base64.b64encode(input_data).decode()
             guest_args['input-data'] = input_data
         self.logger.debug(f"executing command {cmd=}", extra=guest_args)
         resp = self._send_recv_rountrip("guest-exec", **guest_args)

@@ -12,6 +12,8 @@ def _bootstrap():
     import logging
     import argparse
     import signal
+    import pathlib
+    from xonsh.tools import unthreadable
     #import faulthandler
     from dateutil.relativedelta import relativedelta
 
@@ -20,13 +22,15 @@ def _bootstrap():
     # the goal of this struct is to store data that is constant
     # during the run of a command
     minicluster = collections.namedtuple("MINICLUSTER", [
-        "DIR_R", # root directory of the project
+        "DIR_R", # root directory of the this project
+        "DIR_M", # the directory of the module (can be DIR_R or module from layouts/ or external modules)
         "COMMAND", # the command script executed
         "TIME_START", # time when command started in nanoseconds
         "CWD_START", # workind directory at bootstrap
         "ARGPARSE", # argument parser
         "ARGS", # named args
         "POS_ARGS", # positional args
+        "MODULES", # minicluster-type modules / layouts / plugins
         "bootstrap_finished", # function used to signal, must be called by each command
         "w_ctx",
         "w_list",
@@ -38,22 +42,32 @@ def _bootstrap():
     root = pf"{__file__}".resolve().parent.parent.parent
     src = root / "src" / "python"
     bin = root / "bin" / "commands"
+    dir_m = None
 
     sys.path.append(str(src))
     cmd=p"$XONSH_SOURCE".resolve().name
+    #start_dir=p"$XONSH_SOURCE".resolve().parent
 
     cwd = os.getcwd()
 
     if str(bin) not in $PATH:
         $PATH.append(str(bin))
 
+    modules = []
     for p in map(pathlib.Path, $PATH):
         b = p / 'bootstrap.xsh'
         if not b.exists():
             continue
         src = p.parent.parent / 'src' / 'python'
+        module_root = p.parent.parent
+        if (p / cmd).exists():
+            dir_m = module_root
+
+        modules.append({'root': str(module_root), 'bin': str(p)})
         if src.exists() and str(src.resolve()) not in sys.path:
             sys.path.append(str(src))
+
+    assert dir_m is not None
 
     ######################################################
     # arguments
@@ -73,10 +87,10 @@ def _bootstrap():
     ######################################################
     numeric_level = getattr(logging, loglevel.upper(), None)
     logging.basicConfig(
-	level=numeric_level,
-	format="[%(asctime)s] [%(levelname)-8s] [%(name)s LN %(lineno)3d FN %(funcName)10s] - %(message)s",
-	#stream=sys.stdout
-	)
+        level=numeric_level,
+        format="[%(asctime)s] [%(levelname)-8s] [%(name)s LN %(lineno)3d FN %(funcName)10s] - %(message)s",
+        #stream=sys.stdout
+    )
 
     #TODO: add time since start, make it human readable as a duration
     old_factory = logging.getLogRecordFactory()
@@ -105,6 +119,20 @@ def _bootstrap():
         d.append(f"{ms} microseconds")
         logger.info(f"command took {d}")
 
+    ######################################################
+    logger = logging.getLogger(__name__)
+    @unthreadable
+    def _source_command(args, stdin):
+        for a in args:
+            for m in modules:
+                b = m['bin']
+                s = pf"{b}/{a}"
+                logger.info(f"sourcing command {s}")
+                source @(s)
+                return True
+        raise Exception(f"Could not find command in modules {args=} {modules=}")
+
+    aliases['source_command'] = _source_command
 
     ######################################################
     #TODO: install xonsh hooks https://xon.sh/events.html
@@ -139,12 +167,14 @@ def _bootstrap():
     # MINICLUSTER global
     MINICLUSTER = minicluster(
         root,
+        dir_m,
         cmd,
         now,
         cwd,
         argparser,
         args,
         pos_args,
+        modules,
         None,
         w_ctx,
         w_list,
@@ -201,6 +231,10 @@ def bootstrap_finished(MINICLUSTER):
     for w in MINICLUSTER.w_list:
         logger.info(f"BOOTSTRAP WARNING: {w=} {str(w)}")
     logger.info(f"warnings created during bootstrap: {len(MINICLUSTER.w_list)}")
+    logger.info(f"{MINICLUSTER.DIR_R=}")
+    logger.info(f"{MINICLUSTER.DIR_M=}")
+    logger.info(f"{MINICLUSTER.COMMAND=}")
+    logger.info(f"{MINICLUSTER.CWD_START=}")
     MINICLUSTER.w_ctx.__exit__(None, None, None)
     assert len(MINICLUSTER.w_list) == 0, "Some warnings shown during bootstrap"
     return MINICLUSTER

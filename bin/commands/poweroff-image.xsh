@@ -1,13 +1,16 @@
 #!/usr/bin/env xonsh
 
+d = pf"{__file__}".resolve().parent
+
 if __name__ == '__main__':
-    d=p"$XONSH_SOURCE".resolve().parent; source f'{d}/bootstrap.xsh'
-    source @(f'{d}/instance-shell.xsh')
+    source f'{d}/bootstrap.xsh'
     MINICLUSTER.ARGPARSE.add_argument('--name', required=True)
     MINICLUSTER = MINICLUSTER.bootstrap_finished(MINICLUSTER)
 
 import pathlib
 import time
+
+source @(f'{d}/instance-shell.xsh')
 
 def command_poweroff_image_xsh(cwd, logger, name, interval=0.005):
     pidfile = f"{cwd}/qemu-{name}.pid"

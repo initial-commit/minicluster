@@ -201,6 +201,8 @@ class KernelParameters(Handler):
 	return p
 
 def command_boot_image_xsh(cwd, logger, image, name, ram, network, interactive):
+    if image.endswith('.qcow2'):
+	image = image[:-6]
     cmd_args = {
 	'image': image,
 	'name': name,

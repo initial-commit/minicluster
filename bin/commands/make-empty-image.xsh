@@ -64,6 +64,19 @@ def calculate_disk_sectors(d):
 		first = False
 	d['partitions'] = parts
 
+def command_make_derived_image_xsh(cwd, logger, base_handle, derived_handle):
+    pushd -q @(cwd)
+    out=$(qemu-img create -f qcow2 -F qcow2 -b @(base_handle).qcow2 @(derived_handle).qcow2).rstrip()
+    popd -q
+    m = re.match(r"Formatting '(?P<img>[^']+)',", out)
+    if not m:
+	return None
+    name = m.groupdict()['img']
+    created_img = pf"{cwd}/{name}".resolve()
+    if not created_img.exists():
+	return None
+    return created_img
+
 def command_make_empty_image_xsh(cwd, logger, handle, d):
     disk_file = f"{cwd}/{handle}.qcow2"
     mountpoint = f"{cwd}/{handle}"

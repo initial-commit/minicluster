@@ -6,6 +6,7 @@ from lxml import html
 import dateutil.parser
 from urllib.parse import urlparse
 import time
+import difflib
 
 
 META_REQUIRED = [
@@ -135,7 +136,7 @@ META_LIST = [
 
 
 
-def aur_repo_iterator(repo):
+def aur_repo_iterator(repo, extractor, errorlogger):
     #collected_unknown_keys = []
     branches = repo.raw_listall_branches(pygit2.GIT_BRANCH_REMOTE)
     kv_r = re.compile(r'^\s*(?P<key>[^\s=]+)\s*=\s*(?P<val>.*)$')
@@ -150,16 +151,27 @@ def aur_repo_iterator(repo):
         pkg = br.split('/', 1)[1]
         if pkg in ['HEAD', 'main', ]:
             continue
-        #if pkg not in ['arm-linux-gnueabihf-ncurses', '0ad-git', 'jamomacore-git', 'pam_autologin']:
-        #if pkg not in ['0ad-git', ]:
+        #if pkg not in ['arm-linux-gnueabihf-ncurses', '0ad-git', 'jamomacore-git', 'pam_autologin', 'mediasort']:
         #    continue
-        tree = repo.revparse_single(br).tree
+        rev = repo.revparse_single(br)
+        tree = rev.tree
+        own_srcinfo = None
+        if 'PKGBUILD' in tree:
+            lines = tree['PKGBUILD'].data.decode('utf-8')
+            own_srcinfo = extractor(lines.encode('utf-8'))
+            if own_srcinfo:
+                own_srcinfo = own_srcinfo.rstrip().splitlines()
+                for line in own_srcinfo:
+                    errorlogger.debug(f".SRCINFO-SHOULD-BE:{line}")
+            # TODO: copy file to extractor and printsrcinfo inside via input-data
         if '.SRCINFO' in tree:
-            lines = tree['.SRCINFO'].data.decode('utf-8').splitlines()
+            lines = tree['.SRCINFO'].data.decode('utf-8').strip()
+            lines = lines.splitlines()
+            # TODO: compare .SRCINFO to makepkg --printsrcinfo and issue a warning
             meta = {}
             meta_global = []
             for line in lines:
-                #print(line)
+                errorlogger.debug(f".SRCINFO:{line}")
                 if "pkgname" in line and not line.startswith("pkgname"):
                     continue
                 m = kv_r.match(line)
@@ -189,6 +201,10 @@ def aur_repo_iterator(repo):
                     raise Exception(f"Encountered unknown key for package {k=} {pkg=} with value {v=}")
             if not do_package:
                 continue
+            if own_srcinfo:
+                diffs = difflib.unified_diff([v.strip() for v in own_srcinfo if v.strip()], [v.strip() for v in lines if v.strip()], fromfile=f'{pkg}/.SRCINFO-SHOULD_BE', tofile=f'{pkg}/.SRCINFO', lineterm='', n=1)
+                for diffline in diffs:
+                    errorlogger.error(diffline)
             meta_global.append(meta)
             is_pkgbase = lambda meta: 'pkgname' not in meta and 'pkgbase' in meta
             pkgbase_type = list(map(is_pkgbase, meta_global))
