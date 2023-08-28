@@ -151,7 +151,7 @@ def aur_repo_iterator(repo, extractor, errorlogger):
         pkg = br.split('/', 1)[1]
         if pkg in ['HEAD', 'main', ]:
             continue
-        #if pkg not in ['arm-linux-gnueabihf-ncurses', '0ad-git', 'jamomacore-git', 'pam_autologin', 'mediasort']:
+        #if pkg not in ['gn-bin', 'arm-linux-gnueabihf-ncurses', '0ad-git', 'jamomacore-git', 'pam_autologin', 'mediasort']:
         #    continue
         rev = repo.revparse_single(br)
         tree = rev.tree

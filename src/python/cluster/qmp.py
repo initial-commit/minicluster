@@ -106,8 +106,8 @@ class Connection(object, metaclass=CachedViaConstructorMeta):
         else:
             status['err-data'] = b''
         if out_encoding:
-            status['out-data'] = status['out-data'].decode(out_encoding)
-            status['err-data'] = status['err-data'].decode(out_encoding)
+            status['out-data'] = status['out-data'].decode(out_encoding, 'backslashreplace')
+            status['err-data'] = status['err-data'].decode(out_encoding, 'backslashreplace')
         return status
 
     def path_stat(self, vm_path):
