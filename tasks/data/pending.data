@@ -50,3 +50,8 @@
 [description:"timeout on tasks: echo 0 > \/proc\/sys\/kernel\/hung_task_timeout_secs" entry:"1691654929" modified:"1691654929" project:"bootstrap" status:"pending" uuid:"b5191738-0a8a-4e30-b35d-c5e63bf8f95e"]
 [description:"command which can check if all sources are available on the internet" entry:"1692370820" modified:"1692370873" project:"aur" start:"1692370873" status:"pending" uuid:"6151c08a-d123-4778-9f66-e66293357c44"]
 [description:"instead of crawling aur, use https:\/\/lists.archlinux.org\/archives\/list\/aur-general@lists.archlinux.org\/message\/D4YC6Y7L4T5VSEONUCLHOX2R4NJKNIDP\/" entry:"1693051479" modified:"1693051479" project:"aur" status:"pending" uuid:"86783f66-3513-461b-9d08-07a0a5c1da34"]
+[description:"check why source is wrong for aur package dav" entry:"1693077756" modified:"1693077756" project:"aur" status:"pending" uuid:"9885d0bb-a709-4413-b10b-6f109791c3df"]
+[description:"check why :: is twice in source for aur package emacs-pgtk-native-comp-git" entry:"1693079674" modified:"1693079674" project:"aur" status:"pending" uuid:"e5bceb5e-b100-466c-a9b8-7568b5d5d35e"]
+[description:"make an elegant system alternative to sys.exit" entry:"1693155829" modified:"1693155829" project:"aur" status:"pending" uuid:"95f39475-5e9e-424c-a933-b8d377af6658"]
+[description:"tackle undeclared dependencies for fgrep -rnw stdin build.log | grep 'command not found'" entry:"1693229705" modified:"1693229705" project:"aur" status:"pending" uuid:"012e1be7-e453-451a-9598-0c007f767a7c"]
+[description:"tackle 'cannot extract srcinfo from pkgbuild' in build.log" entry:"1693230476" modified:"1693230476" project:"aur" status:"pending" uuid:"69b467a9-4cea-4300-854e-f82e4af1af68"]
