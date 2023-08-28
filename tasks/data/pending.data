@@ -57,3 +57,4 @@
 [description:"tackle 'cannot extract srcinfo from pkgbuild' in build.log" entry:"1693230476" modified:"1693230476" project:"aur" status:"pending" uuid:"69b467a9-4cea-4300-854e-f82e4af1af68"]
 [description:"log errors to db about encoding errors" entry:"1693232042" modified:"1693232042" project:"aur" status:"pending" uuid:"6e2c2135-c73a-4c0c-a178-21e9c1e3a1da"]
 [description:"log errors to db about diffs in .SRCINFO" entry:"1693232054" modified:"1693232054" project:"aur" status:"pending" uuid:"a1c7e2e5-0a9b-41cc-9fa0-bd9798be2538"]
+[description:"pkg gn-bin generates error: 'utf-8' codec can't decode byte 0xe4 in position 253: invalid continuation byte" entry:"1693232113" modified:"1693232113" project:"aur" status:"pending" uuid:"bddaaa4c-e2c2-4c09-9f6f-b2d2c08a7cf7"]

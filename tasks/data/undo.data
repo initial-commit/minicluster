@@ -882,3 +882,6 @@ new [description:"log errors to db about encoding errors" entry:"1693232042" mod
 time 1693232054
 new [description:"log errors to db about diffs in .SRCINFO" entry:"1693232054" modified:"1693232054" project:"aur" status:"pending" uuid:"a1c7e2e5-0a9b-41cc-9fa0-bd9798be2538"]
 ---
+time 1693232113
+new [description:"pkg gn-bin generates error: 'utf-8' codec can't decode byte 0xe4 in position 253: invalid continuation byte" entry:"1693232113" modified:"1693232113" project:"aur" status:"pending" uuid:"bddaaa4c-e2c2-4c09-9f6f-b2d2c08a7cf7"]
+---
