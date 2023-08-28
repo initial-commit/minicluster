@@ -79,6 +79,12 @@ USAGE
 Roadmap
 =======
 
+This is the roadmap for this use-case.
+
+The concrete versions have not been defined, as the planning for this
+particular use-case must fit the overall roadmap of minicluster and all other
+use-cases used as a foundation for minicluster 1.0.0.
+
 v0.0.1
 ------
 
@@ -94,20 +100,20 @@ Goal: self-contained build and continuous operation
 v0.x.0
 ------
 
-Goal: construct and recompile own repositories
+Goal: construct/define and recompile own repositories
 
 v0.x.0
 ------
 
 Goal: multi-user UI and repositories
 
-v1.0.0
+v0.x.0
 ------
 
 Goal: generally available to ArchLinux users
 
 
-v2.0.0
+v0.x.0
 ------
 
 Goal: re-implement with a new DSL
