@@ -141,7 +141,7 @@ def upsert_aurweb_package(rawbatch, db):
         values = {
             'pkgid': rawdata['pkgid'],
             'reponame': 'aurweb',
-            'pkgname': rawdata['name'],
+            'pkgbase': rawdata['name'],
             'pkgver': rawdata['pkgver'],
             'pkgrel': rawdata['pkgrel'],
             'epoch': rawdata.get('epoch', None),
@@ -152,12 +152,12 @@ def upsert_aurweb_package(rawbatch, db):
             'lastupdated': rawdata['lastupdated'],
             'flagged': rawdata['flagged'],
         }
-        packages.append(values['pkgname'])
+        packages.append(values['pkgbase'])
         buffer.append(values)
     with db:
         with contextlib.closing(db.cursor()) as cur:
-            sql = ("INSERT INTO pkginfo(pkgid, reponame, pkgname, pkgver, pkgrel, epoch, pkgdesc, packager_name, popularity, votes, lastupdated, flagged)"
-            "VALUES(:pkgid, :reponame, :pkgname, :pkgver, :pkgrel, :epoch, :pkgdesc, :packager_name, :popularity, :votes, :lastupdated, :flagged)")
+            sql = ("INSERT INTO pkginfo(pkgid, reponame, pkgbase, pkgver, pkgrel, epoch, pkgdesc, packager_name, popularity, votes, lastupdated, flagged)"
+            "VALUES(:pkgid, :reponame, :pkgbase, :pkgver, :pkgrel, :epoch, :pkgdesc, :packager_name, :popularity, :votes, :lastupdated, :flagged)")
             cur.executemany(sql, buffer)
     return packages
 
@@ -438,7 +438,7 @@ if __name__ == '__main__':
     else:
         with db:
             with contextlib.closing(db.cursor()) as cur:
-                res = cur.execute("SELECT pkgname FROM pkginfo WHERE reponame='aurweb'")
+                res = cur.execute("SELECT pkgbase FROM pkginfo WHERE reponame='aurweb'")
                 known_packages = [v[0] for v in res.fetchall()]
     known_packages = set(known_packages)
 
@@ -446,28 +446,10 @@ if __name__ == '__main__':
         if pf"{aur_clone}/.git".exists():
             aur_clone = aur_clone / '.git'
 
+        use_vm = False
         if aur_clone.exists():
             cwd_image = str(image.parent)
             base_handle = image.stem
-            new_img = command_make_derived_image_xsh(cwd_image, logger, base_handle, name)
-            assert new_img is not None
-            cwd_image = str(new_img.parent)
-            new_img = str(new_img)
-            booted = command_boot_image_xsh(cwd_image, logger, new_img, name, 1024, True, False)
-            assert booted
-            s = f"{cwd_image}/qga-{name}.sock"
-            conn = cluster.qmp.Connection(s, logger)
-            # load PKGBUILD to var
-            fp = open('/home/flav/checkouts/archlinux/aur/PKGBUILD', 'rb')
-            pkgbuild_data = fp.read()
-            logger.info(f"{pkgbuild_data=}")
-            fp.close()
-            # copy script to /tmp
-            written = command_copy_files_xsh(cwd_image, logger, "{DIR_M}/printsrcinfo.sh", '{name}:/tmp/printsrcinfo.sh', additional_env={'name': name})
-            assert written > 1
-            st = conn.guest_exec_wait('chmod +x /tmp/printsrcinfo.sh')
-            assert st['exitcode'] == 0
-            # execute script inside with input-data
             class Extractor(object):
                 def __init__(self, conn, logger):
                     self.conn = conn
@@ -478,24 +460,51 @@ if __name__ == '__main__':
                         logger.error(f"cannot extract srcinfo from pkgbuild: {st=}")
                         return None
                     return st['out-data']
+            if use_vm:
+                new_img = command_make_derived_image_xsh(cwd_image, logger, base_handle, name)
+                assert new_img is not None
+                cwd_image = str(new_img.parent)
+                new_img = str(new_img)
+                booted = command_boot_image_xsh(cwd_image, logger, new_img, name, 1024, True, False)
+                assert booted
+                s = f"{cwd_image}/qga-{name}.sock"
+                conn = cluster.qmp.Connection(s, logger)
+                # copy script to /tmp
+                written = command_copy_files_xsh(cwd_image, logger, "{DIR_M}/printsrcinfo.sh", '{name}:/tmp/printsrcinfo.sh', additional_env={'name': name})
+                assert written > 1
+                st = conn.guest_exec_wait('chmod +x /tmp/printsrcinfo.sh')
+                assert st['exitcode'] == 0
+                # execute script inside with input-data
 
-            extractor = Extractor(conn, logger)
+                extractor = Extractor(conn, logger)
             errorlogger = logger
 
             repo = pygit2.Repository(aur_clone)
             i = 0
             buffer = []
-            for (pkgid, meta, last) in repobuilder.functions.aur_repo_iterator(repo, extractor, errorlogger):
-                #if pkgid and 'mediasort' not in pkgid:
-                #    continue
-                #logger.info(f"{pkgid=} {meta=}")
+            totalfsize = 0
+            for (pkgbase, files, last) in repobuilder.functions.aur_repo_iterator_simple(repo, known_packages):
                 if not last:
-                    (success, newmeta) = normalize_meta(pkgid, meta, known_packages, logger)
-                    if newmeta['pkginfo']['pkgname'] in known_packages:
-                        buffer.append(newmeta)
-                if len(buffer) == 2500 or last:
-                    upsert_aur_package(buffer, db, logger)
-                    buffer = []
-                i += 1
+                    for fname, data in files.items():
+                        totalfsize += len(data)
+                    if len(files) > 30:
+                        logger.info(f"====================== {i+1}\t{pkgbase}\t{len(files)}")
+                        for fname, data in files.items():
+                            logger.info(f"{fname} {len(data)}")
+                    i += 1
+            logger.info(f"{totalfsize=}")
+            #for (pkgid, meta, last) in repobuilder.functions.aur_repo_iterator(repo, extractor, errorlogger):
+            #    #if pkgid and 'mediasort' not in pkgid:
+            #    #    continue
+            #    #logger.info(f"{pkgid=} {meta=}")
+            #    if not last:
+            #        (success, newmeta) = normalize_meta(pkgid, meta, known_packages, logger)
+            #        if newmeta['pkginfo']['pkgname'] in known_packages:
+            #            buffer.append(newmeta)
+            #    if len(buffer) == 2500 or last:
+            #        upsert_aur_package(buffer, db, logger)
+            #        buffer = []
+            #    i += 1
 
-            command_poweroff_image_xsh(cwd_image, logger, name)
+            if use_vm:
+                command_poweroff_image_xsh(cwd_image, logger, name)

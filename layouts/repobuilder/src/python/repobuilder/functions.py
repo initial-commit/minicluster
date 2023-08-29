@@ -134,6 +134,34 @@ META_LIST = [
     'validpgpkeys',
 ]
 
+def iter_all_git_tree_files(tree, prefix=''):
+    for gitobj in tree:
+        if gitobj.type == pygit2.GIT_OBJ_BLOB:
+            yield (prefix, gitobj)
+        elif gitobj.type == pygit2.GIT_OBJ_TREE:
+            yield from iter_all_git_tree_files(gitobj, f"{prefix}/{gitobj.name}".lstrip('/'))
+
+def aur_repo_iterator_simple(repo, include_only=set()):
+    branches = repo.raw_listall_branches(pygit2.GIT_BRANCH_REMOTE)
+    for br in branches:
+        br = br.decode('utf-8')
+        pkg = br.split('/', 1)[1]
+        if pkg in ['HEAD', 'main', ]:
+            continue
+        if len(include_only) > 0 and pkg not in include_only:
+            continue
+        #if pkg not in ['gn-bin', 'arm-linux-gnueabihf-ncurses', '0ad-git', 'jamomacore-git', 'pam_autologin', 'mediasort', 'linux-binder']:
+        #    continue
+        rev = repo.revparse_single(br)
+        tree = rev.tree
+        entries = {}
+        for prefix, gitobj in iter_all_git_tree_files(tree):
+            k = gitobj.name
+            if prefix:
+                k = f"{prefix}/{gitobj.name}"
+            entries[k] = gitobj.data
+        yield (pkg, entries, False)
+    yield (None, None, True)
 
 
 def aur_repo_iterator(repo, extractor, errorlogger):
