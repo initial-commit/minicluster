@@ -142,6 +142,7 @@ def iter_all_git_tree_files(tree, prefix=''):
             yield from iter_all_git_tree_files(gitobj, f"{prefix}/{gitobj.name}".lstrip('/'))
 
 def aur_repo_iterator_simple(repo, include_only=set()):
+    yielded = 0
     branches = repo.raw_listall_branches(pygit2.GIT_BRANCH_REMOTE)
     for br in branches:
         br = br.decode('utf-8')
@@ -150,8 +151,8 @@ def aur_repo_iterator_simple(repo, include_only=set()):
             continue
         if len(include_only) > 0 and pkg not in include_only:
             continue
-        #if pkg not in ['gn-bin', 'arm-linux-gnueabihf-ncurses', '0ad-git', 'jamomacore-git', 'pam_autologin', 'mediasort', 'linux-binder']:
-        #    continue
+        #if pkg not in ['gn-bin', '0ad-boongui', 'arm-linux-gnueabihf-ncurses', '0ad-git', 'jamomacore-git', 'pam_autologin', 'mediasort', 'linux-binder']:
+        #   continue
         rev = repo.revparse_single(br)
         tree = rev.tree
         entries = {}
@@ -161,6 +162,9 @@ def aur_repo_iterator_simple(repo, include_only=set()):
                 k = f"{prefix}/{gitobj.name}"
             entries[k] = gitobj.data
         yield (pkg, entries, False)
+        yielded += 1
+        #if yielded == 2000:
+        #    break
     yield (None, None, True)
 
 

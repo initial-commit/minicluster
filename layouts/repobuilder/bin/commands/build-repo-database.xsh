@@ -27,6 +27,9 @@ import re
 import json
 from datetime import datetime
 import pytz
+import threading
+import queue
+import base64
 
 def create_pkg_sqlitedb(logger, db_file):
     logger.info(f"creating sqlite db for repository: {db_file=}")
@@ -446,20 +449,96 @@ if __name__ == '__main__':
         if pf"{aur_clone}/.git".exists():
             aur_clone = aur_clone / '.git'
 
-        use_vm = False
+        use_vm = True
         if aur_clone.exists():
             cwd_image = str(image.parent)
+            extractor = lambda v: None
             base_handle = image.stem
+
             class Extractor(object):
                 def __init__(self, conn, logger):
                     self.conn = conn
                     self.logger = logger.getChild(self.__class__.__name__)
+                    self.lock = threading.Lock()
+                    self.lock_ns = 0
+                    self.lock_count = 0
+
                 def __call__(self, pkgbuild_data):
                     st = self.conn.guest_exec_wait('/tmp/printsrcinfo.sh', input_data=pkgbuild_data)
                     if st['exitcode'] != 0 or len(st['err-data'].strip()) > 0:
                         logger.error(f"cannot extract srcinfo from pkgbuild: {st=}")
                         return None
                     return st['out-data']
+
+                def exec_start(self, pkgbuild_data):
+                    t1 = time.thread_time_ns()
+                    with self.lock:
+                        self.lock_ns += time.thread_time_ns() - t1
+                        self.lock_count += 1
+                        st = self.conn.guest_exec('/tmp/printsrcinfo.sh', input_data=pkgbuild_data)
+                        return (int(st), True)
+
+                def exec_result(self, pid):
+                    t1 = time.thread_time_ns()
+                    with self.lock:
+                        self.lock_ns += time.thread_time_ns() - t1
+                        self.lock_count += 1
+                        st = self.conn.guest_exec_status(pid)
+                        return st
+
+            class ExtractorThread(threading.Thread):
+                # TODO: conn instead of extractor
+                def __init__(self, queue_in, queue_out, extractor, logger, cond):
+                    self.queue_in = queue_in
+                    self.queue_out = queue_out
+                    self.extractor = extractor
+                    self.cond = cond
+                    self.logger = logger.getChild(self.__class__.__name__)
+                    super().__init__()
+
+                def run(self):
+                    last = False
+                    #local = threading.local()
+                    while not last:
+                        (pkgbase, files, last)= self.queue_in.get()
+                        if last:
+                            self.logger.info(f"THREAD {self.name} SENTINEL DETECTED, NOOP")
+                            self.queue_in.task_done()
+                            self.queue_in.put((pkgbase, files, True))
+                            return
+                        # TODO: here process with extractor
+                        #local.t1 = time.thread_time()
+                        (pid, success) = self.extractor.exec_start(files['PKGBUILD'])
+                        if success:
+                            exited = False
+                            while not exited:
+                                st = self.extractor.exec_result(pid)
+                                exited = st['exited']
+                                if not exited:
+                                    time.sleep(0.050)
+                            #local.dur = time.thread_time() - local.t1
+                            #self.logger.info(f"duration: {local.dur=}")
+                            if 'err-data' in st:
+                                st['err-data'] = base64.b64decode(st['err-data'])
+                                if len(st['err-data']):
+                                    logger.warning(f"problems for pkg {pkgbase=} {st['err-data']}")
+                            if st['exitcode'] == 0:
+                                data = base64.b64decode(st['out-data'])
+                                files['.SRCINFO-ORIGINAL'] = files['.SRCINFO']
+                                files['.SRCINFO'] = data
+
+                        # TODO: further processing with a function
+                        #self.logger.info(f"THREAD {self.name} before putting in output: {pkgbase}")
+                        self.queue_out.put((pkgbase, files))
+                        #self.logger.info(f"THREAD {self.name} after putting in output: {pkgbase}")
+                        self.queue_in.task_done()
+                        #self.logger.info(f"THREAD {self.name} PROCESSED ITEM IN queue: {pkgbase}")
+
+            BATCH_SIZE = 200
+            WORKER_THREADS = 10
+            queue_for_vm_input = queue.Queue(int(BATCH_SIZE*1.1+1))
+            queue_for_vm_output = queue.Queue(BATCH_SIZE)
+            extractor = Extractor(None, logger)
             if use_vm:
                 new_img = command_make_derived_image_xsh(cwd_image, logger, base_handle, name)
                 assert new_img is not None
@@ -477,22 +556,84 @@ if __name__ == '__main__':
                 # execute script inside with input-data
 
                 extractor = Extractor(conn, logger)
-            errorlogger = logger
 
+            errorlogger = logger
             repo = pygit2.Repository(aur_clone)
             i = 0
             buffer = []
-            totalfsize = 0
+            cond = threading.Condition()
+            threads = [ExtractorThread(queue_for_vm_input, queue_for_vm_output, extractor, logger, cond) for i in range(WORKER_THREADS)]
+            stored_items = 0
+            processed_items = 0
+            for th in threads:
+                #logger.info(f"STARTING THREAD {th.name}")
+                th.start()
             for (pkgbase, files, last) in repobuilder.functions.aur_repo_iterator_simple(repo, known_packages):
-                if not last:
-                    for fname, data in files.items():
-                        totalfsize += len(data)
-                    if len(files) > 30:
-                        logger.info(f"====================== {i+1}\t{pkgbase}\t{len(files)}")
-                        for fname, data in files.items():
-                            logger.info(f"{fname} {len(data)}")
-                    i += 1
-            logger.info(f"{totalfsize=}")
+                if last:
+                    # TODO: use a condition instead of the sentinel value
+                    queue_for_vm_input.put((pkgbase, files, last))
+                    break
+                i += 1
+                #logger.info(f"processing {pkgbase=}")
+                processed_items += 1
+                queue_for_vm_input.put((pkgbase, files, last))
+                if queue_for_vm_output.qsize() >= BATCH_SIZE:
+                    qsize_in = queue_for_vm_input.qsize()
+                    logger.info(f"Flushing, input at size {qsize_in=}")
+                    #queue_for_vm_input.join()
+                    logger.info("no more input, storing output")
+                    while queue_for_vm_output.qsize() >= 1:
+                        buffer.append(queue_for_vm_output.get())
+                        stored_items += 1
+                        queue_for_vm_output.task_done()
+                        buffer_size = len(buffer)
+                        if buffer_size % 100 == 0:
+                            qsize_in = queue_for_vm_input.qsize()
+                            qsize_out = queue_for_vm_output.qsize()
+                            logger.info(f"before join stats: {qsize_in=} {qsize_out=} {buffer_size=} {stored_items=} {processed_items=}")
+            #logger.info("joining input threads")
+            qsize_in = queue_for_vm_input.qsize()
+            qsize_out = queue_for_vm_output.qsize()
+            buffer_size = len(buffer)
+            logger.info(f"before join stats: {qsize_in=} {qsize_out=} {buffer_size=} {stored_items=} {processed_items=}")
+            #logger.info(f"emptying output queue")
+            while queue_for_vm_input.qsize() + queue_for_vm_output.qsize() > 1:
+                #logger.info(f"getting one item")
+                item = queue_for_vm_output.get()
+                #logger.info(f"got item {item=}")
+                buffer.append(item)
+                stored_items += 1
+                queue_for_vm_output.task_done()
+                buffer_size = len(buffer)
+                if buffer_size % 100 == 0:
+                    qsize_in = queue_for_vm_input.qsize()
+                    qsize_out = queue_for_vm_output.qsize()
+                    logger.info(f"during loop stats: {qsize_in=} {qsize_out=} {buffer_size=} {stored_items=} {processed_items=}")
+            qsize_in = queue_for_vm_input.qsize()
+            qsize_out = queue_for_vm_output.qsize()
+            buffer_size = len(buffer)
+            lock_cont_ms = extractor.lock_ns / 1000
+            lock_cont_avg = lock_cont_ms / extractor.lock_count
+            logger.info(f"after loop stats: {qsize_in=} {qsize_out=} {buffer_size=} {stored_items=} {processed_items=} {lock_cont_ms=} {lock_cont_avg=}")
+            assert queue_for_vm_output.qsize() == 0
+            #cond.notify_all()
+            for th in threads:
+                #logger.info(f"JOINING THREAD {th.name}")
+                th.join()
+                #logger.info(f"JOINED THREAD {th.name}")
+            #logger.info("joined input threads")
+            #TODO: save buffer
+            assert queue_for_vm_input.qsize() == 1
+            (pkgname, files, last_sentinel) = queue_for_vm_input.get()
+            assert last_sentinel
+            assert pkgname is None
+            assert files is None
+            qsize_in = queue_for_vm_input.qsize()
+            qsize_out = queue_for_vm_output.qsize()
+            buffer_size = len(buffer)
+            logger.info(f"after join stats: {qsize_in=} {qsize_out=} {buffer_size=} {stored_items=} {processed_items=}")
+            #logger.info(f"{buffer=}")
+            #queue_for_vm_input.join()
             #for (pkgid, meta, last) in repobuilder.functions.aur_repo_iterator(repo, extractor, errorlogger):
             #    #if pkgid and 'mediasort' not in pkgid:
             #    #    continue
