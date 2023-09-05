@@ -885,3 +885,13 @@ new [description:"log errors to db about diffs in .SRCINFO" entry:"1693232054" m
 time 1693232113
 new [description:"pkg gn-bin generates error: 'utf-8' codec can't decode byte 0xe4 in position 253: invalid continuation byte" entry:"1693232113" modified:"1693232113" project:"aur" status:"pending" uuid:"bddaaa4c-e2c2-4c09-9f6f-b2d2c08a7cf7"]
 ---
+time 1693246971
+old [description:"pkg gn-bin generates error: 'utf-8' codec can't decode byte 0xe4 in position 253: invalid continuation byte" entry:"1693232113" modified:"1693232113" project:"aur" status:"pending" uuid:"bddaaa4c-e2c2-4c09-9f6f-b2d2c08a7cf7"]
+new [description:"pkg gn-bin generates error: 'utf-8' codec can't decode byte 0xe4 in position 253: invalid continuation byte" end:"1693246971" entry:"1693232113" modified:"1693246971" project:"aur" status:"completed" uuid:"bddaaa4c-e2c2-4c09-9f6f-b2d2c08a7cf7"]
+---
+time 1693300848
+new [description:"make sure that all visible packages from aur are iterated" entry:"1693300848" modified:"1693300848" project:"aur" status:"pending" uuid:"6efbaac2-7c0e-4b8f-8be6-e6de6f28808e"]
+---
+time 1693471747
+new [description:"add lock around qmp conn and remove the lock from build-repo-database" entry:"1693471747" modified:"1693471747" project:"aur" status:"pending" uuid:"9e0583cf-da65-46d2-ae3d-8885577728cb"]
+---

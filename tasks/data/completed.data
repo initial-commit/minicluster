@@ -1,3 +1,4 @@
+[description:"pkg gn-bin generates error: 'utf-8' codec can't decode byte 0xe4 in position 253: invalid continuation byte" end:"1693246971" entry:"1693232113" modified:"1693246971" project:"aur" status:"completed" uuid:"bddaaa4c-e2c2-4c09-9f6f-b2d2c08a7cf7"]
 [description:"commands to attach and detach a directory for sharing" end:"1691669276" entry:"1691315381" modified:"1691669276" project:"bootstrap" status:"completed" tags:"next" tags_next:"x" uuid:"2f084dc4-fbe6-44a4-b2a4-4a12c535bed0"]
 [description:"interactively test installing from the L1 repo in a promoted L2 image" end:"1691650194" entry:"1691230054" modified:"1691650194" project:"bootstrap" status:"completed" tags:"next" tags_next:"x" uuid:"4471d5ba-a3ff-4d49-8c2b-7b8427aef4b1"]
 [description:"TEST TEST" end:"1691595284" entry:"1691595201" modified:"1691595291" project:"bootstrap" status:"deleted" tags:"next" tags_next:"x" uuid:"818af52f-fc32-4dec-9622-7c2f388baa88"]
