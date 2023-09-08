@@ -93,7 +93,7 @@ class Connection(object, metaclass=CachedViaConstructorMeta):
         pid = self.guest_exec(cmd, input_data, capture_output, env)
         assert isinstance(pid, int), "pid must be int"
         status = self.guest_exec_status(pid)
-        self.logger.debug("command returned", extra={'cmd': cmd, 'status': status})
+        self.logger.debug(f"command returned {cmd=} {status=}", extra={'cmd': cmd, 'status': status})
         while not status['exited']:
             time.sleep(interval)
             status = self.guest_exec_status(pid)
@@ -109,6 +109,25 @@ class Connection(object, metaclass=CachedViaConstructorMeta):
             status['out-data'] = status['out-data'].decode(out_encoding, 'backslashreplace')
             status['err-data'] = status['err-data'].decode(out_encoding, 'backslashreplace')
         return status
+
+    def guest_sync_pacman_databases(self):
+        status = self.guest_exec_wait("pacman -Syy --noconfirm")
+        self.logger.info(f"syncing db {status=}")
+        return status
+
+    def guest_has_package(self, pkgs):
+        status = self.guest_exec_wait(f"pacman -Qi {pkgs}")
+        self.logger.info(f"pacman check if pkg exists {pkgs=} {status=}")
+        return status['exitcode'] == 0
+
+    def guest_install_package(self, pkgs):
+        status = self.guest_exec_wait(f"pacman -Qi {pkgs}")
+        self.logger.info(f"pacman check if pkg exists {pkgs=} {status=}")
+        if status['exitcode'] == 1:
+            status = self.guest_exec_wait(f"pacman -S --noconfirm --overwrite '*' {pkgs}")
+            assert status['exitcode'] == 0
+            return True
+        return False
 
     def path_stat(self, vm_path):
         # TODO: extract code automatically from functions.path_stat
@@ -287,9 +306,9 @@ class Connection(object, metaclass=CachedViaConstructorMeta):
 
         c = None
         while c is None:
-            self.logger.debug(f"receiving one")
+            #self.logger.debug(f"receiving one")
             c = s.recv(1)
-            self.logger.debug(f"received {c=}")
+            #self.logger.debug(f"received {c=}")
             op = 0
             if c in [b'{', b'\xff']:
                 if c == b'{':

@@ -17,6 +17,7 @@ if __name__ == '__main__':
     MINICLUSTER = MINICLUSTER.bootstrap_finished(MINICLUSTER)
 
 import logging
+import logging.handlers
 import pathlib
 import pygit2
 import repobuilder.functions
@@ -553,7 +554,11 @@ if __name__ == '__main__':
                 assert written > 1
                 st = conn.guest_exec_wait('chmod +x /tmp/printsrcinfo.sh')
                 assert st['exitcode'] == 0
-                # execute script inside with input-data
+                if not conn.guest_has_package('base-devel'):
+                    logger.info("syncing databases")
+                    conn.guest_sync_pacman_databases()
+                    logger.info("installing base-devel")
+                    conn.guest_install_package('base-devel')
 
                 extractor = Extractor(conn, logger)
 
@@ -590,12 +595,13 @@ if __name__ == '__main__':
                         if buffer_size % 100 == 0:
                             qsize_in = queue_for_vm_input.qsize()
                             qsize_out = queue_for_vm_output.qsize()
-                            logger.info(f"before join stats: {qsize_in=} {qsize_out=} {buffer_size=} {stored_items=} {processed_items=}")
+                            logger.info(f"during loop stats: {qsize_in=} {qsize_out=} {stored_items=} {processed_items=}")
+                            buffer = []
+                    # TODO: store buffer
             #logger.info("joining input threads")
             qsize_in = queue_for_vm_input.qsize()
             qsize_out = queue_for_vm_output.qsize()
-            buffer_size = len(buffer)
-            logger.info(f"before join stats: {qsize_in=} {qsize_out=} {buffer_size=} {stored_items=} {processed_items=}")
+            logger.info(f"before join stats: {qsize_in=} {qsize_out=} {stored_items=} {processed_items=}")
             #logger.info(f"emptying output queue")
             while queue_for_vm_input.qsize() + queue_for_vm_output.qsize() > 1:
                 #logger.info(f"getting one item")
@@ -608,13 +614,12 @@ if __name__ == '__main__':
                 if buffer_size % 100 == 0:
                     qsize_in = queue_for_vm_input.qsize()
                     qsize_out = queue_for_vm_output.qsize()
-                    logger.info(f"during loop stats: {qsize_in=} {qsize_out=} {buffer_size=} {stored_items=} {processed_items=}")
+                    logger.info(f"during final loop stats: {qsize_in=} {qsize_out=} {stored_items=} {processed_items=}")
             qsize_in = queue_for_vm_input.qsize()
             qsize_out = queue_for_vm_output.qsize()
-            buffer_size = len(buffer)
-            lock_cont_ms = extractor.lock_ns / 1000
+            lock_cont_ms = extractor.lock_ns / 1000 / 1000
             lock_cont_avg = lock_cont_ms / extractor.lock_count
-            logger.info(f"after loop stats: {qsize_in=} {qsize_out=} {buffer_size=} {stored_items=} {processed_items=} {lock_cont_ms=} {lock_cont_avg=}")
+            logger.info(f"after loop stats: {qsize_in=} {qsize_out=} {stored_items=} {processed_items=} {lock_cont_ms=} {lock_cont_avg=}")
             assert queue_for_vm_output.qsize() == 0
             #cond.notify_all()
             for th in threads:

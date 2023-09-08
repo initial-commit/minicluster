@@ -64,7 +64,13 @@ def calculate_disk_sectors(d):
 		first = False
 	d['partitions'] = parts
 
+#TODO: add parameter to make overwriting of existing image possible
 def command_make_derived_image_xsh(cwd, logger, base_handle, derived_handle):
+    desired_image = pf"{cwd}/{derived_handle}.qcow2"
+    if desired_image.exists():
+	logger.info(f"image already exists: {desired_image=}")
+	return desired_image
+    #raise Exception(f"stop making derived image {base_handle} {derived_handle}")
     pushd -q @(cwd)
     out=$(qemu-img create -f qcow2 -F qcow2 -b @(base_handle).qcow2 @(derived_handle).qcow2).rstrip()
     popd -q
@@ -75,6 +81,7 @@ def command_make_derived_image_xsh(cwd, logger, base_handle, derived_handle):
     created_img = pf"{cwd}/{name}".resolve()
     if not created_img.exists():
 	return None
+    logger.info(f"image newly created: {created_img=}")
     return created_img
 
 def command_make_empty_image_xsh(cwd, logger, handle, d):
