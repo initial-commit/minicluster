@@ -174,6 +174,8 @@ MINICLUSTER = _bootstrap()
 @events.on_exit
 def on_exit():
 	from dateutil.relativedelta import relativedelta
+	import time
+	import logging
 	now = time.time()
 	start_s = MINICLUSTER.TIME_START
 	diff_ns = now - MINICLUSTER.TIME_START
