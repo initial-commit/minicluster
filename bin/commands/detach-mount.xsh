@@ -50,4 +50,4 @@ if __name__ == '__main__':
     $RAISE_SUBPROC_ERROR = True
     success = command_detach_mount_xsh(cwd, logger, name, tag)
     if not success:
-	sys.exit(1)
+	early_exit(1)

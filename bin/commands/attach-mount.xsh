@@ -88,4 +88,4 @@ if __name__ == '__main__':
     $RAISE_SUBPROC_ERROR = True
     success = command_attach_mount_xsh(cwd, logger, name, dir_outside, dir_inside, tag)
     if not success:
-	sys.exit(1)
+	early_exit(1)

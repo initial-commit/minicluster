@@ -128,4 +128,4 @@ if __name__ == '__main__':
     $RAISE_SUBPROC_ERROR = True
     is_clean = command_clean_image_xsh(cwd, logger, handle, repo_db)
     if not is_clean:
-	sys.exit(1)
+	early_exit(1)

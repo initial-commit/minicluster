@@ -44,4 +44,4 @@ if __name__ == '__main__':
     $RAISE_SUBPROC_ERROR = True
     (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, command, show_out=True)
     if not success:
-	sys.exit(st['exitcode'])
+	early_exit(st['exitcode'])

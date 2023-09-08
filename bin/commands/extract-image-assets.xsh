@@ -68,4 +68,4 @@ if __name__ == '__main__':
     (dest_db_dir, dest_db_name) = command_extract_image_assets_xsh(cwd, logger, handle, True)
     if not dest_db_dir or not dest_db_name:
         logger.error(f"could not extract assets: {dest_db_dir=} {dest_db_name=} from {handle=}")
-        sys.exit(1)
+        early_exit(1)

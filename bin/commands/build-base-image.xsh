@@ -383,13 +383,13 @@ if __name__ == '__main__':
         success = proc_initial_build(cwd, logger, handle, d, cache)
         if not success:
             logger.error(f"initial build of L1 image failed: {handle=}")
-            sys.exit(1)
+            early_exit(1)
 
     if do_build_nested:
         success = proc_build_nested(cwd, logger, handle, l2_ram)
         if not success:
             logger.error(f"building of L2 image inside L1 failed: {handle=}")
-            sys.exit(2)
+            early_exit(2)
 
     if extract_nested:
         cwd_inside = '/root/minic'
@@ -397,13 +397,13 @@ if __name__ == '__main__':
         started = command_boot_image_xsh(cwd, logger, handle, name, vm_ram, True, False)
         if not started:
             logger.error(f"failed to start {handle=} with ram {vm_ram=} and {name=} for the purpose of extracting image")
-            sys.exit(3)
+            early_exit(3)
         # TODO: copy DIR_R to /root
         success = extract_l2_assets(cwd, logger, handle, name, cwd_inside)
         if not success:
             logger.error(f"failed to extract L2 assets")
             command_poweroff_image_xsh(cwd, logger, name)
-            sys.exit(4)
+            early_exit(4)
         command_poweroff_image_xsh(cwd, logger, name)
 
     if extract_assets:
@@ -413,13 +413,13 @@ if __name__ == '__main__':
         started = command_boot_image_xsh(cwd, logger, handle, name, vm_ram, True, False)
         if not started:
             logger.error(f"failed to start {handle=} with ram {vm_ram=} and {name=} for the purpose of extracting L1 repo")
-            sys.exit(5)
+            early_exit(5)
         written = command_copy_files_xsh(cwd, logger, '{DIR_R}', f'{name}:/root', additional_env={'name': name})
         success = extract_l1_assets(cwd, logger, handle, name, l2_artefacts_dir)
         if not success:
             logger.error("failed to extract L1 pacman repo")
             command_poweroff_image_xsh(cwd, logger, name)
-            sys.exit(5)
+            early_exit(6)
         command_poweroff_image_xsh(cwd, logger, name)
 
     if cache:

@@ -15,7 +15,6 @@ def _bootstrap():
     import pathlib
     from xonsh.tools import unthreadable
     #import faulthandler
-    from dateutil.relativedelta import relativedelta
 
     ######################################################
     # data structure
@@ -103,21 +102,6 @@ def _bootstrap():
 
     logging.setLogRecordFactory(record_factory)
 
-    ######################################################
-    #TODO: set up xonsh hooks
-    @events.on_exit
-    def on_exit():
-        now = time.time()
-        start_s = MINICLUSTER.TIME_START
-        diff_ns = now - MINICLUSTER.TIME_START
-        diff = relativedelta(seconds=now-start_s)
-        attrs = ['years', 'months', 'days', 'hours', 'minutes', 'seconds']
-        human_readable = lambda delta: ['%d %s' % (getattr(delta, attr), attr if getattr(delta, attr) > 1 else attr[:-1]) for attr in attrs if getattr(delta, attr)]
-        logger = logging.getLogger(__name__)
-        ms = int(diff_ns * 1_000_000 % 1_000_000)
-        d = human_readable(diff)
-        d.append(f"{ms} microseconds")
-        logger.info(f"command took {d}")
 
     ######################################################
     logger = logging.getLogger(__name__)
@@ -184,6 +168,29 @@ def _bootstrap():
 
 
 MINICLUSTER = _bootstrap()
+
+######################################################
+#TODO: set up xonsh hooks
+@events.on_exit
+def on_exit():
+	from dateutil.relativedelta import relativedelta
+	now = time.time()
+	start_s = MINICLUSTER.TIME_START
+	diff_ns = now - MINICLUSTER.TIME_START
+	diff = relativedelta(seconds=now-start_s)
+	attrs = ['years', 'months', 'days', 'hours', 'minutes', 'seconds']
+	human_readable = lambda delta: ['%d %s' % (getattr(delta, attr), attr if getattr(delta, attr) > 1 else attr[:-1]) for attr in attrs if getattr(delta, attr)]
+	logger = logging.getLogger(__name__)
+	ms = int(diff_ns * 1_000_000 % 1_000_000)
+	d = human_readable(diff)
+	d.append(f"{ms} microseconds")
+	logger.info(f"command took {d}")
+
+
+def early_exit(code):
+	on_exit()
+	sys.exit(code)
+
 ######################################################
 #create hook for bootstrap finished
 def bootstrap_finished(MINICLUSTER):
