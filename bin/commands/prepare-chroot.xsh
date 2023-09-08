@@ -35,7 +35,7 @@ def command_prepare_chroot_xsh(cwd, logger, handle, cache):
         logger.info(f"mirror cache not found, ranking mirrors first")
         mirrors = command_get_ranked_mirrors_xsh(logger)
 
-    fastest_mirror = mirrors[-1]['url']
+    fastest_mirror = mirrors[0]['url']
     logger.info(f"using mirror {fastest_mirror=}")
 
     if not pf"archlinux-bootstrap-x86_64.tar.gz".exists():
@@ -133,7 +133,7 @@ def command_prepare_chroot_xsh(cwd, logger, handle, cache):
     else:
         ping -c 1 8.8.8.8 -w 1
         for repo in repositories:
-            unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) wget -O @(f"{mountpoint}/var/cache/pacman/pkg/{repo}.files.tar.gz") https://geo.mirror.pkgbuild.com/@(repo)/os/x86_64/@(repo).files.tar.gz
+            unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) wget -O @(f"{mountpoint}/var/cache/pacman/pkg/{repo}.files.tar.gz") @(fastest_mirror)@(repo)/os/x86_64/@(repo).files.tar.gz
     unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) pacstrap.xsh @(mountpoint) @(pacstrap_flags) base linux mkinitcpio linux-firmware qemu-guest-agent
 
     d=p"$XONSH_SOURCE".resolve().parent; source f'{d}/umount-image.xsh'

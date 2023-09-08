@@ -402,6 +402,7 @@ if __name__ == '__main__':
         import tarfile
         import io
         logger.info(f"import db {db_name=}")
+        # TODO: use mirror here
         base_link = f"https://geo.mirror.pkgbuild.com/{db_name}/os/x86_64/"
         files_link = f"{base_link}{db_name}.files.tar.gz"
         db_link = f"{base_link}{db_name}.db.tar.gz"

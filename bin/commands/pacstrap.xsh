@@ -58,6 +58,28 @@ bind_device(r, "zero")
 mount run @(pf"{r}/run") -t tmpfs -o nosuid,nodev,mode=0755
 mount tmp @(pf"{r}/tmp") -t tmpfs -o mode=1777,strictatime,nodev,nosuid
 
+new_pacman_conf = []
+original_pacman_conf = []
+with open(f"{r}/etc/pacman.conf", 'r') as fp:
+    original_pacman_conf = fp.readlines()
+    new_pacman_conf = []
+    for line in original_pacman_conf:
+	if '/etc/pacman.d/mirrorlist' in line and str(r) not in line:
+	    line = line.replace('/etc/pacman.d/mirrorlist', f"{r}/etc/pacman.d/mirrorlist")
+	if 'ParallelDownloads' in line:
+	    line = 'ParallelDownloads = 5'
+	new_pacman_conf.append(line)
+
+if new_pacman_conf:
+    with open(f"{r}/etc/pacman.conf", 'w') as fp:
+	for line in new_pacman_conf:
+	    fp.write(line)
+
 if not cache:
     pacman --verbose -Syy --overwrite "*" -r @(r) --noconfirm --cachedir @(pf"{r}/var/cache/pacman/pkg") --hookdir @(pf"{r}/usr/share/libalpm/hooks") --gpgdir @(pf"{r}/etc/pacman.d/gnupg") --config @(pf"{r}/etc/pacman.conf")
 pacman --verbose -S --overwrite "*" -r @(r) --noconfirm --cachedir @(pf"{r}/var/cache/pacman/pkg") --hookdir @(pf"{r}/usr/share/libalpm/hooks") --gpgdir @(pf"{r}/etc/pacman.d/gnupg") --config @(pf"{r}/etc/pacman.conf") @(pkgs)
+
+if original_pacman_conf:
+    with open(f"{r}/etc/pacman.conf", 'w') as fp:
+	for line in original_pacman_conf:
+	    fp.write(line)
