@@ -69,7 +69,7 @@ def mirrors_ranked(iter, logger, test_size_mb=5):
 		stop = time.perf_counter()
 		j['local_download_speed'] = chunk_size / (stop-start)
 		data.append({'url': j['url'], 'local_connect_latency': j['local_connect_latency'], 'local_download_speed': j['local_download_speed']})
-	data = list(sorted(data, key=operator.itemgetter('local_download_speed')))
+	data = list(sorted(data, key=operator.itemgetter('local_download_speed'), reverse=True))
 	return data
 
 def command_get_top_mirror_xsh(logger, file=None):
@@ -78,7 +78,7 @@ def command_get_top_mirror_xsh(logger, file=None):
 			mirrors = json.load(f)
 	else:
 		mirrors = command_get_ranked_mirrors_xsh(logger)
-	return mirrors[-1]
+	return mirrors[0]
 
 def command_get_ranked_mirrors_xsh(logger):
 	iter = itertools.chain(mirrors_tier_url_iter(tier=1, logger=logger), mirrors_tier_url_iter(tier=2, logger=logger))

@@ -1,7 +1,9 @@
 #!/usr/bin/env xonsh
 
+d = pf"{__file__}".resolve().parent
+
 if __name__ == '__main__':
-    d=p"$XONSH_SOURCE".resolve().parent; source f'{d}/bootstrap.xsh'
+    source f'{d}/bootstrap.xsh'
     MINICLUSTER.ARGPARSE.add_argument('--handle', required=True)
     MINICLUSTER.ARGPARSE.add_argument('--cache', action="store_true", default=False, help="Use local package cache")
     MINICLUSTER = MINICLUSTER.bootstrap_finished(MINICLUSTER)
@@ -13,6 +15,9 @@ import sys
 import time
 import re
 import shlex
+import json
+
+source @(f'{d}/rank-mirrors.xsh')
 
 def command_prepare_chroot_xsh(cwd, logger, handle, cache):
     # TODO: list of packages to bootstrap from should be a parameter
@@ -22,11 +27,20 @@ def command_prepare_chroot_xsh(cwd, logger, handle, cache):
     disk_file = f"{cwd}/{handle}.qcow2"
     unshare_pid=("--fork", "--pid", "--mount-proc",)
     unshare_mount=("--mount", "--map-auto", "--map-root-user", "--setuid", "0", "--setgid", "0")
+    mirror_cache = fp"{cwd}/mirrors.json".resolve()
+    if mirror_cache.exists():
+        with mirror_cache.open() as f:
+            mirrors = json.load(f)
+    else:
+        logger.info(f"mirror cache not found, ranking mirrors first")
+        mirrors = command_get_ranked_mirrors_xsh(logger)
+
+    fastest_mirror = mirrors[-1]['url']
+    logger.info(f"using mirror {fastest_mirror=}")
 
     if not pf"archlinux-bootstrap-x86_64.tar.gz".exists():
-        #TODO: fetch the mirrors as json from archlinux and use that information
-        curl -o archlinux-bootstrap-x86_64.tar.gz -C - https://geo.mirror.pkgbuild.com/iso/latest/archlinux-bootstrap-x86_64.tar.gz
-        curl -o archlinux-bootstrap-x86_64.tar.gz.sig -C - https://geo.mirror.pkgbuild.com/iso/latest/archlinux-bootstrap-x86_64.tar.gz.sig
+        curl -o archlinux-bootstrap-x86_64.tar.gz -C - @(fastest_mirror)/iso/latest/archlinux-bootstrap-x86_64.tar.gz
+        curl -o archlinux-bootstrap-x86_64.tar.gz.sig -C - @(fastest_mirror)/iso/latest/archlinux-bootstrap-x86_64.tar.gz.sig
         sq --force wkd get pierre@archlinux.org -o release-key.pgp
         sq verify --signer-file release-key.pgp --detached archlinux-bootstrap-x86_64.tar.gz.sig archlinux-bootstrap-x86_64.tar.gz
     if not pf"archlinux-bootstrap-x86_64.tar".exists():
@@ -45,7 +59,12 @@ def command_prepare_chroot_xsh(cwd, logger, handle, cache):
 
     unshare @(unshare_pid) @(unshare_mount) tar hxf archlinux-bootstrap-x86_64.tar --no-same-owner --no-same-permissions --warning=no-unknown-keyword
 
-    sed -i 's/^#Server = /Server = /g' root.x86_64/etc/pacman.d/mirrorlist
+    with open(f"{r}/etc/pacman.d/mirrorlist", 'w') as f:
+        for srvspec in mirrors:
+            srvspec['local_download_speed'] = round(srvspec['local_download_speed']/1024/1024, 2)
+            f.write("# speed: {local_download_speed} MB/s\n".format(**srvspec))
+            f.write("Server = {url}$repo/os/$arch\n".format(**srvspec))
+    #sed -i 's/^#Server = /Server = /g' root.x86_64/etc/pacman.d/mirrorlist
 
     #unshare @(unshare_pid) @(unshare_mount) mount @(r) @(r) --bind
     #unshare @(unshare_pid) @(unshare_mount) mount proc @(pf"{r}/proc") -t proc -o nosuid,noexec,nodev
