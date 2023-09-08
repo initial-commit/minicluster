@@ -28,15 +28,21 @@ def command_prepare_chroot_xsh(cwd, logger, handle, cache):
     unshare_pid=("--fork", "--pid", "--mount-proc",)
     unshare_mount=("--mount", "--map-auto", "--map-root-user", "--setuid", "0", "--setgid", "0")
     mirror_cache = fp"{cwd}/mirrors.json".resolve()
+    fastest_mirror = None
     if mirror_cache.exists():
         with mirror_cache.open() as f:
             mirrors = json.load(f)
+            fastest_mirror = mirrors[0]['url']
     else:
-        logger.info(f"mirror cache not found, ranking mirrors first")
-        mirrors = command_get_ranked_mirrors_xsh(logger)
+        if not cache:
+            logger.info(f"mirror cache not found, ranking mirrors first")
+            mirrors = command_get_ranked_mirrors_xsh(logger)
+            fastest_mirror = mirrors[0]['url']
+        else:
+            logger.warning(f"caching disabled but mirrors.json is not present in {mirror_cache}")
 
-    fastest_mirror = mirrors[0]['url']
-    logger.info(f"using mirror {fastest_mirror=}")
+    if fastest_mirror:
+        logger.info(f"using mirror {fastest_mirror=}")
 
     if not pf"archlinux-bootstrap-x86_64.tar.gz".exists():
         curl -o archlinux-bootstrap-x86_64.tar.gz -C - @(fastest_mirror)/iso/latest/archlinux-bootstrap-x86_64.tar.gz
@@ -59,12 +65,12 @@ def command_prepare_chroot_xsh(cwd, logger, handle, cache):
 
     unshare @(unshare_pid) @(unshare_mount) tar hxf archlinux-bootstrap-x86_64.tar --no-same-owner --no-same-permissions --warning=no-unknown-keyword
 
-    with open(f"{r}/etc/pacman.d/mirrorlist", 'w') as f:
-        for srvspec in mirrors:
-            srvspec['local_download_speed'] = round(srvspec['local_download_speed']/1024/1024, 2)
-            f.write("# speed: {local_download_speed} MB/s\n".format(**srvspec))
-            f.write("Server = {url}$repo/os/$arch\n".format(**srvspec))
-    #sed -i 's/^#Server = /Server = /g' root.x86_64/etc/pacman.d/mirrorlist
+    if not cache:
+        with open(f"{r}/etc/pacman.d/mirrorlist", 'w') as f:
+            for srvspec in mirrors:
+                srvspec['local_download_speed'] = round(srvspec['local_download_speed']/1024/1024, 2)
+                f.write("# speed: {local_download_speed} MB/s\n".format(**srvspec))
+                f.write("Server = {url}$repo/os/$arch\n".format(**srvspec))
 
     #unshare @(unshare_pid) @(unshare_mount) mount @(r) @(r) --bind
     #unshare @(unshare_pid) @(unshare_mount) mount proc @(pf"{r}/proc") -t proc -o nosuid,noexec,nodev
@@ -124,17 +130,18 @@ def command_prepare_chroot_xsh(cwd, logger, handle, cache):
     cp /etc/resolv.conf @(mountpoint)/etc/
     #unshare @(unshare_pid) @(unshare_mount) pacstrap.xsh @(mountpoint) archlinux-keyring
     unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) mkdir -p @(mountpoint)/var/cache/pacman/pkg/
-    pacstrap_flags = ''
+    pacstrap_flags = []
+    packages = ['base', 'linux', 'mkinitcpio', 'linux-firmware', 'qemu-guest-agent']
     if cache:
         unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) rsync -az /var/cache/pacman/pkg/ @(mountpoint)/var/cache/pacman/pkg/
         #unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) rsync -azp --progress /var/cache/pacman/pkg/ @(mountpoint)/var/cache/pacman/pkg/
         unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) sync
-        pacstrap_flags = '--cache'
+        pacstrap_flags.append('--cache')
     else:
         ping -c 1 8.8.8.8 -w 1
         for repo in repositories:
             unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) wget -O @(f"{mountpoint}/var/cache/pacman/pkg/{repo}.files.tar.gz") @(fastest_mirror)@(repo)/os/x86_64/@(repo).files.tar.gz
-    unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) pacstrap.xsh @(mountpoint) @(pacstrap_flags) base linux mkinitcpio linux-firmware qemu-guest-agent
+    unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) pacstrap.xsh --rootdir @(mountpoint) @(pacstrap_flags) --packages @(packages)
 
     d=p"$XONSH_SOURCE".resolve().parent; source f'{d}/umount-image.xsh'
     command_umount_image_xsh(cwd, logger, handle)
@@ -164,10 +171,10 @@ def command_prepare_chroot_xsh(cwd, logger, handle, cache):
         ["mount", "/dev/sda1", "/boot"],
         ["time", "command", "pacman-key --init"],
         ["time", "command", "pacman-key --populate archlinux"],
-        (["time", "command", "pacman -Syy --noconfirm"], None),
+        (["time", "command", "pacman --verbose -Syy --noconfirm"], None),
         #["time", "command", "pacman --noconfirm -S base linux grub mkinitcpio qemu-guest-agent linux-headers linux-firmware audit qemu-base arch-install-scripts"],
         #["sh-lines", "genfstab -U / | grep -vw '# ' | sed '/^$/d' | sed 's/sd/vd/g' > /etc/fstab"], #TODO: use only uuids and get rid of this
-        ["time", "command", "pacman --noconfirm -S linux"], # reinstallation seems to be necessary (?)
+        ["time", "command", "pacman --verbose --noconfirm -S linux"], # reinstallation seems to be necessary (?)
         ["time", "sync"],
         ["time", "drop-caches", "3"],
         ["ln-sf", f"/usr/share/zoneinfo/{tz}", "/etc/localtime"],
@@ -182,7 +189,7 @@ def command_prepare_chroot_xsh(cwd, logger, handle, cache):
         #["time", "command", "grub-install --target=i386-pc --recheck /dev/sda"],
         #["time", "command", "grub-mkconfig -o /boot/grub/grub.cfg"],
         ["command", "passwd -d root"],
-        ["time", "sh-lines", "yes | pacman -S iptables-nft"],
+        ["time", "sh-lines", "yes | pacman --verbose -S iptables-nft"],
         ["command", "systemctl enable serial-getty@ttyS0.service",],
         ["command", "systemctl enable systemd-networkd.service",],
         ["command", "systemctl enable systemd-resolved",],

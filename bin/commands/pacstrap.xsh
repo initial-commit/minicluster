@@ -3,18 +3,25 @@
 # While arch provides a pacstrap command, at the time of writing it has bugs
 
 import time
+import argparse
+import sys
+
+argparser = argparse.ArgumentParser()
+argparser.add_argument('--cache', action='store_true', default=False)
+argparser.add_argument('--rootdir', required=True)
+argparser.add_argument('--packages', nargs='+', required=True)
+#args = argparser.parse_known_args(sys.argv)
+args = argparser.parse_args(sys.argv[1:])
+
+cache = args.cache
+packages = args.packages
+packages = list(filter(len, packages))
+r = pf"{args.rootdir}".resolve(strict=False)
+
+print(f"{cache=} {r=} {packages=}")
+
 
 #TODO: trap
-
-r=$ARG1
-r=pf"{r}".resolve(strict=False)
-cache = False
-pkgs=$ARGS[2:]
-if $ARG2 == '--cache':
-    cache = True
-    pkgs=$ARGS[3:]
-
-pkgs = list(filter(len, pkgs))
 
 #$RAISE_SUBPROC_ERROR = True
 #XONSH_TRACE_SUBPROC = True
@@ -60,24 +67,26 @@ mount tmp @(pf"{r}/tmp") -t tmpfs -o mode=1777,strictatime,nodev,nosuid
 
 new_pacman_conf = []
 original_pacman_conf = []
-with open(f"{r}/etc/pacman.conf", 'r') as fp:
-    original_pacman_conf = fp.readlines()
-    new_pacman_conf = []
-    for line in original_pacman_conf:
-	if '/etc/pacman.d/mirrorlist' in line and str(r) not in line:
-	    line = line.replace('/etc/pacman.d/mirrorlist', f"{r}/etc/pacman.d/mirrorlist")
-	if 'ParallelDownloads' in line:
-	    line = 'ParallelDownloads = 5'
-	new_pacman_conf.append(line)
 
-if new_pacman_conf:
-    with open(f"{r}/etc/pacman.conf", 'w') as fp:
-	for line in new_pacman_conf:
-	    fp.write(line)
+if not cache:
+    with open(f"{r}/etc/pacman.conf", 'r') as fp:
+	original_pacman_conf = fp.readlines()
+	new_pacman_conf = []
+	for line in original_pacman_conf:
+	    if '/etc/pacman.d/mirrorlist' in line and str(r) not in line:
+		line = line.replace('/etc/pacman.d/mirrorlist', f"{r}/etc/pacman.d/mirrorlist")
+	    if 'ParallelDownloads' in line:
+		line = 'ParallelDownloads = 8'
+	    new_pacman_conf.append(line)
+
+    if new_pacman_conf:
+	with open(f"{r}/etc/pacman.conf", 'w') as fp:
+	    for line in new_pacman_conf:
+		fp.write(line)
 
 if not cache:
     pacman --verbose -Syy --overwrite "*" -r @(r) --noconfirm --cachedir @(pf"{r}/var/cache/pacman/pkg") --hookdir @(pf"{r}/usr/share/libalpm/hooks") --gpgdir @(pf"{r}/etc/pacman.d/gnupg") --config @(pf"{r}/etc/pacman.conf")
-pacman --verbose -S --overwrite "*" -r @(r) --noconfirm --cachedir @(pf"{r}/var/cache/pacman/pkg") --hookdir @(pf"{r}/usr/share/libalpm/hooks") --gpgdir @(pf"{r}/etc/pacman.d/gnupg") --config @(pf"{r}/etc/pacman.conf") @(pkgs)
+pacman --verbose -S --overwrite "*" -r @(r) --noconfirm --cachedir @(pf"{r}/var/cache/pacman/pkg") --hookdir @(pf"{r}/usr/share/libalpm/hooks") --gpgdir @(pf"{r}/etc/pacman.d/gnupg") --config @(pf"{r}/etc/pacman.conf") @(packages)
 
 if original_pacman_conf:
     with open(f"{r}/etc/pacman.conf", 'w') as fp:

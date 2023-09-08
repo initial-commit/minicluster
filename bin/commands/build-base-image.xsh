@@ -284,7 +284,7 @@ def proc_build_nested(cwd, logger, handle, l2_ram):
         logger.error(f"failed to start {handle=} with ram {l2_ram=} and {name=}")
         return False
     # install python
-    (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, "bash -c \"pacman -Qi python >/dev/null || pacman -S --noconfirm --overwrite '*' python\"")
+    (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, "bash -c \"pacman -Qi python >/dev/null || pacman --verbose -S --noconfirm --overwrite '*' python\"")
     if not success:
         logger.error(f"failed installing python for building nested L2 image {handle=} {name=}")
         command_poweroff_image_xsh(cwd, logger, name)
