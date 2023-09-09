@@ -282,25 +282,38 @@ def command_merge_pacman_repositories_xsh(logger, source_db_dir, db_names, sourc
     db = create_pkg_sqlitedb(logger, dest_db_dir, dest_db_name)
 
     # decide which pkg files to consider
-    pkg_iter = itertools.chain(source_pkg_cache.glob('*.pkg.tar.zst'), source_pkg_cache.glob('*.pkg.tar.xz'))
+    pkgs_iter = itertools.chain(source_pkg_cache.glob('*.pkg.tar.zst'), source_pkg_cache.glob('*.pkg.tar.xz'))
     if only_installed:
         if root_dir:
             installed = $(pacman --root @(root_dir) -Q).splitlines()
         else:
             installed = $(pacman -Q).splitlines()
         installed_raw = [v.replace(' ', '-', 1) for v in installed]
-        pkg_iter = [pf`{source_pkg_cache}/{v}.+?\\.pkg\\.tar\\.((zst)|(xz))$` for v in installed_raw]
-        pkg_iter = [item for sublist in pkg_iter for item in sublist]
+        pkgs_iter = [pf`{source_pkg_cache}/{v}.+?\\.pkg\\.tar\\.((zst)|(xz))$` for v in installed_raw]
+        pkgs_iter = [item for sublist in pkgs_iter for item in sublist]
         logger.debug(f"{installed=}")
         logger.debug(f"{installed_raw=}")
-        logger.debug(f"{pkg_iter=}")
-        logger.info(f"{len(pkg_iter)=} {len(installed_raw)=} {len(installed)=}")
-        assert len(installed_raw) > 0
-        assert len(pkg_iter) > 0
-        assert len(pkg_iter) == len(installed)
+        logger.debug(f"{pkgs_iter=}")
+        logger.info(f"{len(pkgs_iter)=} {len(installed_raw)=} {len(installed)=}")
+        namesonly_pkgs_iter = [p.name for p in pkgs_iter]
+        in_installed_but_not_in_iter = []
+        for pkg_installed in installed:
+            pkg_installed = pkg_installed.replace(' ', '-')
+            found = False
+            for pkg in namesonly_pkgs_iter:
+                if pkg.startswith(pkg_installed):
+                    found = True
+                    break
+            if not found:
+                in_installed_but_not_in_iter.append(pkg_installed)
+        logger.info(f"{in_installed_but_not_in_iter=}")
+        assert len(installed_raw) > 0, "nothing installed"
+        assert len(pkgs_iter) > 0, "no .pkg files found in cache"
+        assert len(in_installed_but_not_in_iter) == 0, "there are packages installed but not in the pacman cache: {in_installed_but_not_in_iter=}"
+        assert len(pkgs_iter) == len(installed)
 
     # go through each considered pkg file
-    for pkg_path in pkg_iter:
+    for pkg_path in pkgs_iter:
         (pkginfo, db_name, files) = get_pkg_info(pkg_path, kv_reg, t_db_dir, db_names, logger)
         assert db_name is not None, f"No db found for package {pkg_path}"
         logger.debug(f"PROCESSING: {pkg_path}")
