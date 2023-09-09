@@ -180,6 +180,7 @@ def extract_l1_assets(cwd, logger, handle, name, l2_artefacts_dir):
     (success, st) = command_instance_shell_simple_xsh(cwd, logger, name, f"du --apparent-size -s -B1 {cwd_inside}/{handle}-repo")
     if not success:
         logger.error(f"failed to get disk usage of directory inside: {cwd}/{handle}-repo")
+        return False
     logger.info(f"L1 repo usage: {st=}")
     size_inside = int(st['out-data'].split()[0])
     mountpoint = command_mount_image_xsh(cwd, logger, handle, "ro-build")

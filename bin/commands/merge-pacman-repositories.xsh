@@ -284,13 +284,18 @@ def command_merge_pacman_repositories_xsh(logger, source_db_dir, db_names, sourc
     # decide which pkg files to consider
     pkgs_iter = itertools.chain(source_pkg_cache.glob('*.pkg.tar.zst'), source_pkg_cache.glob('*.pkg.tar.xz'))
     if only_installed:
+        # root_dir is always set, at the top of this function
         if root_dir:
             installed = $(pacman --root @(root_dir) -Q).splitlines()
         else:
             installed = $(pacman -Q).splitlines()
         installed_raw = [v.replace(' ', '-', 1) for v in installed]
-        pkgs_iter = [pf`{source_pkg_cache}/{v}.+?\\.pkg\\.tar\\.((zst)|(xz))$` for v in installed_raw]
-        pkgs_iter = [item for sublist in pkgs_iter for item in sublist]
+        cached_packages = pf`{source_pkg_cache}/.+?\\.pkg\\.tar\\.((zst)|(xz))$`
+        pkgs_iter = []
+        for ppath in cached_packages:
+            for i in installed_raw:
+                if ppath.name.startswith(i):
+                    pkgs_iter.append(ppath)
         logger.debug(f"{installed=}")
         logger.debug(f"{installed_raw=}")
         logger.debug(f"{pkgs_iter=}")
@@ -309,7 +314,7 @@ def command_merge_pacman_repositories_xsh(logger, source_db_dir, db_names, sourc
         logger.info(f"{in_installed_but_not_in_iter=}")
         assert len(installed_raw) > 0, "nothing installed"
         assert len(pkgs_iter) > 0, "no .pkg files found in cache"
-        assert len(in_installed_but_not_in_iter) == 0, "there are packages installed but not in the pacman cache: {in_installed_but_not_in_iter=}"
+        assert len(in_installed_but_not_in_iter) == 0, f"there are packages installed but not in the pacman cache: {in_installed_but_not_in_iter=}"
         assert len(pkgs_iter) == len(installed)
 
     # go through each considered pkg file
