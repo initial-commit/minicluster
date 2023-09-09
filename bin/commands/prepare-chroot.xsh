@@ -29,6 +29,7 @@ def command_prepare_chroot_xsh(cwd, logger, handle, cache):
     unshare_mount=("--mount", "--map-auto", "--map-root-user", "--setuid", "0", "--setgid", "0")
     mirror_cache = fp"{cwd}/mirrors.json".resolve()
     fastest_mirror = None
+    mirrors = []
     if mirror_cache.exists():
         with mirror_cache.open() as f:
             mirrors = json.load(f)
@@ -65,12 +66,14 @@ def command_prepare_chroot_xsh(cwd, logger, handle, cache):
 
     unshare @(unshare_pid) @(unshare_mount) tar hxf archlinux-bootstrap-x86_64.tar --no-same-owner --no-same-permissions --warning=no-unknown-keyword
 
-    if not cache:
+    if mirrors:
         with open(f"{r}/etc/pacman.d/mirrorlist", 'w') as f:
             for srvspec in mirrors:
                 srvspec['local_download_speed'] = round(srvspec['local_download_speed']/1024/1024, 2)
                 f.write("# speed: {local_download_speed} MB/s\n".format(**srvspec))
                 f.write("Server = {url}$repo/os/$arch\n".format(**srvspec))
+    else:
+        sed -i 's/^#Server = /Server = /g' @(r)/etc/pacman.d/mirrorlist
 
     #unshare @(unshare_pid) @(unshare_mount) mount @(r) @(r) --bind
     #unshare @(unshare_pid) @(unshare_mount) mount proc @(pf"{r}/proc") -t proc -o nosuid,noexec,nodev

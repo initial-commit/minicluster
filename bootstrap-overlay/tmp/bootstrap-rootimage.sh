@@ -25,13 +25,13 @@ bootstrap () {
 	pacman-key --init
 	pacman-key --populate archlinux
 	set +e
-	ip -j -p addr show | grep -Po '"operstate": "[^"]+"' | cut -d':' -f 2 | grep -w '"UP"' && pacman -Syy --noconfirm
+	ip -j -p addr show | grep -Po '"operstate": "[^"]+"' | cut -d':' -f 2 | grep -w '"UP"' && pacman --verbose -Syy --noconfirm
 	set -e
 	mkdir -p /var/cache/pacman/pkg
 	if ip -j -p addr show | grep -Po '"operstate": "[^"]+"' | cut -d':' -f 2 | grep -w '"UP"' ; then
-		pacman -S --noconfirm --overwrite "*" archlinux-keyring
+		pacman --verbose -S --noconfirm --overwrite "*" archlinux-keyring
 	else
-		find var/cache/pacman/pkg/ -name 'archlinux-keyring-*-any.pkg.tar.zst' -exec pacman -U --noconfirm --overwrite '*' {} \;
+		find var/cache/pacman/pkg/ -name 'archlinux-keyring-*-any.pkg.tar.zst' -exec pacman --verbose -U --noconfirm --overwrite '*' {} \;
 	fi
 	set +x
 }
