@@ -86,7 +86,8 @@ if not cache:
 
 if not cache:
     pacman --verbose -Syy --overwrite "*" -r @(r) --noconfirm --cachedir @(pf"{r}/var/cache/pacman/pkg") --hookdir @(pf"{r}/usr/share/libalpm/hooks") --gpgdir @(pf"{r}/etc/pacman.d/gnupg") --config @(pf"{r}/etc/pacman.conf")
-pacman --verbose -S --overwrite "*" -r @(r) --noconfirm --cachedir @(pf"{r}/var/cache/pacman/pkg") --hookdir @(pf"{r}/usr/share/libalpm/hooks") --gpgdir @(pf"{r}/etc/pacman.d/gnupg") --config @(pf"{r}/etc/pacman.conf") @(packages)
+
+pacman --verbose -S --overwrite "*" -r @(r) --noconfirm --cachedir @(pf"{r}/var/cache/pacman/pkg") --hookdir @(pf"{r}/usr/share/libalpm/hooks") --gpgdir @(pf"{r}/etc/pacman.d/gnupg") --config @(pf"{r}/etc/pacman.conf") @(packages) --ignore iptables
 
 if original_pacman_conf:
     with open(f"{r}/etc/pacman.conf", 'w') as fp:

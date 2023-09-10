@@ -192,7 +192,7 @@ def command_prepare_chroot_xsh(cwd, logger, handle, cache):
         #["time", "command", "grub-install --target=i386-pc --recheck /dev/sda"],
         #["time", "command", "grub-mkconfig -o /boot/grub/grub.cfg"],
         ["command", "passwd -d root"],
-        ["time", "command", r"find /var/cache/pacman/pkg/ -name '*iptables*' ! \( -name '*iptables-nft*' \) -delete"],
+        ["time", "command", r"find /var/cache/pacman/pkg/ -name '*iptables*' ! ( -name '*iptables-nft*' ) -delete"],
         ["time", "sh-lines", "yes | pacman --verbose -S iptables-nft"],
         ["command", "systemctl enable serial-getty@ttyS0.service",],
         ["command", "systemctl enable systemd-networkd.service",],
