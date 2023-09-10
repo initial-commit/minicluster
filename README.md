@@ -50,6 +50,64 @@ Example Use-Cases
 
 The project is currently in the bootstrapping phase, examples will be added here.
 
+Installation
+============
+
+Requirements
+------------
+
+* ArchLinux, current release
+* 8-12 GB RAM; minicluster adapts its ram usage based on what is freely available; still, at least 8 GB RAM is ideal
+* 20 GB free disk space
+
+Set up xonsh
+------------
+
+```
+pipx ensurepath
+exit # then start up your shell again
+pipx install --include-deps 'xontrib-ergopack[onepath,prompt,dev]'
+xpip install 'xonsh[full]' psutil python-dateutil pyzstd requests 
+# optional, as root: chsh -s /home/[username]/.local/bin/xonsh [username] # replace [username] with your username
+```
+
+Now configure xonsh with the following `~/.config/xonsh/rc.xsh`:
+```
+from xonsh.xontribs import xontribs_load
+xontribs_load([
+#        'whole_word_jumping',
+        'ergopack',
+#        'autoxsh',
+#        'ssh_agent',
+#        #'cmd_done',
+])
+```
+
+Setup steps for minicluster itself
+----------------------------------
+
+Since we're in the early stages and we don't even have a release yet, the steps necessary are for tinkerers.
+
+* clone the repository
+* Execute as root the commands listed in `bin/commands/bootstrap-host.sh`; Please review and understand them first
+* Start your shell, and if it's not xonsh, run `xonsh`
+* `cd minicluster` # this executes the commands in `.autoxsh` if you've
+  configured xonsh that way; the very first time you do this, you will be
+  prompted to accept the commands
+* if you don't use xonsh as a shell and autoxsh, then execute: `export
+  PATH=$PATH:``pwd``/bin/commands`
+* `cd ~/.cache/; mkdir minicluster; cd minicluster`
+* `build-base-image.xsh --handle d1` - this can take 20-40 minutes, depending also on your internet speed.
+
+At the end of the process, you will have three artefacts:
+
+* L2 image with the base arch installation; `artefacts-nested-d1/nested-d1.qcow2` and the kernel and fstab files: `artefacts-nested-d1/fstab` (for debugging, not really used), `artefacts-nested-d1/initramfs-linux.img`, `artefacts-nested-d1/vmlinuz-linux` (the kernel image and initramfs are used on L0 by kvm/qemu to boot the VM, bypassing the VMs own boot loader)
+* `artefacts-nested-d1/nested-d1-repo/` the repository used to put together the L2 image
+* `tmp/d1-repo/` - the repository which could be used to construct a minicluster-capable VM on top of the L2 image
+
+Not that `d1` above is whatever you used as a handle for the command `build-base-image.xsh` above.
+
+If `build-base-image.xsh` fails, see HACKING.md for diagnosing.
 
 FAQs
 ====
