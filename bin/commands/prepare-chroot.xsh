@@ -46,6 +46,10 @@ def command_prepare_chroot_xsh(cwd, logger, handle, cache):
         logger.info(f"using mirror {fastest_mirror=}")
 
     if not pf"archlinux-bootstrap-x86_64.tar.gz".exists():
+        if not fastest_mirror:
+            logger.error(f"No mirror and not local bootstrap archive, failing")
+            return False
+        echo curl -o archlinux-bootstrap-x86_64.tar.gz -C - @(fastest_mirror)/iso/latest/archlinux-bootstrap-x86_64.tar.gz
         curl -o archlinux-bootstrap-x86_64.tar.gz -C - @(fastest_mirror)/iso/latest/archlinux-bootstrap-x86_64.tar.gz
         curl -o archlinux-bootstrap-x86_64.tar.gz.sig -C - @(fastest_mirror)/iso/latest/archlinux-bootstrap-x86_64.tar.gz.sig
         sq --force wkd get pierre@archlinux.org -o release-key.pgp
@@ -145,6 +149,11 @@ def command_prepare_chroot_xsh(cwd, logger, handle, cache):
         for repo in repositories:
             unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) wget -O @(f"{mountpoint}/var/cache/pacman/pkg/{repo}.files.tar.gz") @(fastest_mirror)@(repo)/os/x86_64/@(repo).files.tar.gz
     unshare @(unshare_pid) @(unshare_mount) -w @(mountpoint) pacstrap.xsh --rootdir @(mountpoint) @(pacstrap_flags) --packages @(packages)
+
+    echo head -n 20 @(mountpoint)/etc/pacman.d/mirrorlist
+    head -n 20 @(mountpoint)/etc/pacman.d/mirrorlist
+    echo cat @(mountpoint)/etc/pacman.conf
+    cat @(mountpoint)/etc/pacman.conf
 
     d=p"$XONSH_SOURCE".resolve().parent; source f'{d}/umount-image.xsh'
     command_umount_image_xsh(cwd, logger, handle)
