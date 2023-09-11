@@ -9,13 +9,14 @@ source_safe() {
 	local shellopts=$(shopt -p extglob)
 	shopt -u extglob
 
-	if ! source /dev/stdin; then
+	if ! source PKGBUILD; then
 		exit 193
 	fi
 
 	eval "$shellopts"
 }
 set -e
+cd "$PWD"
 source_safe
 pkgbase=${pkgbase:-${pkgname[0]}}
 #lint_pkgbuild || exit 194

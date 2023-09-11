@@ -31,6 +31,9 @@ import pytz
 import threading
 import queue
 import base64
+import io
+import requests
+import tarfile
 
 def create_pkg_sqlitedb(logger, db_file):
     logger.info(f"creating sqlite db for repository: {db_file=}")
@@ -398,9 +401,6 @@ if __name__ == '__main__':
                 cur.executemany(sql, dependencies)
 
     for db_name in db_names:
-        import requests
-        import tarfile
-        import io
         logger.info(f"import db {db_name=}")
         # TODO: use mirror here
         base_link = f"https://geo.mirror.pkgbuild.com/{db_name}/os/x86_64/"
@@ -468,24 +468,51 @@ if __name__ == '__main__':
                 def __call__(self, pkgbuild_data):
                     st = self.conn.guest_exec_wait('/tmp/printsrcinfo.sh', input_data=pkgbuild_data)
                     if st['exitcode'] != 0 or len(st['err-data'].strip()) > 0:
-                        logger.error(f"cannot extract srcinfo from pkgbuild: {st=}")
+                        self.logger.error(f"cannot extract srcinfo from pkgbuild: {st=}")
                         return None
                     return st['out-data']
 
-                def exec_start(self, pkgbuild_data):
+                def exec_start(self, pkgbase, files):
                     t1 = time.thread_time_ns()
                     with self.lock:
                         self.lock_ns += time.thread_time_ns() - t1
                         self.lock_count += 1
-                        st = self.conn.guest_exec('/tmp/printsrcinfo.sh', input_data=pkgbuild_data)
+                        st = self.conn.guest_exec_wait(f'mkdir /tmp/{pkgbase}')
+                        assert st['exitcode'] == 0, f"failed to make tmp build directory /tmp/{pkgbase}"
+                        #st = self.conn.guest_exec_wait(f'ln -s /dev/stdin /tmp/{pkgbase}/stdin')
+                        #assert st['exitcode'] == 0, f"failed to make tmp build directory /tmp/{pkgbase}"
+                        dirs_made = []
+                        for fname, fdata in files.items():
+                            if fname in ['.SRCINFO']:
+                                continue
+                            fp = io.BytesIO(fdata)
+                            if '/' in fname:
+                                self.logger.info(f"writing pkgbuild file: {fname=}")
+                                dirn = fname.rsplit('/', 1)[0]
+                                if dirn not in dirs_made:
+                                    st = self.conn.guest_exec_wait(f'mkdir -p /tmp/{pkgbase}/{dirn}')
+                                    assert st['exitcode'] == 0, f"error while making directory /tmp/{pkgbase}/{dirn}"
+                                    dirs_made.append(dirn)
+                            self.conn.write_to_vm(fp, f"/tmp/{pkgbase}/{fname}")
+                        self.logger.info(f"executing printsrcinfo.sh for {pkgbase}")
+                        # TODO: remove below
+                        #st = self.conn.guest_exec_wait(f'ls -ltrah /tmp/{pkgbase}/')
+                        #self.logger.info(f"{st=}")
+                        st = self.conn.guest_exec(f'/tmp/printsrcinfo.sh', env=[f"PWD=/tmp/{pkgbase}"])
                         return (int(st), True)
 
-                def exec_result(self, pid):
+                def exec_result(self, pid, pkgbase):
                     t1 = time.thread_time_ns()
                     with self.lock:
                         self.lock_ns += time.thread_time_ns() - t1
                         self.lock_count += 1
                         st = self.conn.guest_exec_status(pid)
+                        #self.logger.info(f"{st=}")
+                        if st['exited']:
+                            t1 = time.thread_time_ns()
+                            self.lock_ns += time.thread_time_ns() - t1
+                            self.lock_count += 1
+                            st = self.conn.guest_exec_wait(f"rm -rf /tmp/{pkgbase}")
                         return st
 
             class ExtractorThread(threading.Thread):
@@ -510,24 +537,32 @@ if __name__ == '__main__':
                             return
                         # TODO: here process with extractor
                         #local.t1 = time.thread_time()
-                        (pid, success) = self.extractor.exec_start(files['PKGBUILD'])
+                        (pid, success) = self.extractor.exec_start(pkgbase, files)
                         if success:
                             exited = False
                             while not exited:
-                                st = self.extractor.exec_result(pid)
+                                st = self.extractor.exec_result(pid, pkgbase)
                                 exited = st['exited']
                                 if not exited:
-                                    time.sleep(0.050)
+                                    time.sleep(0.020)
                             #local.dur = time.thread_time() - local.t1
                             #self.logger.info(f"duration: {local.dur=}")
                             if 'err-data' in st:
                                 st['err-data'] = base64.b64decode(st['err-data'])
                                 if len(st['err-data']):
-                                    logger.warning(f"problems for pkg {pkgbase=} {st['err-data']}")
+                                    error_lines = st['err-data'].decode('utf-8').strip().splitlines()
+                                    for err_line in error_lines:
+                                        self.logger.warning(f"problems for pkg {pkgbase=} {err_line}")
                             if st['exitcode'] == 0:
                                 data = base64.b64decode(st['out-data'])
                                 files['.SRCINFO-ORIGINAL'] = files['.SRCINFO']
                                 files['.SRCINFO'] = data
+                                #for fname, fdata in files.items():
+                                #    self.logger.debug(f"==================================")
+                                #    self.logger.debug(f"{fname}")
+                                #    lines = fdata.decode('utf-8', 'backslashreplace').splitlines()
+                                #    for line in lines:
+                                #        self.logger.debug(f"{line}")
 
                         # TODO: further processing with a function
                         #self.logger.info(f"THREAD {self.name} before putting in output: {pkgbase}")

@@ -141,6 +141,7 @@ def iter_all_git_tree_files(tree, prefix=''):
         elif gitobj.type == pygit2.GIT_OBJ_TREE:
             yield from iter_all_git_tree_files(gitobj, f"{prefix}/{gitobj.name}".lstrip('/'))
 
+
 def aur_repo_iterator_simple(repo, include_only=set()):
     yielded = 0
     branches = repo.raw_listall_branches(pygit2.GIT_BRANCH_REMOTE)

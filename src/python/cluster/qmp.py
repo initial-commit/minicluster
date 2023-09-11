@@ -117,12 +117,11 @@ class Connection(object, metaclass=CachedViaConstructorMeta):
 
     def guest_has_package(self, pkgs):
         status = self.guest_exec_wait(f"pacman -Qi {pkgs}")
-        self.logger.info(f"pacman check if pkg exists {pkgs=} {status=}")
+        self.logger.debug(f"pacman check if pkg exists {pkgs=} {status=}")
         return status['exitcode'] == 0
 
     def guest_install_package(self, pkgs):
         status = self.guest_exec_wait(f"pacman -Qi {pkgs}")
-        self.logger.info(f"pacman check if pkg exists {pkgs=} {status=}")
         if status['exitcode'] == 1:
             status = self.guest_exec_wait(f"pacman -S --noconfirm --overwrite '*' {pkgs}")
             assert status['exitcode'] == 0
@@ -169,18 +168,19 @@ class Connection(object, metaclass=CachedViaConstructorMeta):
         # self.logger.info(f"will overwrite {vm_path=} inside: {is_overwrite}")
         # TODO: create a temporary file, then move
         resp = self._send_recv_rountrip("guest-file-open", path=vm_path, mode='wb')
+        assert 'return' in resp, f"No return, instead: {resp=}"
         h = resp['return']
         written = 0
         read_size = 0
-        self.logger.info("starting read loop")
+        self.logger.debug("starting read loop")
         while True:
             data = fp.read(16 * 1024 * 1024)
             if not data:
-                self.logger.info(f"no more data {data=}")
+                self.logger.debug(f"no more data {data=}")
                 break
             read_size += len(data)
             read_perc = int(read_size / fsize * 100)
-            if read_perc - read_perc_prev >= 1:
+            if read_perc - read_perc_prev >= 1 and read_perc < 100:
                 self.logger.info(f"read from file {read_perc=}")
             read_perc_prev = read_perc
             data = base64.b64encode(data).decode('utf-8')
