@@ -67,7 +67,8 @@ Set up xonsh
 pipx ensurepath
 exit # then start up your shell again
 pipx install --include-deps 'xontrib-ergopack[onepath,prompt,dev]'
-xpip install 'xonsh[full]' psutil python-dateutil pyzstd requests 
+xonsh
+xpip install 'xonsh[full]' psutil python-dateutil pyzstd requests pygit2 bs4 lxml pytz
 # optional, as root: chsh -s /home/[username]/.local/bin/xonsh [username] # replace [username] with your username
 ```
 
