@@ -495,7 +495,7 @@ if __name__ == '__main__':
                                     assert st['exitcode'] == 0, f"error while making directory /tmp/{pkgbase}/{dirn}"
                                     dirs_made.append(dirn)
                             self.conn.write_to_vm(fp, f"/tmp/{pkgbase}/{fname}")
-                        self.logger.info(f"executing printsrcinfo.sh for {pkgbase}")
+                        self.logger.debug(f"executing printsrcinfo.sh for {pkgbase}")
                         # TODO: remove below
                         #st = self.conn.guest_exec_wait(f'ls -ltrah /tmp/{pkgbase}/')
                         #self.logger.info(f"{st=}")
@@ -531,6 +531,7 @@ if __name__ == '__main__':
                     #local = threading.local()
                     while not last:
                         (pkgbase, files, last)= self.queue_in.get()
+                        diffs = []
                         if last:
                             self.logger.info(f"THREAD {self.name} SENTINEL DETECTED, NOOP")
                             self.queue_in.task_done()
@@ -578,7 +579,7 @@ if __name__ == '__main__':
 
                         # TODO: further processing with a function
                         #self.logger.info(f"THREAD {self.name} before putting in output: {pkgbase}")
-                        self.queue_out.put((pkgbase, files))
+                        self.queue_out.put((pkgbase, files, diffs))
                         #self.logger.info(f"THREAD {self.name} after putting in output: {pkgbase}")
                         self.queue_in.task_done()
                         #self.logger.info(f"THREAD {self.name} PROCESSED ITEM IN queue: {pkgbase}")
@@ -644,13 +645,13 @@ if __name__ == '__main__':
                             qsize_in = queue_for_vm_input.qsize()
                             qsize_out = queue_for_vm_output.qsize()
                             logger.info(f"during loop stats: {qsize_in=} {qsize_out=} {stored_items=} {processed_items=}")
+                            upsert_aur_package(buffer, db, logger)
                             buffer = []
-                    # TODO: store buffer
-            #logger.info("joining input threads")
             qsize_in = queue_for_vm_input.qsize()
             qsize_out = queue_for_vm_output.qsize()
             logger.info(f"before join stats: {qsize_in=} {qsize_out=} {stored_items=} {processed_items=}")
-            #logger.info(f"emptying output queue")
+            logger.info(f"emptying output queue")
+            #queue_for_vm_input.join()
             while queue_for_vm_input.qsize() + queue_for_vm_output.qsize() > 1:
                 #logger.info(f"getting one item")
                 item = queue_for_vm_output.get()
@@ -669,13 +670,12 @@ if __name__ == '__main__':
             lock_cont_avg = lock_cont_ms / extractor.lock_count
             logger.info(f"after loop stats: {qsize_in=} {qsize_out=} {stored_items=} {processed_items=} {lock_cont_ms=} {lock_cont_avg=}")
             assert queue_for_vm_output.qsize() == 0
-            #cond.notify_all()
+            logger.info("joining input threads")
             for th in threads:
                 #logger.info(f"JOINING THREAD {th.name}")
                 th.join()
                 #logger.info(f"JOINED THREAD {th.name}")
             #logger.info("joined input threads")
-            #TODO: save buffer
             assert queue_for_vm_input.qsize() == 1
             (pkgname, files, last_sentinel) = queue_for_vm_input.get()
             assert last_sentinel
@@ -686,7 +686,7 @@ if __name__ == '__main__':
             buffer_size = len(buffer)
             logger.info(f"after join stats: {qsize_in=} {qsize_out=} {buffer_size=} {stored_items=} {processed_items=}")
             #logger.info(f"{buffer=}")
-            #queue_for_vm_input.join()
+            upsert_aur_package(buffer, db, logger)
             #for (pkgid, meta, last) in repobuilder.functions.aur_repo_iterator(repo, extractor, errorlogger):
             #    #if pkgid and 'mediasort' not in pkgid:
             #    #    continue

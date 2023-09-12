@@ -160,7 +160,7 @@ class UiParameters(Handler):
 	# mkfifo pci-serial.in
 	# chardev-add pipe,id=s1,path=pci-serial
 	prepare_commands = list(set(prepare_commands))
-	self.logger.info(f"{prepare_commands=}")
+	self.logger.debug(f"{prepare_commands=}")
 	p.extend(interactive_p)
 	return self.tail_call_next(p, prepare_commands, rm_commands)
 
@@ -241,7 +241,7 @@ def command_boot_image_xsh(cwd, logger, image, name, ram, network, interactive):
     ]
     pre_commands = generic.get_pre_commands()
     params.extend(append)
-    logger.info(f"{params=}")
+    logger.debug(f"{params=}")
     prev_err = $RAISE_SUBPROC_ERROR
     $RAISE_SUBPROC_ERROR = False
     for c in pre_commands:
