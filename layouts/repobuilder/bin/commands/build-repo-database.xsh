@@ -536,6 +536,7 @@ if __name__ == '__main__':
                             self.logger.info(f"THREAD {self.name} SENTINEL DETECTED, NOOP")
                             self.queue_in.task_done()
                             self.queue_in.put((pkgbase, files, True))
+                            self.logger.info(f"THREAD {self.name} FINISHED")
                             return
                         # TODO: here process with extractor
                         #local.t1 = time.thread_time()
@@ -585,7 +586,8 @@ if __name__ == '__main__':
                         #self.logger.info(f"THREAD {self.name} PROCESSED ITEM IN queue: {pkgbase}")
 
             BATCH_SIZE = 200
-            WORKER_THREADS = 20
+            WORKER_THREADS = 12
+            UPSERT_SIZE = 500
             queue_for_vm_input = queue.Queue(int(BATCH_SIZE*1.1+1))
             queue_for_vm_output = queue.Queue(BATCH_SIZE)
             extractor = Extractor(None, logger)
@@ -613,6 +615,10 @@ if __name__ == '__main__':
 
             errorlogger = logger
             repo = pygit2.Repository(aur_clone)
+            # this whole section uses threads and queues to get data in and out of the VM
+            # everything is roughly ok, but one bigger refactoring needs to be done:
+            # TODO: consume data from output and put it into the buffer and then store the buffer into the db in a separate thread
+            # this approach would make sure that handling the leftover data at the end of the process does not get lost and the finalization procedure is easier to understand
             i = 0
             buffer = []
             cond = threading.Condition()
@@ -641,7 +647,7 @@ if __name__ == '__main__':
                         stored_items += 1
                         queue_for_vm_output.task_done()
                         buffer_size = len(buffer)
-                        if buffer_size % 100 == 0:
+                        if buffer_size % UPSERT_SIZE == 0:
                             qsize_in = queue_for_vm_input.qsize()
                             qsize_out = queue_for_vm_output.qsize()
                             logger.info(f"during loop stats: {qsize_in=} {qsize_out=} {stored_items=} {processed_items=}")
@@ -651,7 +657,7 @@ if __name__ == '__main__':
             qsize_out = queue_for_vm_output.qsize()
             logger.info(f"before join stats: {qsize_in=} {qsize_out=} {stored_items=} {processed_items=}")
             logger.info(f"emptying output queue")
-            #queue_for_vm_input.join()
+            ###################################################
             while queue_for_vm_input.qsize() + queue_for_vm_output.qsize() > 1:
                 #logger.info(f"getting one item")
                 item = queue_for_vm_output.get()
@@ -660,16 +666,16 @@ if __name__ == '__main__':
                 stored_items += 1
                 queue_for_vm_output.task_done()
                 buffer_size = len(buffer)
-                if buffer_size % 100 == 0:
+                if buffer_size % UPSERT_SIZE == 0:
                     qsize_in = queue_for_vm_input.qsize()
                     qsize_out = queue_for_vm_output.qsize()
                     logger.info(f"during final loop stats: {qsize_in=} {qsize_out=} {stored_items=} {processed_items=}")
+            logger.info(f"waiting for input to become empty: {qsize_in=}")
             qsize_in = queue_for_vm_input.qsize()
             qsize_out = queue_for_vm_output.qsize()
             lock_cont_ms = extractor.lock_ns / 1000 / 1000
             lock_cont_avg = lock_cont_ms / extractor.lock_count
             logger.info(f"after loop stats: {qsize_in=} {qsize_out=} {stored_items=} {processed_items=} {lock_cont_ms=} {lock_cont_avg=}")
-            assert queue_for_vm_output.qsize() == 0
             logger.info("joining input threads")
             for th in threads:
                 #logger.info(f"JOINING THREAD {th.name}")
@@ -681,12 +687,21 @@ if __name__ == '__main__':
             assert last_sentinel
             assert pkgname is None
             assert files is None
+            queue_for_vm_input.task_done()
+            queue_for_vm_input.join()
+            while queue_for_vm_output.qsize() > 0:
+                item = queue_for_vm_output.get()
+                buffer.append(item)
+                stored_items += 1
+                queue_for_vm_output.task_done()
+                buffer_size = len(buffer)
             qsize_in = queue_for_vm_input.qsize()
             qsize_out = queue_for_vm_output.qsize()
             buffer_size = len(buffer)
             logger.info(f"after join stats: {qsize_in=} {qsize_out=} {buffer_size=} {stored_items=} {processed_items=}")
             #logger.info(f"{buffer=}")
             upsert_aur_package(buffer, db, logger)
+            ###################################################
             #for (pkgid, meta, last) in repobuilder.functions.aur_repo_iterator(repo, extractor, errorlogger):
             #    #if pkgid and 'mediasort' not in pkgid:
             #    #    continue
