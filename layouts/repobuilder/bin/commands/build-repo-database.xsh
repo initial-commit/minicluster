@@ -34,6 +34,7 @@ import base64
 import io
 import requests
 import tarfile
+import difflib
 
 def create_pkg_sqlitedb(logger, db_file):
     logger.info(f"creating sqlite db for repository: {db_file=}")
@@ -544,7 +545,7 @@ if __name__ == '__main__':
                                 st = self.extractor.exec_result(pid, pkgbase)
                                 exited = st['exited']
                                 if not exited:
-                                    time.sleep(0.020)
+                                    time.sleep(0.010)
                             #local.dur = time.thread_time() - local.t1
                             #self.logger.info(f"duration: {local.dur=}")
                             if 'err-data' in st:
@@ -557,6 +558,17 @@ if __name__ == '__main__':
                                 data = base64.b64decode(st['out-data'])
                                 files['.SRCINFO-ORIGINAL'] = files['.SRCINFO']
                                 files['.SRCINFO'] = data
+                                if data != files['.SRCINFO-ORIGINAL']:
+                                    lines_original = [v.strip() for v in files['.SRCINFO'].decode('utf-8', 'backslashreplace') if v.strip()]
+                                    lines_new = [v.strip() for v in data.decode('utf-8', 'backslashreplace') if v.strip()]
+                                    diffs = difflib.unified_diff(lines_original, lines_new, fromfile=f'{pkgbase}/.SRCINFO-ORIGINAL', tofile=f'{pkgbase}/.SRCINFO', lineterm='', n=1)
+                                    diffs = list(diffs)
+                                    if diffs:
+                                        self.logger.warning(f"{pkgbase=} has different .SRCINFO")
+                                    else:
+                                        self.logger.info(f"{pkgbase=} has differences in indentation")
+                                    for diffline in diffs:
+                                        self.logger.error(diffline)
                                 #for fname, fdata in files.items():
                                 #    self.logger.debug(f"==================================")
                                 #    self.logger.debug(f"{fname}")
@@ -572,7 +584,7 @@ if __name__ == '__main__':
                         #self.logger.info(f"THREAD {self.name} PROCESSED ITEM IN queue: {pkgbase}")
 
             BATCH_SIZE = 200
-            WORKER_THREADS = 10
+            WORKER_THREADS = 20
             queue_for_vm_input = queue.Queue(int(BATCH_SIZE*1.1+1))
             queue_for_vm_output = queue.Queue(BATCH_SIZE)
             extractor = Extractor(None, logger)
@@ -581,7 +593,7 @@ if __name__ == '__main__':
                 assert new_img is not None
                 cwd_image = str(new_img.parent)
                 new_img = str(new_img)
-                booted = command_boot_image_xsh(cwd_image, logger, new_img, name, 1024, True, False)
+                booted = command_boot_image_xsh(cwd_image, logger, new_img, name, 2048, True, False)
                 assert booted
                 s = f"{cwd_image}/qga-{name}.sock"
                 conn = cluster.qmp.Connection(s, logger)
