@@ -142,6 +142,49 @@ def iter_all_git_tree_files(tree, prefix=''):
             yield from iter_all_git_tree_files(gitobj, f"{prefix}/{gitobj.name}".lstrip('/'))
 
 
+class DictWithMetaKeys(dict):
+    """
+    Dictionary with tuples as keys.
+
+    The first item in the tuple is already unique, but the rest of the tuple serves as additional meta-data.
+    All this aside, this dictionary works as a regular dictionary.
+    """
+    realkeys = None
+
+    def __init__(self, *args, **kwargs):
+        self.update(*args, **kwargs)
+
+    def __getitem__(self, key):
+        if not isinstance(key, tuple):
+            keys = self._real_keys()
+            if key in keys:
+                key = keys[key]
+        val = dict.__getitem__(self, key)
+        return val
+
+    def __setitem__(self, key, val):
+        if not isinstance(key, tuple):
+            keys = self._real_keys()
+            if key in keys:
+                key = keys[key]
+        self.realkeys = None
+        dict.__setitem__(self, key, val)
+
+    def __repr__(self):
+        dictrepr = dict.__repr__(self)
+        return '%s(%s)' % (type(self).__name__, dictrepr)
+
+    def update(self, *args, **kwargs):
+        for k, v in dict(*args, **kwargs).items():
+            self[k] = v
+
+    def _real_keys(self):
+        if not self.realkeys:
+            self.realkeys = {}
+            for h, t in map(lambda x: (x[0], x[1:]), self):
+                self.realkeys[h] = tuple([h, *t])
+        return self.realkeys
+
 def aur_repo_iterator_simple(repo, include_only=set()):
     yielded = 0
     branches = repo.raw_listall_branches(pygit2.GIT_BRANCH_REMOTE)
@@ -156,17 +199,39 @@ def aur_repo_iterator_simple(repo, include_only=set()):
         #   continue
         rev = repo.revparse_single(br)
         tree = rev.tree
-        entries = {}
+        entries = DictWithMetaKeys({})
         for prefix, gitobj in iter_all_git_tree_files(tree):
             k = gitobj.name
             if prefix:
                 k = f"{prefix}/{gitobj.name}"
-            entries[k] = gitobj.data
+            entries[(k, gitobj.filemode)] = gitobj.data
         yield (pkg, entries, False)
         yielded += 1
-        #if yielded == 2000:
+        #if yielded == 1000:
         #    break
     yield (None, None, True)
+
+def arch_parse_srcinfo(pkgbase, srcinfo, logger):
+    kv_r = re.compile(r'^\s*(?P<key>[^\s=]+)\s*=\s*(?P<val>.*)$')
+    meta_list = META_LIST
+    for arch in ARCHITECTURES:
+        for pref in _metalist_architecture_prefixes:
+            meta_list.append(f"{pref}{arch}")
+    meta_list = list(set(meta_list))
+    lines = srcinfo.decode('utf-8', 'backslashreplace').strip()
+    lines = lines.splitlines()
+    meta = {}
+    meta_global = []
+    for line in lines:
+        if "pkgname" in line and not line.startswith("pkgname"):
+            continue
+        m = kv_r.match(line)
+        if not m:
+            continue
+        groups = m.groupdict()
+        k = groups['key']
+        v = groups['val']
+        logger.info(f"{pkgbase=} {k=} {v=}")
 
 
 def aur_repo_iterator(repo, extractor, errorlogger):

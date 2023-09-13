@@ -6,6 +6,7 @@ import base64
 import time
 import pathlib
 import select
+import stat
 
 
 class CachedViaConstructorMeta(type):
@@ -152,6 +153,11 @@ class Connection(object, metaclass=CachedViaConstructorMeta):
             self.logger.debug(f"could not get path stat: {stat_result=} for {vm_path=}")
             return None
         return json.loads(stat_result['out-data'])
+
+    def make_symlink_vm(self, cwd, link, target_file):
+        st = self.guest_exec_wait(["bash", '-c', f"cd {cwd} && ln -s {link} {target_file}"])
+        self.logger.debug(f"make symlink in {cwd=} from {link=} to {target_file=}")
+        return st['exitcode'] == 0
 
     def write_to_vm(self, fp, vm_path):
         pos = fp.tell()

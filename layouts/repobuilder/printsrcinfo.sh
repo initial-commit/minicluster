@@ -15,8 +15,12 @@ source_safe() {
 
 	eval "$shellopts"
 }
+if [ ! -d "$PKGDIR" ]; then
+	echo no PKGDIR: "$PKGDIR" >&2
+	exit 194
+fi
 set -e
-cd "$PWD"
+cd "$PKGDIR"
 source_safe
 pkgbase=${pkgbase:-${pkgname[0]}}
 #lint_pkgbuild || exit 194

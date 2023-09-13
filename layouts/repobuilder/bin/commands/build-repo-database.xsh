@@ -35,6 +35,7 @@ import io
 import requests
 import tarfile
 import difflib
+import stat
 
 def create_pkg_sqlitedb(logger, db_file):
     logger.info(f"creating sqlite db for repository: {db_file=}")
@@ -169,7 +170,50 @@ def upsert_aurweb_package(rawbatch, db):
             cur.executemany(sql, buffer)
     return packages
 
+def aur_errorline_tags(line):
+    tags = []
+    meta = {}
+    all_tags = [
+        ('curl', r'^\s*%\s+Total\s+%\s+Received\s+%\s+Xferd\s+Average\s+Speed\s+Time\s+Time\s+Time\s+Current$'),
+        ('curl', r'^\s+Dload\s+Upload\s+Total\s+Spent\s+Left\s+Speed$'),
+        ('empty', r'^\s*$'),
+        ('curl', r'^\s*\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s*--:--:--\s+--:--:--\s+--:--:--\s+\d+$'),
+        ('no_file_or_dir', r'^(?P<buildfile>[^:]+): line (?P<line>[^:]+): (?P<file>[^:]+): No such file or directory$'),
+        ('command_not_found', r'^(?P<buildfile>[^:]+): line (?P<line>[^:]+): (?P<command>[^:]+): command not found$'),
+        ('cannot_change_locale', r'^(?P<buildfile>[^:]+): line (?P<line>\d+): warning: setlocale: (?P<variable>[^:]+): cannot change locale \((?P<locale>.+)\)$'),
+        ('gcc_execvp_error', r"^gcc: fatal error: cannot execute '(?P<command>.+)': execvp: No such file or directory$"),
+        ('compilation_terminated', r'^compilation terminated.$'),
+        ('cat_no_file', r"^cat: (?P<file>[^:]+): No such file or directory$"),
+        ('sed_cant_read', r"sed: can't read (?P<file>[^:]+): No such file or directory"),
+    ]
+    for tag, reg in all_tags:
+        m = re.match(reg, line)
+        if not m:
+            continue
+        meta[tag] = m.groupdict()
+        tags.append(tag)
+    return (set(tags), meta)
+
 def upsert_aur_package(rawbatch, db, logger):
+    tags_to_ignore = set(['curl', 'empty', 'compilation_terminated'])
+    logger.info(f"storing pkgbase in db {len(rawbatch)}")
+    for (pkgbase, files, diffs, error_lines) in rawbatch:
+        srcinfo = files['.SRCINFO']
+        srcinfo_original = files['.SRCINFO']
+        if '.SRCINFO-ORIGINAL' in files:
+            srcinfo_original = files['.SRCINFO-ORIGINAL']
+        logger.debug(f"=========== {pkgbase} {len(srcinfo)=} {len(srcinfo_original)=}")
+        for line in error_lines:
+            ignore = False
+            (tags, meta) = aur_errorline_tags(line)
+            if tags_to_ignore.intersection(tags):
+                continue
+            if len(tags) != 0 or len(meta) != 0:
+                logger.debug(f"{tags=} {meta=} {line=}")
+            else:
+                logger.warning(f"{pkgbase=} unhandled line {line=}")
+    return True
+
     buffer = []
     buffer_dependencies = []
     for rawdata in rawbatch:
@@ -474,6 +518,7 @@ if __name__ == '__main__':
                     return st['out-data']
 
                 def exec_start(self, pkgbase, files):
+                    pkgdir = f"/tmp/{pkgbase}"
                     t1 = time.thread_time_ns()
                     with self.lock:
                         self.lock_ns += time.thread_time_ns() - t1
@@ -483,23 +528,27 @@ if __name__ == '__main__':
                         #st = self.conn.guest_exec_wait(f'ln -s /dev/stdin /tmp/{pkgbase}/stdin')
                         #assert st['exitcode'] == 0, f"failed to make tmp build directory /tmp/{pkgbase}"
                         dirs_made = []
-                        for fname, fdata in files.items():
+                        for (fname, fmode), fdata in files.items():
                             if fname in ['.SRCINFO']:
                                 continue
-                            fp = io.BytesIO(fdata)
-                            if '/' in fname:
-                                self.logger.info(f"writing pkgbuild file: {fname=}")
-                                dirn = fname.rsplit('/', 1)[0]
-                                if dirn not in dirs_made:
-                                    st = self.conn.guest_exec_wait(f'mkdir -p /tmp/{pkgbase}/{dirn}')
-                                    assert st['exitcode'] == 0, f"error while making directory /tmp/{pkgbase}/{dirn}"
-                                    dirs_made.append(dirn)
-                            self.conn.write_to_vm(fp, f"/tmp/{pkgbase}/{fname}")
+                            if fmode == stat.S_IFLNK:
+                                self.conn.make_symlink_vm(pkgdir, fname, fdata.decode('utf-8'))
+                            else:
+                                fp = io.BytesIO(fdata)
+                                if '/' in fname:
+                                    self.logger.info(f"writing pkgbuild file: {fname=}")
+                                    dirn = fname.rsplit('/', 1)[0]
+                                    if dirn not in dirs_made:
+                                        st = self.conn.guest_exec_wait(f'mkdir -p /tmp/{pkgbase}/{dirn}')
+                                        assert st['exitcode'] == 0, f"error while making directory /tmp/{pkgbase}/{dirn}"
+                                        dirs_made.append(dirn)
+                                self.conn.write_to_vm(fp, f"/tmp/{pkgbase}/{fname}")
                         self.logger.debug(f"executing printsrcinfo.sh for {pkgbase}")
                         # TODO: remove below
                         #st = self.conn.guest_exec_wait(f'ls -ltrah /tmp/{pkgbase}/')
                         #self.logger.info(f"{st=}")
-                        st = self.conn.guest_exec(f'/tmp/printsrcinfo.sh', env=[f"PWD=/tmp/{pkgbase}"])
+                        st = self.conn.guest_exec(f'/tmp/printsrcinfo.sh', env=[f"PKGDIR=/tmp/{pkgbase}"])
+                        self.logger.debug(f"initial status for printsrcinfo {pkgbase=} {st=}")
                         return (int(st), True)
 
                 def exec_result(self, pid, pkgbase):
@@ -508,12 +557,11 @@ if __name__ == '__main__':
                         self.lock_ns += time.thread_time_ns() - t1
                         self.lock_count += 1
                         st = self.conn.guest_exec_status(pid)
-                        #self.logger.info(f"{st=}")
                         if st['exited']:
                             t1 = time.thread_time_ns()
                             self.lock_ns += time.thread_time_ns() - t1
                             self.lock_count += 1
-                            st = self.conn.guest_exec_wait(f"rm -rf /tmp/{pkgbase}")
+                            st2 = self.conn.guest_exec_wait(f"rm -rf /tmp/{pkgbase}")
                         return st
 
             class ExtractorThread(threading.Thread):
@@ -530,6 +578,7 @@ if __name__ == '__main__':
                     last = False
                     #local = threading.local()
                     while not last:
+                        error_lines = []
                         (pkgbase, files, last)= self.queue_in.get()
                         diffs = []
                         if last:
@@ -545,6 +594,7 @@ if __name__ == '__main__':
                             exited = False
                             while not exited:
                                 st = self.extractor.exec_result(pid, pkgbase)
+                                self.logger.debug(f"exec_result during loop for {pkgbase=} {pid=} {st=}")
                                 exited = st['exited']
                                 if not exited:
                                     time.sleep(0.010)
@@ -555,7 +605,7 @@ if __name__ == '__main__':
                                 if len(st['err-data']):
                                     error_lines = st['err-data'].decode('utf-8').strip().splitlines()
                                     for err_line in error_lines:
-                                        self.logger.warning(f"problems for pkg {pkgbase=} {err_line}")
+                                        self.logger.debug(f"problems for pkg {pkgbase=} {err_line}")
                             if st['exitcode'] == 0:
                                 data = base64.b64decode(st['out-data'])
                                 files['.SRCINFO-ORIGINAL'] = files['.SRCINFO']
@@ -580,7 +630,7 @@ if __name__ == '__main__':
 
                         # TODO: further processing with a function
                         #self.logger.info(f"THREAD {self.name} before putting in output: {pkgbase}")
-                        self.queue_out.put((pkgbase, files, diffs))
+                        self.queue_out.put((pkgbase, files, diffs, error_lines))
                         #self.logger.info(f"THREAD {self.name} after putting in output: {pkgbase}")
                         self.queue_in.task_done()
                         #self.logger.info(f"THREAD {self.name} PROCESSED ITEM IN queue: {pkgbase}")
@@ -631,7 +681,7 @@ if __name__ == '__main__':
             for (pkgbase, files, last) in repobuilder.functions.aur_repo_iterator_simple(repo, known_packages):
                 if last:
                     # TODO: use a condition instead of the sentinel value
-                    queue_for_vm_input.put((pkgbase, files, last))
+                    queue_for_vm_input.put((None, None, True))
                     break
                 i += 1
                 #logger.info(f"processing {pkgbase=}")
@@ -643,7 +693,9 @@ if __name__ == '__main__':
                     #queue_for_vm_input.join()
                     logger.info("no more input, storing output")
                     while queue_for_vm_output.qsize() >= 1:
-                        buffer.append(queue_for_vm_output.get())
+                        item = queue_for_vm_output.get()
+                        #logger.debug(f"get output item for {pkgbase=} {item=}")
+                        buffer.append(item)
                         stored_items += 1
                         queue_for_vm_output.task_done()
                         buffer_size = len(buffer)
@@ -661,7 +713,7 @@ if __name__ == '__main__':
             while queue_for_vm_input.qsize() + queue_for_vm_output.qsize() > 1:
                 #logger.info(f"getting one item")
                 item = queue_for_vm_output.get()
-                #logger.info(f"got item {item=}")
+                #logger.debug(f"got item {item=}")
                 buffer.append(item)
                 stored_items += 1
                 queue_for_vm_output.task_done()
