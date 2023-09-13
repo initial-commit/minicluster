@@ -20,6 +20,8 @@ if [ ! -d "$PKGDIR" ]; then
 	exit 194
 fi
 set -e
+# TODO: this could be a parameter
+CARCH="x86_64"
 cd "$PKGDIR"
 source_safe
 pkgbase=${pkgbase:-${pkgname[0]}}
