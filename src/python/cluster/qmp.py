@@ -85,15 +85,17 @@ class Connection(object, metaclass=CachedViaConstructorMeta):
     def guest_exec_status(self, pid: int):
         resp = self._send_recv_rountrip("guest-exec-status", pid=pid)
         if 'return' not in resp:
-            self.logger.debug(f"return not in response {resp=}", extra={'resp': resp})
+            self.logger.error(f"return not in response {resp=}", extra={'resp': resp})
             return None
         return resp['return']
 
     def guest_exec_wait(self, cmd, input_data=None, capture_output=True, env=[], interval=0.1, out_encoding='utf-8'):
         self.logger.debug(f"preparing to execute cmd {cmd=}", extra={'input_data': input_data})
         pid = self.guest_exec(cmd, input_data, capture_output, env)
-        assert isinstance(pid, int), "pid must be int"
+        assert isinstance(pid, int), "pid must be int, value: {pid=}"
         status = self.guest_exec_status(pid)
+        if 'exited' not in status:
+            self.logger.error("command returned {cmd=} {status=}")
         self.logger.debug(f"command returned {cmd=} {status=}", extra={'cmd': cmd, 'status': status})
         while not status['exited']:
             time.sleep(interval)
@@ -158,6 +160,56 @@ class Connection(object, metaclass=CachedViaConstructorMeta):
         self.logger.debug(f"make symlink in {cwd=} from {link=} to {target_file=}")
         st = self.guest_exec_wait(["bash", '-c', f"cd {cwd} && ln -s {link} {target_file}"])
         return st['exitcode'] == 0
+
+    def chmod(self, cmd_args):
+        # generated via: for l in $(cat test.py | sed 's/    /\\\\t/g').splitlines(): print(f"\"{l.rstrip()}\\n\"")
+        prog = (
+            "import sys\n"
+            "import os\n"
+            "argv = sys.argv\n"
+            "if '--' not in argv:\n"
+            "\tsys.exit(1)\n"
+            "argv = argv[argv.index('--')+1:]\n"
+            "if len(argv) % 2 != 0:\n"
+            "\tsys.exit(2)\n"
+            "files = {}\n"
+            "mode = 0o755\n"
+            "for i in range(len(argv)):\n"
+            "\tif i % 2 == 0:\n"
+            "\t\tmode = argv[i]\n"
+            "\telse:\n"
+            "\t\tfiles[argv[i]] = mode\n"
+            "for f, m in files.items():\n"
+            "\ttry:\n"
+            "\t\tm = int(m, 8)\n"
+            "\t\tos.chmod(f, m)\n"
+            "\texcept Exception:\n"
+            "\t\traise Exception(f'failed chmod of {f=} to {m=}')"
+        )
+        #self.logger.info(prog)
+        has_python = self.guest_exec_wait("which python")
+        if has_python['exitcode'] == 0:
+            cmd = ["python", "-c", prog, '--']
+            cmd.extend(cmd_args)
+            stat_result = self.guest_exec_wait(cmd)
+            return stat_result['exitcode'] == 0
+        else:
+            mode = '644'
+            has_failures = False
+            for i in range(len(cmd_args)):
+                if i % 2 == 0:
+                    mode = cmd_args[i]
+                    mode = oct(mode)[-3:]
+                else:
+                    fname = cmd_args[i]
+                    cmd = f"chmod {mode} {fname}"
+                    st = self.guest_exec_wait(cmd)
+                    if st['exitcode'] != 0:
+                        self.logger.error(f"failed: {cmd}")
+                        has_failures = True
+            if has_failures:
+                return False
+            return True
 
     def write_to_vm(self, fp, vm_path):
         pos = fp.tell()

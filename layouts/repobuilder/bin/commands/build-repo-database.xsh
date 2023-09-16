@@ -220,9 +220,14 @@ def upsert_aur_package(rawbatch, db, logger):
             if tags_to_ignore.intersection(tags):
                 continue
             if len(tags) != 0 or len(meta) != 0:
-                logger.debug(f"{tags=} {meta=} {line=}")
+                logger.info(f"PARSED ERROR: {pkgbase=} {tags=} {meta=} {line=}")
             else:
                 logger.warning(f"{pkgbase=} unhandled line {line=}")
+
+        norm_pkgs_info = repobuilder.functions.parse_srcinfo(srcinfo, logger)
+        for pkg_info in norm_pkgs_info:
+            logger.info(f"{pkgbase=} {pkg_info=}")
+
     return True
 
     buffer = []
@@ -541,6 +546,7 @@ if __name__ == '__main__':
                         #st = self.conn.guest_exec_wait(f'ln -s /dev/stdin /{self.WORKDIR}/{pkgbase}/stdin')
                         #assert st['exitcode'] == 0, f"failed to make tmp build directory /{self.WORKDIR}/{pkgbase}"
                         dirs_made = []
+                        modes_and_files = []
                         for (fname, fmode), fdata in files.items():
                             if fname in ['.SRCINFO']:
                                 continue
@@ -559,6 +565,8 @@ if __name__ == '__main__':
                                         dirs_made.append(dirn)
                                 self.logger.debug(f"transfer file /{self.WORKDIR}/{pkgbase}/{fname}")
                                 self.conn.write_to_vm(fp, f"/{self.WORKDIR}/{pkgbase}/{fname}")
+                                modes_and_files.extend([fmode, f"/{self.WORKDIR}/{pkgbase}/{fname}"])
+                        self.conn.chmod(modes_and_files)
                         self.logger.debug(f"executing printsrcinfo.sh for {pkgbase}")
                         # TODO: remove below
                         #st = self.conn.guest_exec_wait(f'ls -ltrah /{self.WORKDIR}/{pkgbase}/')

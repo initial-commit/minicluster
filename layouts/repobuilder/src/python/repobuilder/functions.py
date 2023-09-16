@@ -211,6 +211,7 @@ def aur_repo_iterator_simple(repo, include_only=set()):
         #    break
     yield (None, None, True)
 
+# TODO: remove, deprecated function
 def arch_parse_srcinfo(pkgbase, srcinfo, logger):
     kv_r = re.compile(r'^\s*(?P<key>[^\s=]+)\s*=\s*(?P<val>.*)$')
     meta_list = META_LIST
@@ -296,11 +297,6 @@ def parse_srcinfo(srcinfo, logger):
         meta_tail = group[1:]
         for meta in meta_tail:
             data = {**meta_base, **meta}
-            pkgid = f"{data['pkgname']}-{data['pkgver']}-{data['pkgrel']}"
-            if 'epoch' in data:
-                epoch = int(data['epoch'])
-                if epoch > 0:
-                    pkgid = f"{data['pkgname']}-{epoch}:{data['pkgver']}-{data['pkgrel']}"
             packages.append(data)
     return packages
 
