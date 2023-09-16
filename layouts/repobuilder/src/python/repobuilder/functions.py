@@ -233,7 +233,78 @@ def arch_parse_srcinfo(pkgbase, srcinfo, logger):
         v = groups['val']
         logger.info(f"{pkgbase=} {k=} {v=}")
 
+def parse_srcinfo(srcinfo, logger):
+    kv_r = re.compile(r'^\s*(?P<key>[^\s=]+)\s*=\s*(?P<val>.*)$')
+    meta_list = META_LIST
+    for arch in ARCHITECTURES:
+        for pref in _metalist_architecture_prefixes:
+            meta_list.append(f"{pref}{arch}")
+    meta_list = list(set(meta_list))
+    lines = srcinfo.decode('utf-8', 'backslashreplace').strip()
+    lines = lines.splitlines()
+    meta = {}
+    meta_global = []
+    for line in lines:
+        if "pkgname" in line and not line.startswith("pkgname"):
+            continue
+        m = kv_r.match(line)
+        if not m:
+            continue
+        groups = m.groupdict()
+        k = groups['key']
+        v = groups['val']
+        if k in ['pkgname', 'pkgbase'] and meta:
+            meta_global.append(meta)
+            meta = {}
+        if k in META_UNIQUE:
+            if k not in ['url']:
+                assert k not in meta, f"{k=} already exists in {meta=}, cannot set {v=}"
+            meta[k] = v
+        elif k in meta_list:
+            if k not in meta:
+                meta[k] = []
+            meta[k].append(v)
+        else:
+            #collected_unknown_keys.append(k)
+            #do_package = False
+            #break
+            raise Exception(f"Encountered unknown key for package {k=} {pkg=} with value {v=}")
+    meta_global.append(meta)
+    is_pkgbase = lambda meta: 'pkgname' not in meta and 'pkgbase' in meta
+    pkgbase_type = list(map(is_pkgbase, meta_global))
+    packages = []
+    i = -1
+    groups = []
+    for t in pkgbase_type:
+        if t:
+            i += 1
+        groups.append(i)
+    pkgbase_type = groups
+    #print(f"{meta_global=}")
+    #print(f"{pkgbase_type=}")
+    meta_grouped = []
+    for i, meta in enumerate(meta_global):
+        group_index = pkgbase_type[i]
+        if len(meta_grouped) == group_index:
+            meta_grouped.insert(group_index, [])
+        meta_grouped[group_index].append(meta)
+        #print(i, group_index, meta)
+    for group in meta_grouped:
+        if len(group) == 1:
+            group.append({'pkgname': group[0]['pkgbase']})
+        meta_base = group[0]
+        meta_tail = group[1:]
+        for meta in meta_tail:
+            data = {**meta_base, **meta}
+            pkgid = f"{data['pkgname']}-{data['pkgver']}-{data['pkgrel']}"
+            if 'epoch' in data:
+                epoch = int(data['epoch'])
+                if epoch > 0:
+                    pkgid = f"{data['pkgname']}-{epoch}:{data['pkgver']}-{data['pkgrel']}"
+            packages.append(data)
+    return packages
 
+# TODO: deprecated function, remove
 def aur_repo_iterator(repo, extractor, errorlogger):
     #collected_unknown_keys = []
     branches = repo.raw_listall_branches(pygit2.GIT_BRANCH_REMOTE)

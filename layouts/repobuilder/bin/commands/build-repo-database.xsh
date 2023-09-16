@@ -747,7 +747,8 @@ if __name__ == '__main__':
             lock_cont_avg = lock_cont_ms / extractor.lock_count
             logger.info(f"after loop stats: {qsize_in=} {qsize_out=} {stored_items=} {processed_items=} {lock_cont_ms=} {lock_cont_avg=}")
             logger.info("joining input threads")
-            assert len(threads)+1 == threading.active_count(), f"Threads have died, started: {len(threads)}, active: {threading.active_count()}"
+            if processed_items > WORKER_THREADS:
+                assert len(threads)+1 == threading.active_count(), f"Threads have died, started: {len(threads)}, active: {threading.active_count()}"
             for th in threads:
                 #if not th.is_alive():
                 #    logger.warning(f"THREAD NOT ALIVE: {th.name}")
