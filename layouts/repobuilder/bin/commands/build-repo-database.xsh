@@ -191,7 +191,7 @@ def aur_errorline_tags(line):
         ('pkgbuild_generic_line_error', r"^PKGBUILD: line (?P<line>[^:]+): (?P<message>.+)$"),
         ('gpg_keybox_created', r"^gpg: keybox '(?P<keybox>[^']+)' created$"),
         ('gpg_trustdb_created', r"^gpg: (?P<trustdb>[^:]+): trustdb created$"),
-        ('gpg_counter', r"^gpg: (?P<message>[^:]+): \d+$"),
+        ('gpg_counter', r"^gpg: (?P<message>[^:]+): (?P<count>\d+)$"),
         ('gpg_key_imported', r'^gpg: key (?P<key_id>[^:]+): public key "(?P<contact>[^"]+)" imported$'),
         ('gpg_key_not_changed', r'^gpg: key (?P<key_id>[^:]+): "(?P<contact>[^"]+)" not changed$'),
         ('gpg_missing_key', r'gpg: key (?P<key_id>[^:]+): 1 signature not checked due to a missing key'),
