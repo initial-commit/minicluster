@@ -178,6 +178,8 @@ def aur_errorline_tags(line):
         ('curl', r'^\s+Dload\s+Upload\s+Total\s+Spent\s+Left\s+Speed$'),
         ('empty', r'^\s*$'),
         ('curl', r'^\s*\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s*--:--:--\s+--:--:--\s+--:--:--\s+\d+$'),
+        ('curl', r'^\s*\d+\s*\d+k?\s+\d+\s+\d+\s+\d+\s+\d+\s+\dk?\s+\d+\s+\d+:\d+:\d+\s+--:--:--\s+\d+:\d+:\d+\s+\d+k?$'),
+        ('curl', r'^[0-9:\sk-]+$'),
         ('no_file_or_dir', r'^(?P<buildfile>[^:]+): line (?P<line>[^:]+): (?P<file>[^:]+): No such file or directory$'),
         ('command_not_found', r'^(?P<buildfile>[^:]+): line (?P<line>[^:]+): (?P<command>[^:]+): command not found$'),
         ('cannot_change_locale', r'^(?P<buildfile>[^:]+): line (?P<line>\d+): warning: setlocale: (?P<variable>[^:]+): cannot change locale \((?P<locale>.+)\)$'),
@@ -185,6 +187,15 @@ def aur_errorline_tags(line):
         ('compilation_terminated', r'^compilation terminated.$'),
         ('cat_no_file', r"^cat: (?P<file>[^:]+): No such file or directory$"),
         ('sed_cant_read', r"sed: can't read (?P<file>[^:]+): No such file or directory"),
+        ('package_not_found', r"error: package '(?P<package>[^']+)' was not found"),
+        ('pkgbuild_generic_line_error', r"^PKGBUILD: line (?P<line>[^:]+): (?P<message>.+)$"),
+        ('gpg_keybox_created', r"^gpg: keybox '(?P<keybox>[^']+)' created$"),
+        ('gpg_trustdb_created', r"^gpg: (?P<trustdb>[^:]+): trustdb created$"),
+        ('gpg_counter', r"^gpg: (?P<message>[^:]+): \d+$"),
+        ('gpg_key_imported', r'^gpg: key (?P<key_id>[^:]+): public key "(?P<contact>[^"]+)" imported$'),
+        ('gpg_key_not_changed', r'^gpg: key (?P<key_id>[^:]+): "(?P<contact>[^"]+)" not changed$'),
+        ('gpg_missing_key', r'gpg: key (?P<key_id>[^:]+): 1 signature not checked due to a missing key'),
+        ('gpg_no_trusted_key_found', '^gpg: no ultimately trusted keys found$'),
     ]
     for tag, reg in all_tags:
         m = re.match(reg, line)
@@ -195,7 +206,7 @@ def aur_errorline_tags(line):
     return (set(tags), meta)
 
 def upsert_aur_package(rawbatch, db, logger):
-    tags_to_ignore = set(['curl', 'empty', 'compilation_terminated'])
+    tags_to_ignore = set(['curl', 'empty', 'compilation_terminated', 'gpg_key_not_changed', ])
     logger.info(f"storing pkgbase in db {len(rawbatch)}")
     for (pkgbase, files, diffs, error_lines) in rawbatch:
         srcinfo = files['.SRCINFO']
@@ -503,51 +514,56 @@ if __name__ == '__main__':
             base_handle = image.stem
 
             class Extractor(object):
-                def __init__(self, conn, logger):
+                WORKDIR = "/tmp"
+                def __init__(self, conn, logger, workdir):
                     self.conn = conn
                     self.logger = logger.getChild(self.__class__.__name__)
                     self.lock = threading.Lock()
                     self.lock_ns = 0
                     self.lock_count = 0
+                    self.WORKDIR = workdir
 
                 def __call__(self, pkgbuild_data):
-                    st = self.conn.guest_exec_wait('/tmp/printsrcinfo.sh', input_data=pkgbuild_data)
+                    st = self.conn.guest_exec_wait(f'/{self.WORKDIR}/printsrcinfo.sh', input_data=pkgbuild_data)
                     if st['exitcode'] != 0 or len(st['err-data'].strip()) > 0:
                         self.logger.error(f"cannot extract srcinfo from pkgbuild: {st=}")
                         return None
                     return st['out-data']
 
                 def exec_start(self, pkgbase, files):
-                    pkgdir = f"/tmp/{pkgbase}"
+                    pkgdir = f"/{self.WORKDIR}/{pkgbase}"
                     t1 = time.thread_time_ns()
                     with self.lock:
                         self.lock_ns += time.thread_time_ns() - t1
                         self.lock_count += 1
-                        st = self.conn.guest_exec_wait(f'mkdir /tmp/{pkgbase}')
-                        assert st['exitcode'] == 0, f"failed to make tmp build directory /tmp/{pkgbase}"
-                        #st = self.conn.guest_exec_wait(f'ln -s /dev/stdin /tmp/{pkgbase}/stdin')
-                        #assert st['exitcode'] == 0, f"failed to make tmp build directory /tmp/{pkgbase}"
+                        st = self.conn.guest_exec_wait(f'mkdir /{self.WORKDIR}/{pkgbase}')
+                        assert st['exitcode'] == 0, f"failed to make tmp build directory /{self.WORKDIR}/{pkgbase}"
+                        #st = self.conn.guest_exec_wait(f'ln -s /dev/stdin /{self.WORKDIR}/{pkgbase}/stdin')
+                        #assert st['exitcode'] == 0, f"failed to make tmp build directory /{self.WORKDIR}/{pkgbase}"
                         dirs_made = []
                         for (fname, fmode), fdata in files.items():
                             if fname in ['.SRCINFO']:
                                 continue
                             if fmode == stat.S_IFLNK:
-                                self.conn.make_symlink_vm(pkgdir, fname, fdata.decode('utf-8'))
+                                linkname = fdata.decode('utf-8')
+                                self.logger.debug(f"{pkgdir=} make symlink {fname=} to {linkname=}")
+                                self.conn.make_symlink_vm(pkgdir, linkname, fname)
                             else:
                                 fp = io.BytesIO(fdata)
                                 if '/' in fname:
                                     self.logger.info(f"writing pkgbuild file: {fname=}")
                                     dirn = fname.rsplit('/', 1)[0]
                                     if dirn not in dirs_made:
-                                        st = self.conn.guest_exec_wait(f'mkdir -p /tmp/{pkgbase}/{dirn}')
-                                        assert st['exitcode'] == 0, f"error while making directory /tmp/{pkgbase}/{dirn}"
+                                        st = self.conn.guest_exec_wait(f'mkdir -p /{self.WORKDIR}/{pkgbase}/{dirn}')
+                                        assert st['exitcode'] == 0, f"error while making directory /{self.WORKDIR}/{pkgbase}/{dirn}"
                                         dirs_made.append(dirn)
-                                self.conn.write_to_vm(fp, f"/tmp/{pkgbase}/{fname}")
+                                self.logger.debug(f"transfer file /{self.WORKDIR}/{pkgbase}/{fname}")
+                                self.conn.write_to_vm(fp, f"/{self.WORKDIR}/{pkgbase}/{fname}")
                         self.logger.debug(f"executing printsrcinfo.sh for {pkgbase}")
                         # TODO: remove below
-                        #st = self.conn.guest_exec_wait(f'ls -ltrah /tmp/{pkgbase}/')
+                        #st = self.conn.guest_exec_wait(f'ls -ltrah /{self.WORKDIR}/{pkgbase}/')
                         #self.logger.info(f"{st=}")
-                        st = self.conn.guest_exec(f'/tmp/printsrcinfo.sh', env=[f"PKGDIR=/tmp/{pkgbase}"])
+                        st = self.conn.guest_exec(f'/{self.WORKDIR}/printsrcinfo.sh', env=[f"PKGDIR=/{self.WORKDIR}/{pkgbase}"])
                         self.logger.debug(f"initial status for printsrcinfo {pkgbase=} {st=}")
                         return (int(st), True)
 
@@ -561,7 +577,7 @@ if __name__ == '__main__':
                             t1 = time.thread_time_ns()
                             self.lock_ns += time.thread_time_ns() - t1
                             self.lock_count += 1
-                            st2 = self.conn.guest_exec_wait(f"rm -rf /tmp/{pkgbase}")
+                            st2 = self.conn.guest_exec_wait(f"rm -rf /{self.WORKDIR}/{pkgbase}")
                         return st
 
             class ExtractorThread(threading.Thread):
@@ -618,7 +634,7 @@ if __name__ == '__main__':
                                     if diffs:
                                         self.logger.warning(f"{pkgbase=} has different .SRCINFO")
                                     else:
-                                        self.logger.info(f"{pkgbase=} has differences in indentation")
+                                        self.logger.debug(f"{pkgbase=} has differences in indentation")
                                     for diffline in diffs:
                                         self.logger.error(diffline)
                                 #for fname, fdata in files.items():
@@ -638,9 +654,10 @@ if __name__ == '__main__':
             BATCH_SIZE = 200
             WORKER_THREADS = 12
             UPSERT_SIZE = 500
+            WORKDIR = '/tmp'
             queue_for_vm_input = queue.Queue(int(BATCH_SIZE*1.1+1))
             queue_for_vm_output = queue.Queue(BATCH_SIZE)
-            extractor = Extractor(None, logger)
+            extractor = Extractor(None, logger, WORKDIR)
             if use_vm:
                 new_img = command_make_derived_image_xsh(cwd_image, logger, base_handle, name)
                 assert new_img is not None
@@ -650,10 +667,11 @@ if __name__ == '__main__':
                 assert booted
                 s = f"{cwd_image}/qga-{name}.sock"
                 conn = cluster.qmp.Connection(s, logger)
-                # copy script to /tmp
-                written = command_copy_files_xsh(cwd_image, logger, "{DIR_M}/printsrcinfo.sh", '{name}:/tmp/printsrcinfo.sh', additional_env={'name': name})
+                # copy script to /{self.WORKDIR}
+                written = command_copy_files_xsh(cwd_image, logger, "{DIR_M}/printsrcinfo.sh", '{name}:/{WORKDIR}/printsrcinfo.sh', additional_env={'name': name, 'WORKDIR': WORKDIR})
                 assert written > 1
-                st = conn.guest_exec_wait('chmod +x /tmp/printsrcinfo.sh')
+                st = conn.guest_exec_wait('rm -rf /root/.gnupg')
+                st = conn.guest_exec_wait(f'chmod +x /{WORKDIR}/printsrcinfo.sh')
                 assert st['exitcode'] == 0
                 if not conn.guest_has_package('base-devel'):
                     logger.info("syncing databases")
@@ -661,7 +679,7 @@ if __name__ == '__main__':
                     logger.info("installing base-devel")
                     conn.guest_install_package('base-devel')
 
-                extractor = Extractor(conn, logger)
+                extractor = Extractor(conn, logger, WORKDIR)
 
             errorlogger = logger
             repo = pygit2.Repository(aur_clone)
@@ -729,18 +747,23 @@ if __name__ == '__main__':
             lock_cont_avg = lock_cont_ms / extractor.lock_count
             logger.info(f"after loop stats: {qsize_in=} {qsize_out=} {stored_items=} {processed_items=} {lock_cont_ms=} {lock_cont_avg=}")
             logger.info("joining input threads")
+            assert len(threads)+1 == threading.active_count(), f"Threads have died, started: {len(threads)}, active: {threading.active_count()}"
             for th in threads:
-                #logger.info(f"JOINING THREAD {th.name}")
+                #if not th.is_alive():
+                #    logger.warning(f"THREAD NOT ALIVE: {th.name}")
+                logger.info(f"JOINING THREAD {th.name}")
                 th.join()
-                #logger.info(f"JOINED THREAD {th.name}")
-            #logger.info("joined input threads")
+                logger.info(f"JOINED THREAD {th.name}")
+            logger.info("joined input threads")
             assert queue_for_vm_input.qsize() == 1
             (pkgname, files, last_sentinel) = queue_for_vm_input.get()
             assert last_sentinel
             assert pkgname is None
             assert files is None
             queue_for_vm_input.task_done()
+            logger.info("joining input queue")
             queue_for_vm_input.join()
+            logger.info("joined input queue")
             while queue_for_vm_output.qsize() > 0:
                 item = queue_for_vm_output.get()
                 buffer.append(item)

@@ -155,8 +155,8 @@ class Connection(object, metaclass=CachedViaConstructorMeta):
         return json.loads(stat_result['out-data'])
 
     def make_symlink_vm(self, cwd, link, target_file):
-        st = self.guest_exec_wait(["bash", '-c', f"cd {cwd} && ln -s {link} {target_file}"])
         self.logger.debug(f"make symlink in {cwd=} from {link=} to {target_file=}")
+        st = self.guest_exec_wait(["bash", '-c', f"cd {cwd} && ln -s {link} {target_file}"])
         return st['exitcode'] == 0
 
     def write_to_vm(self, fp, vm_path):
