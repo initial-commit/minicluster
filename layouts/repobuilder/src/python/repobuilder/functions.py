@@ -234,7 +234,7 @@ def arch_parse_srcinfo(pkgbase, srcinfo, logger):
         v = groups['val']
         logger.info(f"{pkgbase=} {k=} {v=}")
 
-def parse_srcinfo(srcinfo, logger):
+def parse_srcinfo(pkg, srcinfo, logger):
     kv_r = re.compile(r'^\s*(?P<key>[^\s=]+)\s*=\s*(?P<val>.*)$')
     meta_list = META_LIST
     for arch in ARCHITECTURES:

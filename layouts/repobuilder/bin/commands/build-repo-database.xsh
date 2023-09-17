@@ -36,6 +36,7 @@ import requests
 import tarfile
 import difflib
 import stat
+import psutil
 
 def create_pkg_sqlitedb(logger, db_file):
     logger.info(f"creating sqlite db for repository: {db_file=}")
@@ -224,7 +225,7 @@ def upsert_aur_package(rawbatch, db, logger):
             else:
                 logger.warning(f"{pkgbase=} unhandled line {line=}")
 
-        norm_pkgs_info = repobuilder.functions.parse_srcinfo(srcinfo, logger)
+        norm_pkgs_info = repobuilder.functions.parse_srcinfo(pkgbase, srcinfo, logger)
         for pkg_info in norm_pkgs_info:
             logger.info(f"{pkgbase=} {pkg_info=}")
 
@@ -660,7 +661,8 @@ if __name__ == '__main__':
                         #self.logger.info(f"THREAD {self.name} PROCESSED ITEM IN queue: {pkgbase}")
 
             BATCH_SIZE = 200
-            WORKER_THREADS = 12
+            WORKER_THREADS = psutil.cpu_count()
+            WORKER_THREADS = 2
             UPSERT_SIZE = 500
             WORKDIR = '/tmp'
             queue_for_vm_input = queue.Queue(int(BATCH_SIZE*1.1+1))
