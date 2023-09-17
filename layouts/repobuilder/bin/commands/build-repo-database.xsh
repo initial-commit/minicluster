@@ -586,6 +586,48 @@ if __name__ == '__main__':
                             st2 = self.conn.guest_exec_wait(f"rm -rf /{self.WORKDIR}/{pkgbase}")
                         return st
 
+            class MonitoringThread(threading.Thread):
+                def __init__(self, queue_in, queue_out, logger):
+                    self.queue_in = queue_in
+                    self.queue_out = queue_out
+                    self.logger = logger.getChild(self.__class__.__name__)
+                    super().__init__()
+
+                def run(self):
+                    has_data = True
+                    no_data_start = time.time()
+                    last_logged = None
+                    prev_queue_in = None
+                    prev_queue_out = None
+                    keep_monitoring = True
+                    while keep_monitoring:
+                        queue_in = self.queue_in.qsize()
+                        queue_out = self.queue_out.qsize()
+                        do_logging = True
+                        if queue_in == prev_queue_in and queue_out == prev_queue_out:
+                            do_logging = False
+                        if do_logging:
+                            self.logger.info(f"{queue_in=} {queue_out=}")
+                            last_logged = time.time()
+                            prev_queue_in = queue_in
+                            prev_queue_out = queue_out
+                        if time.time() - last_logged > 2:
+                            self.logger.info(f"no logging done for 10s")
+                            keep_monitoring = False
+                        if not last_logged:
+                            keep_monitoring = time.time()
+                        if keep_monitoring:
+                            time.sleep(0.050)
+                        else:
+                            (pkgbase, files, last) = self.queue_in.get()
+                            if not last:
+                                keep_monitoring = True
+                                self.queue_in.task_done()
+                            else:
+                                self.queue_in.put((pkgbase, files, last))
+                                self.queue_in.task_done()
+                    self.logger.info("stop monitoring")
+
             class ExtractorThread(threading.Thread):
                 # TODO: conn instead of extractor
                 def __init__(self, queue_in, queue_out, extractor, logger, cond):
@@ -598,7 +640,6 @@ if __name__ == '__main__':
 
                 def run(self):
                     last = False
-                    #local = threading.local()
                     while not last:
                         error_lines = []
                         (pkgbase, files, last)= self.queue_in.get()
@@ -611,6 +652,7 @@ if __name__ == '__main__':
                             return
                         # TODO: here process with extractor
                         #local.t1 = time.thread_time()
+                        #self.logger.info(f"THREAD {self.name} starts extracting {pkgbase=}")
                         (pid, success) = self.extractor.exec_start(pkgbase, files)
                         if success:
                             exited = False
@@ -643,26 +685,21 @@ if __name__ == '__main__':
                                         self.logger.debug(f"{pkgbase=} has differences in indentation")
                                     for diffline in diffs:
                                         self.logger.error(diffline)
-                                #for fname, fdata in files.items():
-                                #    self.logger.debug(f"==================================")
-                                #    self.logger.debug(f"{fname}")
-                                #    lines = fdata.decode('utf-8', 'backslashreplace').splitlines()
-                                #    for line in lines:
-                                #        self.logger.debug(f"{line}")
 
                         # TODO: further processing with a function
-                        #self.logger.info(f"THREAD {self.name} before putting in output: {pkgbase}")
+                        self.logger.debug(f"THREAD {self.name} before putting in output: {pkgbase}")
                         self.queue_out.put((pkgbase, files, diffs, error_lines))
-                        #self.logger.info(f"THREAD {self.name} after putting in output: {pkgbase}")
+                        self.logger.debug(f"THREAD {self.name} after putting in output: {pkgbase}")
                         self.queue_in.task_done()
-                        #self.logger.info(f"THREAD {self.name} PROCESSED ITEM IN queue: {pkgbase}")
+                        self.logger.debug(f"THREAD {self.name} PROCESSED ITEM IN queue: {pkgbase}")
 
             BATCH_SIZE = 200
-            WORKER_THREADS = 2
             WORKER_THREADS = psutil.cpu_count()
+            WORKER_THREADS = 2
             UPSERT_SIZE = 500
             WORKDIR = '/tmp'
-            queue_for_vm_input = queue.Queue(int(BATCH_SIZE*1.1+1))
+            #queue_for_vm_input = queue.Queue(int(BATCH_SIZE*1.1+1))
+            queue_for_vm_input = queue.Queue(WORKER_THREADS+1)
             queue_for_vm_output = queue.Queue(BATCH_SIZE)
             extractor = Extractor(None, logger, WORKDIR)
             if use_vm:
@@ -700,61 +737,64 @@ if __name__ == '__main__':
             threads = [ExtractorThread(queue_for_vm_input, queue_for_vm_output, extractor, logger, cond) for i in range(WORKER_THREADS)]
             stored_items = 0
             processed_items = 0
+            monitoring_thread = MonitoringThread(queue_for_vm_input, queue_for_vm_output, logger)
+            monitoring_thread.start()
             for th in threads:
                 #logger.info(f"STARTING THREAD {th.name}")
                 th.start()
             for (pkgbase, files, last) in repobuilder.functions.aur_repo_iterator_simple(repo, known_packages):
-                if last:
-                    # TODO: use a condition instead of the sentinel value
-                    queue_for_vm_input.put((None, None, True))
-                    break
-                i += 1
-                #logger.info(f"processing {pkgbase=}")
-                processed_items += 1
-                queue_for_vm_input.put((pkgbase, files, last))
-                if queue_for_vm_output.qsize() >= BATCH_SIZE:
-                    qsize_in = queue_for_vm_input.qsize()
-                    logger.info(f"Flushing, input at size {qsize_in=}")
-                    #queue_for_vm_input.join()
-                    logger.info("no more input, storing output")
-                    while queue_for_vm_output.qsize() >= 1:
-                        item = queue_for_vm_output.get()
-                        #logger.debug(f"get output item for {pkgbase=} {item=}")
-                        buffer.append(item)
-                        stored_items += 1
-                        queue_for_vm_output.task_done()
-                        buffer_size = len(buffer)
-                        if buffer_size % UPSERT_SIZE == 0:
-                            qsize_in = queue_for_vm_input.qsize()
-                            qsize_out = queue_for_vm_output.qsize()
-                            logger.info(f"during loop stats: {qsize_in=} {qsize_out=} {stored_items=} {processed_items=}")
-                            upsert_aur_package(buffer, db, logger)
-                            buffer = []
-            qsize_in = queue_for_vm_input.qsize()
-            qsize_out = queue_for_vm_output.qsize()
-            logger.info(f"before join stats: {qsize_in=} {qsize_out=} {stored_items=} {processed_items=}")
-            logger.info(f"emptying output queue")
-            ###################################################
-            while queue_for_vm_input.qsize() + queue_for_vm_output.qsize() > 1:
-                #logger.info(f"getting one item")
-                item = queue_for_vm_output.get()
-                #logger.debug(f"got item {item=}")
-                buffer.append(item)
-                stored_items += 1
-                queue_for_vm_output.task_done()
-                buffer_size = len(buffer)
-                if buffer_size % UPSERT_SIZE == 0:
+                if not last:
+                    queue_for_vm_input.put((pkgbase, files, last))
                     qsize_in = queue_for_vm_input.qsize()
                     qsize_out = queue_for_vm_output.qsize()
-                    logger.info(f"during final loop stats: {qsize_in=} {qsize_out=} {stored_items=} {processed_items=}")
-            logger.info(f"waiting for input to become empty: {qsize_in=}")
-            qsize_in = queue_for_vm_input.qsize()
-            qsize_out = queue_for_vm_output.qsize()
-            (lock_cont_ms, lock_cont_avg) = extractor.get_stats()
-            logger.info(f"after loop stats: {qsize_in=} {qsize_out=} {stored_items=} {processed_items=} {lock_cont_ms=} {lock_cont_avg=}")
+                    processed_items += 1
+                    logger.info(f"got for processing: {pkgbase=} {processed_items=} {qsize_in=} {qsize_out=}")
+                #if last:
+                #    # TODO: use a condition instead of the sentinel value
+                #    queue_for_vm_input.put((None, None, True))
+                #    break
+                #i += 1
+                #logger.info(f"processing {pkgbase=}")
+                #if queue_for_vm_output.qsize() >= BATCH_SIZE:
+                #    qsize_in = queue_for_vm_input.qsize()
+                #    logger.info(f"Flushing, input at size {qsize_in=}")
+                #    #queue_for_vm_input.join()
+                #    logger.info("no more input, storing output")
+                #    while queue_for_vm_output.qsize() >= 1:
+                #        item = queue_for_vm_output.get()
+                #        #logger.debug(f"get output item for {pkgbase=} {item=}")
+                #        buffer.append(item)
+                #        stored_items += 1
+                #        queue_for_vm_output.task_done()
+                #        buffer_size = len(buffer)
+                #        if buffer_size % UPSERT_SIZE == 0:
+                #            qsize_in = queue_for_vm_input.qsize()
+                #            qsize_out = queue_for_vm_output.qsize()
+                #            logger.info(f"during loop stats: {qsize_in=} {qsize_out=} {stored_items=} {processed_items=}")
+                #            upsert_aur_package(buffer, db, logger)
+                #            buffer = []
+            #logger.info(f"emptying output queue")
+            ###################################################
+            #while queue_for_vm_input.qsize() + queue_for_vm_output.qsize() > 1:
+            #    #logger.info(f"getting one item")
+            #    item = queue_for_vm_output.get()
+            #    #logger.debug(f"got item {item=}")
+            #    buffer.append(item)
+            #    stored_items += 1
+            #    queue_for_vm_output.task_done()
+            #    buffer_size = len(buffer)
+            #    if buffer_size % UPSERT_SIZE == 0:
+            #        qsize_in = queue_for_vm_input.qsize()
+            #        qsize_out = queue_for_vm_output.qsize()
+            #        logger.info(f"during final loop stats: {qsize_in=} {qsize_out=} {stored_items=} {processed_items=}")
+            #logger.info(f"waiting for input to become empty: {qsize_in=}")
+            #qsize_in = queue_for_vm_input.qsize()
+            #qsize_out = queue_for_vm_output.qsize()
+            #(lock_cont_ms, lock_cont_avg) = extractor.get_stats()
+            #logger.info(f"after loop stats: {qsize_in=} {qsize_out=} {stored_items=} {processed_items=} {lock_cont_ms=} {lock_cont_avg=}")
             logger.info("joining input threads")
-            if processed_items > WORKER_THREADS:
-                assert len(threads)+1 == threading.active_count(), f"Threads have died, started: {len(threads)}, active: {threading.active_count()}"
+            #if processed_items > WORKER_THREADS:
+            #    assert len(threads)+1 == threading.active_count(), f"Threads have died, started: {len(threads)}, active: {threading.active_count()}"
             for th in threads:
                 #if not th.is_alive():
                 #    logger.warning(f"THREAD NOT ALIVE: {th.name}")
@@ -762,27 +802,33 @@ if __name__ == '__main__':
                 th.join()
                 logger.info(f"JOINED THREAD {th.name}")
             logger.info("joined input threads")
-            assert queue_for_vm_input.qsize() == 1
-            (pkgname, files, last_sentinel) = queue_for_vm_input.get()
-            assert last_sentinel
-            assert pkgname is None
-            assert files is None
-            queue_for_vm_input.task_done()
-            logger.info("joining input queue")
+            logger.info(f"join output queue")
+            queue_for_vm_output.join()
+            logger.info(f"joined output queue")
+            logger.info(f"join input queue")
             queue_for_vm_input.join()
-            logger.info("joined input queue")
-            while queue_for_vm_output.qsize() > 0:
-                item = queue_for_vm_output.get()
-                buffer.append(item)
-                stored_items += 1
-                queue_for_vm_output.task_done()
-                buffer_size = len(buffer)
-            qsize_in = queue_for_vm_input.qsize()
-            qsize_out = queue_for_vm_output.qsize()
-            buffer_size = len(buffer)
-            logger.info(f"after join stats: {qsize_in=} {qsize_out=} {buffer_size=} {stored_items=} {processed_items=}")
-            #logger.info(f"{buffer=}")
-            upsert_aur_package(buffer, db, logger)
+            logger.info(f"joined input queue")
+            #assert queue_for_vm_input.qsize() == 1
+            #(pkgname, files, last_sentinel) = queue_for_vm_input.get()
+            #assert last_sentinel
+            #assert pkgname is None
+            #assert files is None
+            #queue_for_vm_input.task_done()
+            #logger.info("joining input queue")
+            #queue_for_vm_input.join()
+            #logger.info("joined input queue")
+            #while queue_for_vm_output.qsize() > 0:
+            #    item = queue_for_vm_output.get()
+            #    buffer.append(item)
+            #    stored_items += 1
+            #    queue_for_vm_output.task_done()
+            #    buffer_size = len(buffer)
+            #qsize_in = queue_for_vm_input.qsize()
+            #qsize_out = queue_for_vm_output.qsize()
+            #buffer_size = len(buffer)
+            #logger.info(f"after join stats: {qsize_in=} {qsize_out=} {buffer_size=} {stored_items=} {processed_items=}")
+            ##logger.info(f"{buffer=}")
+            #upsert_aur_package(buffer, db, logger)
             ###################################################
             #for (pkgid, meta, last) in repobuilder.functions.aur_repo_iterator(repo, extractor, errorlogger):
             #    #if pkgid and 'mediasort' not in pkgid:
