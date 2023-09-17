@@ -38,6 +38,23 @@ import difflib
 import stat
 import psutil
 
+def get_files_as_tar(fh, pkgbase, files):
+    with tarfile.open(fileobj=fh, mode='w:gz') as tar:
+        for (fname, fmode), fdata in files.items():
+            if fname in ['.SRCINFO']:
+                continue
+            info = tarfile.TarInfo(f"tmp/{pkgbase}/{fname}")
+            info.mtime=time.time()
+            if fmode == stat.S_IFLNK:
+                info.type = tarfile.SYMTYPE
+                info.linkname = fdata.decode('utf-8')
+            else:
+                info.size = len(fdata)
+                info.mode = fmode
+            tar.addfile(info, io.BytesIO(fdata))
+    fh.seek(0)
+    return fh
+
 def create_pkg_sqlitedb(logger, db_file):
     logger.info(f"creating sqlite db for repository: {db_file=}")
     if db_file.exists():
@@ -529,52 +546,32 @@ if __name__ == '__main__':
                     self.lock_count = 0
                     self.WORKDIR = workdir
 
-                def __call__(self, pkgbuild_data):
-                    st = self.conn.guest_exec_wait(f'/{self.WORKDIR}/printsrcinfo.sh', input_data=pkgbuild_data)
-                    if st['exitcode'] != 0 or len(st['err-data'].strip()) > 0:
-                        self.logger.error(f"cannot extract srcinfo from pkgbuild: {st=}")
-                        return None
-                    return st['out-data']
-
                 def exec_start(self, pkgbase, files):
-                    pkgdir = f"/{self.WORKDIR}/{pkgbase}"
+                    pkgdir = f"/{self.WORKDIR}/{pkgbase}".replace('//', '/')
+                    arch_inside = f"/tmp/{pkgbase}.tar.gz"
+                    #import pickle
+                    #with open(f"/tmp/{pkgbase}.pickle", 'wb') as f:
+                    #    pickle.dump(files, f)
+                    fh = io.BytesIO()
+                    fh = get_files_as_tar(fh, pkgbase, files)
                     t1 = time.thread_time_ns()
                     with self.lock:
                         self.lock_ns += time.thread_time_ns() - t1
                         self.lock_count += 1
-                        st = self.conn.guest_exec_wait(f'mkdir /{self.WORKDIR}/{pkgbase}')
-                        assert st['exitcode'] == 0, f"failed to make tmp build directory /{self.WORKDIR}/{pkgbase}"
-                        #st = self.conn.guest_exec_wait(f'ln -s /dev/stdin /{self.WORKDIR}/{pkgbase}/stdin')
-                        #assert st['exitcode'] == 0, f"failed to make tmp build directory /{self.WORKDIR}/{pkgbase}"
-                        dirs_made = []
-                        modes_and_files = []
-                        for (fname, fmode), fdata in files.items():
-                            if fname in ['.SRCINFO']:
-                                continue
-                            if fmode == stat.S_IFLNK:
-                                linkname = fdata.decode('utf-8')
-                                self.logger.debug(f"{pkgdir=} make symlink {fname=} to {linkname=}")
-                                self.conn.make_symlink_vm(pkgdir, linkname, fname)
-                            else:
-                                fp = io.BytesIO(fdata)
-                                if '/' in fname:
-                                    self.logger.info(f"writing pkgbuild file: {fname=}")
-                                    dirn = fname.rsplit('/', 1)[0]
-                                    if dirn not in dirs_made:
-                                        st = self.conn.guest_exec_wait(f'mkdir -p /{self.WORKDIR}/{pkgbase}/{dirn}')
-                                        assert st['exitcode'] == 0, f"error while making directory /{self.WORKDIR}/{pkgbase}/{dirn}"
-                                        dirs_made.append(dirn)
-                                self.logger.debug(f"transfer file /{self.WORKDIR}/{pkgbase}/{fname}")
-                                self.conn.write_to_vm(fp, f"/{self.WORKDIR}/{pkgbase}/{fname}")
-                                modes_and_files.extend([fmode, f"/{self.WORKDIR}/{pkgbase}/{fname}"])
-                        self.conn.chmod(modes_and_files)
-                        self.logger.debug(f"executing printsrcinfo.sh for {pkgbase}")
-                        # TODO: remove below
-                        #st = self.conn.guest_exec_wait(f'ls -ltrah /{self.WORKDIR}/{pkgbase}/')
-                        #self.logger.info(f"{st=}")
+                        self.conn.write_to_vm(fh, arch_inside)
+                        resp = self.conn.guest_exec_wait(["bash", "-c", f"tar xfz {arch_inside} && rm -rf {arch_inside}"])
                         st = self.conn.guest_exec(f'/{self.WORKDIR}/printsrcinfo.sh', env=[f"PKGDIR=/{self.WORKDIR}/{pkgbase}"])
-                        self.logger.debug(f"initial status for printsrcinfo {pkgbase=} {st=}")
+                        #self.logger.debug(f"initial status for printsrcinfo {pkgbase=} {st=}")
                         return (int(st), True)
+                    return (0, False)
+
+                def get_stats(self):
+                    lock_cont_ms = extractor.lock_ns / 1000 / 1000
+                    if self.lock_count:
+                        lock_cont_avg = lock_cont_ms / extractor.lock_count
+                    else:
+                        lock_cont_avg = 0
+                    return (lock_cont_ms, lock_cont_avg)
 
                 def exec_result(self, pid, pkgbase):
                     t1 = time.thread_time_ns()
@@ -661,8 +658,8 @@ if __name__ == '__main__':
                         #self.logger.info(f"THREAD {self.name} PROCESSED ITEM IN queue: {pkgbase}")
 
             BATCH_SIZE = 200
-            WORKER_THREADS = psutil.cpu_count()
             WORKER_THREADS = 2
+            WORKER_THREADS = psutil.cpu_count()
             UPSERT_SIZE = 500
             WORKDIR = '/tmp'
             queue_for_vm_input = queue.Queue(int(BATCH_SIZE*1.1+1))
@@ -753,8 +750,7 @@ if __name__ == '__main__':
             logger.info(f"waiting for input to become empty: {qsize_in=}")
             qsize_in = queue_for_vm_input.qsize()
             qsize_out = queue_for_vm_output.qsize()
-            lock_cont_ms = extractor.lock_ns / 1000 / 1000
-            lock_cont_avg = lock_cont_ms / extractor.lock_count
+            (lock_cont_ms, lock_cont_avg) = extractor.get_stats()
             logger.info(f"after loop stats: {qsize_in=} {qsize_out=} {stored_items=} {processed_items=} {lock_cont_ms=} {lock_cont_avg=}")
             logger.info("joining input threads")
             if processed_items > WORKER_THREADS:
