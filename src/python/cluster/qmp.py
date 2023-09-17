@@ -202,11 +202,13 @@ class Connection(object, metaclass=CachedViaConstructorMeta):
                     mode = oct(mode)[-3:]
                 else:
                     fname = cmd_args[i]
+                    fname = shlex.quote(fname)
                     cmd = f"chmod {mode} {fname}"
                     st = self.guest_exec_wait(cmd)
                     if st['exitcode'] != 0:
                         self.logger.error(f"failed: {cmd}")
                         has_failures = True
+                    mode = '644'
             if has_failures:
                 return False
             return True
