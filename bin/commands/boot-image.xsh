@@ -8,7 +8,9 @@ if __name__ == '__main__':
     import math
     from cluster.functions import str2bool_exc as strtobool
     def_ram = 2**int(math.log2(psutil.virtual_memory().available // 2**20 * 2/3))
+    def_cores = 4
     MINICLUSTER.ARGPARSE.add_argument('--ram', default=def_ram)
+    MINICLUSTER.ARGPARSE.add_argument('--cores', default=def_cores)
     MINICLUSTER.ARGPARSE.add_argument('--network', nargs='?', type=lambda b:bool(strtobool(b)), const=False, default=True, metavar='true|false')
     MINICLUSTER.ARGPARSE.add_argument('--interactive', nargs='?', type=lambda b:bool(strtobool(b)), const=False, default=True, metavar='true|false')
     MINICLUSTER = MINICLUSTER.bootstrap_finished(MINICLUSTER)
@@ -81,9 +83,10 @@ class Handler(ABC):
 class GenericParameters(Handler):
     def handle(self):
 	ram = self.cmd_args['ram']
+	cores = self.cmd_args['cores']
 	cpu = [
 	    '-cpu', 'host',
-	    '-smp', 'cores=4,threads=1,sockets=1',
+	    '-smp', f'cores={cores},threads=1,sockets=1',
 	    '-object', f'memory-backend-file,id=mem,size={ram}M,mem-path=/dev/shm,share=on',
 	    '-machine', 'type=q35,accel=kvm,memory-backend=mem',
 	]
@@ -200,13 +203,14 @@ class KernelParameters(Handler):
 	p.extend(kernel)
 	return p
 
-def command_boot_image_xsh(cwd, logger, image, name, ram, network, interactive):
+def command_boot_image_xsh(cwd, logger, image, name, ram, cores, network, interactive):
     if image.endswith('.qcow2'):
 	image = image[:-6]
     cmd_args = {
 	'image': image,
 	'name': name,
 	'ram': ram,
+	'cores': cores,
 	'cwd': cwd,
 	'network': network,
 	'interactive': interactive,
@@ -294,6 +298,7 @@ if __name__ == '__main__':
     image = MINICLUSTER.ARGS.image
     name = MINICLUSTER.ARGS.name
     ram = MINICLUSTER.ARGS.ram
+    cores = MINICLUSTER.ARGS.cores
     network = MINICLUSTER.ARGS.network
     interactive = MINICLUSTER.ARGS.interactive
-    command_boot_image_xsh(cwd, logger, image, name, ram, network, interactive)
+    command_boot_image_xsh(cwd, logger, image, name, ram, cores, network, interactive)

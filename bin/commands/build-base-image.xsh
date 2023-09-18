@@ -244,7 +244,7 @@ def proc_initial_build(cwd, logger, handle, diskspec, cache):
     # TODO: make a backup
     cp -a @(f"{handle}.qcow2") @(f"pristine-{handle}.qcow2")
     name = get_random_name(handle) + str(get_linenumber())
-    started = command_boot_image_xsh(cwd, logger, handle, name, 2048, True, False)
+    started = command_boot_image_xsh(cwd, logger, handle, name, 2048, 4, True, False)
     if not started:
         logger.error("failed to boot initial image")
         return None
@@ -280,7 +280,7 @@ def proc_build_nested(cwd, logger, handle, l2_ram):
     # TODO: poweroff would benefit from a context
     name = get_random_name(handle) + str(get_linenumber())
     # boot image
-    started = command_boot_image_xsh(cwd, logger, handle, name, l2_ram, True, False)
+    started = command_boot_image_xsh(cwd, logger, handle, name, l2_ram, 4, True, False)
     if not started:
         logger.error(f"failed to start {handle=} with ram {l2_ram=} and {name=}")
         return False
@@ -395,7 +395,7 @@ if __name__ == '__main__':
     if extract_nested:
         cwd_inside = '/root/minic'
         name = get_random_name(handle) + str(get_linenumber())
-        started = command_boot_image_xsh(cwd, logger, handle, name, vm_ram, True, False)
+        started = command_boot_image_xsh(cwd, logger, handle, name, vm_ram, 4, True, False)
         if not started:
             logger.error(f"failed to start {handle=} with ram {vm_ram=} and {name=} for the purpose of extracting image")
             early_exit(3)
@@ -411,7 +411,7 @@ if __name__ == '__main__':
         logger.info(f"START: extract_assets - the L1 pacman repo, deduplicated")
         l2_artefacts_dir = pf"{cwd}/artefacts-nested-{handle}"
         name = get_random_name(handle) + str(get_linenumber())
-        started = command_boot_image_xsh(cwd, logger, handle, name, vm_ram, True, False)
+        started = command_boot_image_xsh(cwd, logger, handle, name, vm_ram, 4, True, False)
         if not started:
             logger.error(f"failed to start {handle=} with ram {vm_ram=} and {name=} for the purpose of extracting L1 repo")
             early_exit(5)

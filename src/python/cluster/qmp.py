@@ -89,7 +89,7 @@ class Connection(object, metaclass=CachedViaConstructorMeta):
             return None
         return resp['return']
 
-    def guest_exec_wait(self, cmd, input_data=None, capture_output=True, env=[], interval=0.1, out_encoding='utf-8'):
+    def guest_exec_wait(self, cmd, input_data=None, capture_output=True, env=[], interval=0.005, out_encoding='utf-8'):
         self.logger.debug(f"preparing to execute cmd {cmd=}", extra={'input_data': input_data})
         pid = self.guest_exec(cmd, input_data, capture_output, env)
         assert isinstance(pid, int), "pid must be int, value: {pid=}"

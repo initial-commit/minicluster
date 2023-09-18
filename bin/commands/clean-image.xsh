@@ -83,7 +83,8 @@ def command_clean_image_xsh(cwd, logger, handle, repo_db):
 	if pow_fac > 10:
 	    pow_fac = 10
 	def_ram = 2**pow_fac
-	started = command_boot_image_xsh(cwd, logger, handle, name, def_ram, True, False)
+	def_cores = 4
+	started = command_boot_image_xsh(cwd, logger, handle, name, def_ram, def_cores, True, False)
 	if not started:
 	    return False
 	rm_patterns = [

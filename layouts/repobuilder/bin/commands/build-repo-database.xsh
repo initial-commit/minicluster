@@ -549,9 +549,6 @@ if __name__ == '__main__':
                 def exec_start(self, pkgbase, files):
                     pkgdir = f"/{self.WORKDIR}/{pkgbase}".replace('//', '/')
                     arch_inside = f"/tmp/{pkgbase}.tar.gz"
-                    #import pickle
-                    #with open(f"/tmp/{pkgbase}.pickle", 'wb') as f:
-                    #    pickle.dump(files, f)
                     fh = io.BytesIO()
                     fh = get_files_as_tar(fh, pkgbase, files)
                     t1 = time.thread_time_ns()
@@ -559,7 +556,15 @@ if __name__ == '__main__':
                         self.lock_ns += time.thread_time_ns() - t1
                         self.lock_count += 1
                         self.conn.write_to_vm(fh, arch_inside)
+                    t1 = time.thread_time_ns()
+                    with self.lock:
+                        self.lock_ns += time.thread_time_ns() - t1
+                        self.lock_count += 1
                         resp = self.conn.guest_exec_wait(["bash", "-c", f"tar xfz {arch_inside} && rm -rf {arch_inside}"])
+                    t1 = time.thread_time_ns()
+                    with self.lock:
+                        self.lock_ns += time.thread_time_ns() - t1
+                        self.lock_count += 1
                         st = self.conn.guest_exec(f'/{self.WORKDIR}/printsrcinfo.sh', env=[f"PKGDIR=/{self.WORKDIR}/{pkgbase}"])
                         #self.logger.debug(f"initial status for printsrcinfo {pkgbase=} {st=}")
                         return (int(st), True)
@@ -729,7 +734,7 @@ if __name__ == '__main__':
                     self.logger.info(f"Finished storing after {storing_duration=}s {self.items_stored=} {avg_per_sec=}")
 
             BATCH_SIZE = 200
-            WORKER_THREADS = int(psutil.cpu_count()*1)
+            WORKER_THREADS = int(psutil.cpu_count()*3)
             WORKDIR = '/tmp'
             queue_for_vm_input = queue.Queue(WORKER_THREADS)
             queue_for_vm_output = queue.Queue(BATCH_SIZE)
@@ -739,7 +744,7 @@ if __name__ == '__main__':
                 assert new_img is not None
                 cwd_image = str(new_img.parent)
                 new_img = str(new_img)
-                booted = command_boot_image_xsh(cwd_image, logger, new_img, name, 2048, True, False)
+                booted = command_boot_image_xsh(cwd_image, logger, new_img, name, 4096, 8, True, False)
                 assert booted
                 s = f"{cwd_image}/qga-{name}.sock"
                 conn = cluster.qmp.Connection(s, logger)
