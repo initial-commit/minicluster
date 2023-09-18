@@ -13,6 +13,9 @@ import threading
 import base64
 import psutil
 import io
+import cluster.functions
+import contextlib
+import json
 
 
 META_REQUIRED = [
@@ -578,7 +581,7 @@ class Extractor(object):
         with self.lock:
             self.lock_ns += time.thread_time_ns() - t1
             self.lock_count += 1
-            st = self.conn.guest_exec(f'/{self.WORKDIR}/printsrcinfo.sh', env=[f"PKGDIR=/{self.WORKDIR}/{pkgbase}"])
+            st = self.conn.guest_exec(f'/{self.WORKDIR}/printsrcinfo.sh', env=[f"PKGDIR={pkgdir}"])
             #self.logger.debug(f"initial status for printsrcinfo {pkgbase=} {st=}")
             return (int(st), True)
         return (0, False)
@@ -603,6 +606,7 @@ class Extractor(object):
                 self.lock_count += 1
                 st2 = self.conn.guest_exec_wait(f"rm -rf /{self.WORKDIR}/{pkgbase}")
             return st
+
 
 class MonitoringThread(threading.Thread):
     def __init__(self, queue_in, queue_out, logger):
@@ -652,6 +656,7 @@ class MonitoringThread(threading.Thread):
                 time.sleep(0.001)
         self.logger.info("stop monitoring")
 
+
 class ExtractorThread(threading.Thread):
     def __init__(self, queue_in, queue_out, extractor, logger, cond):
         self.queue_in = queue_in
@@ -696,21 +701,10 @@ class ExtractorThread(threading.Thread):
                     data = base64.b64decode(st['out-data'])
                     files['.SRCINFO-ORIGINAL'] = files['.SRCINFO']
                     files['.SRCINFO'] = data
-                    if data != files['.SRCINFO-ORIGINAL']:
-                        lines_original = [v.strip() for v in files['.SRCINFO'].decode('utf-8', 'backslashreplace') if v.strip()]
-                        lines_new = [v.strip() for v in data.decode('utf-8', 'backslashreplace') if v.strip()]
-                        diffs = difflib.unified_diff(lines_original, lines_new, fromfile=f'{pkgbase}/.SRCINFO-ORIGINAL', tofile=f'{pkgbase}/.SRCINFO', lineterm='', n=1)
-                        diffs = list(diffs)
-                        if diffs:
-                            self.logger.warning(f"{pkgbase=} has different .SRCINFO")
-                        else:
-                            self.logger.debug(f"{pkgbase=} has differences in indentation")
-                        for diffline in diffs:
-                            self.logger.error(diffline)
 
             # TODO: further processing with a function
             self.logger.debug(f"THREAD {self.name} before putting in output: {pkgbase}")
-            self.queue_out.put((pkgbase, files, diffs, error_lines))
+            self.queue_out.put((pkgbase, files, error_lines))
             self.logger.debug(f"THREAD {self.name} after putting in output: {pkgbase}")
             self.queue_in.task_done()
             self.logger.debug(f"THREAD {self.name} PROCESSED ITEM IN queue: {pkgbase}")
@@ -727,36 +721,97 @@ class StorageThread(threading.Thread):
     def run(self):
         last_stored = None
         first_stored = None
-        do_store = True
         qsize_out = self.queue_out.qsize()
         while self.do_store.is_set() or qsize_out > 0:
             qsize_out = self.queue_out.qsize()
             if qsize_out == 0:
                 time.sleep(0.100)
                 continue
-            (pkgbase, files, diffs, error_lines) = self.queue_out.get()
+            (pkgbase, files, error_lines) = self.queue_out.get()
             if not first_stored:
                 first_stored = time.time()
             self.logger.info(f"STORING: {pkgbase=}")
+            self.acknowledge_package(pkgbase, files, error_lines)
             self.queue_out.task_done()
             qsize_out = self.queue_out.qsize()
             self.items_stored += 1
             last_stored = time.time()
-        storing_duration = last_stored - first_stored
-        avg_per_sec = self.items_stored / storing_duration
+        storing_duration = None
+        avg_per_sec = None
+        if last_stored and first_stored:
+            storing_duration = last_stored - first_stored
+            avg_per_sec = self.items_stored / storing_duration
         self.logger.info(f"Finished storing after {storing_duration=}s {self.items_stored=} {avg_per_sec=}")
+
+    def acknowledge_package(self, pkgbase, files, error_lines):
+        tags_to_ignore = set(['curl', 'empty', 'compilation_terminated', 'gpg_key_not_changed', ])
+        if '.SRCINFO-ORIGINAL' in files:
+            srcinfo_original = files['.SRCINFO-ORIGINAL'].decode('utf-8', 'backslashreplace').splitlines()
+            srcinfo = files['.SRCINFO'].decode('utf-8', 'backslashreplace').splitlines()
+            lines_original = [v.strip() for v in srcinfo_original if v.strip()]
+            lines_new = [v.strip() for v in srcinfo if v.strip()]
+            diffs = difflib.unified_diff(lines_original, lines_new, fromfile=f'{pkgbase}/.SRCINFO-ORIGINAL', tofile=f'{pkgbase}/.SRCINFO', lineterm='', n=1)
+            for line in diffs:
+                self.logger.warning(f"DIFF {pkgbase}: {line}")
+            for line in srcinfo_original:
+                self.logger.debug(f".SRCINFO-ORIGINAL {pkgbase}: {line}")
+            for line in srcinfo:
+                self.logger.debug(f".SRCINFO {pkgbase}: {line}")
+        for line in error_lines:
+            (tags, meta) = self.aur_errorline_tags(line)
+            if tags_to_ignore.intersection(tags):
+                continue
+            if len(tags) != 0 or len(meta) != 0:
+                self.logger.info(f"PARSED ERROR: {pkgbase=} {tags=} {meta=} {line=}")
+            else:
+                self.logger.warning(f"{pkgbase=} unhandled line {line=}")
+
+    def aur_errorline_tags(self, line):
+        tags = []
+        meta = {}
+        all_tags = [
+            ('curl', r'^\s*%\s+Total\s+%\s+Received\s+%\s+Xferd\s+Average\s+Speed\s+Time\s+Time\s+Time\s+Current$'),
+            ('curl', r'^\s+Dload\s+Upload\s+Total\s+Spent\s+Left\s+Speed$'),
+            ('empty', r'^\s*$'),
+            ('curl', r'^\s*\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s*--:--:--\s+--:--:--\s+--:--:--\s+\d+$'),
+            ('curl', r'^\s*\d+\s*\d+k?\s+\d+\s+\d+\s+\d+\s+\d+\s+\dk?\s+\d+\s+\d+:\d+:\d+\s+--:--:--\s+\d+:\d+:\d+\s+\d+k?$'),
+            ('curl', r'^[0-9:\sk-]+$'),
+            ('no_file_or_dir', r'^(?P<buildfile>[^:]+): line (?P<line>[^:]+): (?P<file>[^:]+): No such file or directory$'),
+            ('command_not_found', r'^(?P<buildfile>[^:]+): line (?P<line>[^:]+): (?P<command>[^:]+): command not found$'),
+            ('cannot_change_locale', r'^(?P<buildfile>[^:]+): line (?P<line>\d+): warning: setlocale: (?P<variable>[^:]+): cannot change locale \((?P<locale>.+)\)$'),
+            ('gcc_execvp_error', r"^gcc: fatal error: cannot execute '(?P<command>.+)': execvp: No such file or directory$"),
+            ('compilation_terminated', r'^compilation terminated.$'),
+            ('cat_no_file', r"^cat: (?P<file>[^:]+): No such file or directory$"),
+            ('sed_cant_read', r"sed: can't read (?P<file>[^:]+): No such file or directory"),
+            ('package_not_found', r"error: package '(?P<package>[^']+)' was not found"),
+            ('pkgbuild_generic_line_error', r"^PKGBUILD: line (?P<line>[^:]+): (?P<message>.+)$"),
+            ('gpg_keybox_created', r"^gpg: keybox '(?P<keybox>[^']+)' created$"),
+            ('gpg_trustdb_created', r"^gpg: (?P<trustdb>[^:]+): trustdb created$"),
+            ('gpg_counter', r"^gpg: (?P<message>[^:]+): (?P<count>\d+)$"),
+            ('gpg_key_imported', r'^gpg: key (?P<key_id>[^:]+): public key "(?P<contact>[^"]+)" imported$'),
+            ('gpg_key_not_changed', r'^gpg: key (?P<key_id>[^:]+): "(?P<contact>[^"]+)" not changed$'),
+            ('gpg_missing_key', r'gpg: key (?P<key_id>[^:]+): 1 signature not checked due to a missing key'),
+            ('gpg_no_trusted_key_found', '^gpg: no ultimately trusted keys found$'),
+        ]
+        for tag, reg in all_tags:
+            m = re.match(reg, line)
+            if not m:
+                continue
+            meta[tag] = m.groupdict()
+            tags.append(tag)
+        return (set(tags), meta)
+
 
 def upsert_aur_package(rawbatch, db, logger):
     tags_to_ignore = set(['curl', 'empty', 'compilation_terminated', 'gpg_key_not_changed', ])
     logger.info(f"storing pkgbase in db {len(rawbatch)}")
-    for (pkgbase, files, diffs, error_lines) in rawbatch:
+    for (pkgbase, files, error_lines) in rawbatch:
         srcinfo = files['.SRCINFO']
         srcinfo_original = files['.SRCINFO']
         if '.SRCINFO-ORIGINAL' in files:
             srcinfo_original = files['.SRCINFO-ORIGINAL']
         logger.debug(f"=========== {pkgbase} {len(srcinfo)=} {len(srcinfo_original)=}")
         for line in error_lines:
-            ignore = False
             (tags, meta) = aur_errorline_tags(line)
             if tags_to_ignore.intersection(tags):
                 continue
@@ -765,7 +820,7 @@ def upsert_aur_package(rawbatch, db, logger):
             else:
                 logger.warning(f"{pkgbase=} unhandled line {line=}")
 
-        norm_pkgs_info = repobuilder.functions.parse_srcinfo(pkgbase, srcinfo, logger)
+        norm_pkgs_info = parse_srcinfo(pkgbase, srcinfo, logger)
         for pkg_info in norm_pkgs_info:
             logger.info(f"{pkgbase=} {pkg_info=}")
 

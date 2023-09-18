@@ -172,41 +172,6 @@ def upsert_aurweb_package(rawbatch, db):
             cur.executemany(sql, buffer)
     return packages
 
-def aur_errorline_tags(line):
-    tags = []
-    meta = {}
-    all_tags = [
-        ('curl', r'^\s*%\s+Total\s+%\s+Received\s+%\s+Xferd\s+Average\s+Speed\s+Time\s+Time\s+Time\s+Current$'),
-        ('curl', r'^\s+Dload\s+Upload\s+Total\s+Spent\s+Left\s+Speed$'),
-        ('empty', r'^\s*$'),
-        ('curl', r'^\s*\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s*--:--:--\s+--:--:--\s+--:--:--\s+\d+$'),
-        ('curl', r'^\s*\d+\s*\d+k?\s+\d+\s+\d+\s+\d+\s+\d+\s+\dk?\s+\d+\s+\d+:\d+:\d+\s+--:--:--\s+\d+:\d+:\d+\s+\d+k?$'),
-        ('curl', r'^[0-9:\sk-]+$'),
-        ('no_file_or_dir', r'^(?P<buildfile>[^:]+): line (?P<line>[^:]+): (?P<file>[^:]+): No such file or directory$'),
-        ('command_not_found', r'^(?P<buildfile>[^:]+): line (?P<line>[^:]+): (?P<command>[^:]+): command not found$'),
-        ('cannot_change_locale', r'^(?P<buildfile>[^:]+): line (?P<line>\d+): warning: setlocale: (?P<variable>[^:]+): cannot change locale \((?P<locale>.+)\)$'),
-        ('gcc_execvp_error', r"^gcc: fatal error: cannot execute '(?P<command>.+)': execvp: No such file or directory$"),
-        ('compilation_terminated', r'^compilation terminated.$'),
-        ('cat_no_file', r"^cat: (?P<file>[^:]+): No such file or directory$"),
-        ('sed_cant_read', r"sed: can't read (?P<file>[^:]+): No such file or directory"),
-        ('package_not_found', r"error: package '(?P<package>[^']+)' was not found"),
-        ('pkgbuild_generic_line_error', r"^PKGBUILD: line (?P<line>[^:]+): (?P<message>.+)$"),
-        ('gpg_keybox_created', r"^gpg: keybox '(?P<keybox>[^']+)' created$"),
-        ('gpg_trustdb_created', r"^gpg: (?P<trustdb>[^:]+): trustdb created$"),
-        ('gpg_counter', r"^gpg: (?P<message>[^:]+): (?P<count>\d+)$"),
-        ('gpg_key_imported', r'^gpg: key (?P<key_id>[^:]+): public key "(?P<contact>[^"]+)" imported$'),
-        ('gpg_key_not_changed', r'^gpg: key (?P<key_id>[^:]+): "(?P<contact>[^"]+)" not changed$'),
-        ('gpg_missing_key', r'gpg: key (?P<key_id>[^:]+): 1 signature not checked due to a missing key'),
-        ('gpg_no_trusted_key_found', '^gpg: no ultimately trusted keys found$'),
-    ]
-    for tag, reg in all_tags:
-        m = re.match(reg, line)
-        if not m:
-            continue
-        meta[tag] = m.groupdict()
-        tags.append(tag)
-    return (set(tags), meta)
-
 
 def get_removed_packages(db, prev_db_file, fromrepo):
     with db:
