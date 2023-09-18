@@ -7,6 +7,12 @@ import dateutil.parser
 from urllib.parse import urlparse
 import time
 import difflib
+import tarfile
+import stat
+import threading
+import base64
+import psutil
+import io
 
 
 META_REQUIRED = [
@@ -524,3 +530,299 @@ def aurweb_pkg_iterator(since_limit='1970-01-01 00:00 (UTC)'):
             since_limit = newest_update
         precise_limit = True
     yield (None, True)
+
+def get_files_as_tar(fh, pkgbase, files):
+    with tarfile.open(fileobj=fh, mode='w:gz') as tar:
+        for (fname, fmode), fdata in files.items():
+            if fname in ['.SRCINFO']:
+                continue
+            info = tarfile.TarInfo(f"tmp/{pkgbase}/{fname}")
+            info.mtime=time.time()
+            if fmode == stat.S_IFLNK:
+                info.type = tarfile.SYMTYPE
+                info.linkname = fdata.decode('utf-8')
+            else:
+                info.size = len(fdata)
+                info.mode = fmode
+            tar.addfile(info, io.BytesIO(fdata))
+    fh.seek(0)
+    return fh
+
+
+class Extractor(object):
+    WORKDIR = "/tmp"
+    def __init__(self, conn, logger, workdir):
+        self.conn = conn
+        self.logger = logger.getChild(self.__class__.__name__)
+        self.lock = threading.Lock()
+        self.lock_ns = 0
+        self.lock_count = 0
+        self.WORKDIR = workdir
+
+    def exec_start(self, pkgbase, files):
+        pkgdir = f"/{self.WORKDIR}/{pkgbase}".replace('//', '/')
+        arch_inside = f"/tmp/{pkgbase}.tar.gz"
+        fh = io.BytesIO()
+        fh = get_files_as_tar(fh, pkgbase, files)
+        t1 = time.thread_time_ns()
+        with self.lock:
+            self.lock_ns += time.thread_time_ns() - t1
+            self.lock_count += 1
+            self.conn.write_to_vm(fh, arch_inside)
+        t1 = time.thread_time_ns()
+        with self.lock:
+            self.lock_ns += time.thread_time_ns() - t1
+            self.lock_count += 1
+            resp = self.conn.guest_exec_wait(["bash", "-c", f"tar xfz {arch_inside} && rm -rf {arch_inside}"])
+        t1 = time.thread_time_ns()
+        with self.lock:
+            self.lock_ns += time.thread_time_ns() - t1
+            self.lock_count += 1
+            st = self.conn.guest_exec(f'/{self.WORKDIR}/printsrcinfo.sh', env=[f"PKGDIR=/{self.WORKDIR}/{pkgbase}"])
+            #self.logger.debug(f"initial status for printsrcinfo {pkgbase=} {st=}")
+            return (int(st), True)
+        return (0, False)
+
+    def get_stats(self):
+        lock_cont_ms = self.lock_ns / 1000 / 1000
+        if self.lock_count:
+            lock_cont_avg = lock_cont_ms / self.lock_count
+        else:
+            lock_cont_avg = 0
+        return (lock_cont_ms, lock_cont_avg)
+
+    def exec_result(self, pid, pkgbase):
+        t1 = time.thread_time_ns()
+        with self.lock:
+            self.lock_ns += time.thread_time_ns() - t1
+            self.lock_count += 1
+            st = self.conn.guest_exec_status(pid)
+            if st['exited']:
+                t1 = time.thread_time_ns()
+                self.lock_ns += time.thread_time_ns() - t1
+                self.lock_count += 1
+                st2 = self.conn.guest_exec_wait(f"rm -rf /{self.WORKDIR}/{pkgbase}")
+            return st
+
+class MonitoringThread(threading.Thread):
+    def __init__(self, queue_in, queue_out, logger):
+        self.queue_in = queue_in
+        self.queue_out = queue_out
+        self.logger = logger.getChild(self.__class__.__name__)
+        self.keep_monitoring = threading.Event()
+        self.keep_monitoring.set()
+        self.git_processed = None
+        self.put_duration = None
+        super().__init__()
+
+    def run(self):
+        has_data = True
+        no_data_start = time.time()
+        last_logged = None
+        prev_queue_in = None
+        prev_queue_out = None
+        keep_monitoring = True
+        monitor_delta_sec = 2
+        last_git_processed = None
+        while self.keep_monitoring.is_set():
+            queue_in = self.queue_in.qsize()
+            queue_out = self.queue_out.qsize()
+            do_logging = True
+            if queue_in == prev_queue_in and queue_out == prev_queue_out:
+                do_logging = False
+            if last_logged and time.time() - last_logged < monitor_delta_sec:
+                do_logging = False
+            if do_logging:
+                mib = psutil.Process().memory_info().rss / 1024 ** 2
+                approx_git_processed = self.git_processed
+                processing_speed = None
+                put_dur = self.put_duration
+                put_avg = None
+                if put_dur:
+                    put_avg = put_dur / approx_git_processed
+                if last_git_processed:
+                    delta_processed = approx_git_processed - last_git_processed
+                    processing_speed = delta_processed / (time.time() - last_logged)
+                self.logger.info(f"{queue_in=} {queue_out=} {mib=}MiB {approx_git_processed=} {processing_speed=} items/s {put_avg=}")
+                last_logged = time.time()
+                last_git_processed = approx_git_processed
+            prev_queue_in = queue_in
+            prev_queue_out = queue_out
+            if self.keep_monitoring.is_set():
+                time.sleep(0.001)
+        self.logger.info("stop monitoring")
+
+class ExtractorThread(threading.Thread):
+    def __init__(self, queue_in, queue_out, extractor, logger, cond):
+        self.queue_in = queue_in
+        self.queue_out = queue_out
+        self.extractor = extractor
+        self.cond = cond
+        self.logger = logger.getChild(self.__class__.__name__)
+        super().__init__()
+
+    def run(self):
+        last = False
+        while not last:
+            error_lines = []
+            (pkgbase, files, last)= self.queue_in.get()
+            diffs = []
+            if last:
+                self.logger.info(f"THREAD {self.name} SENTINEL DETECTED, NOOP")
+                self.queue_in.task_done()
+                self.logger.info(f"THREAD {self.name} FINISHED")
+                return
+            # TODO: here process with extractor
+            #local.t1 = time.thread_time()
+            #self.logger.info(f"THREAD {self.name} starts extracting {pkgbase=}")
+            (pid, success) = self.extractor.exec_start(pkgbase, files)
+            if success:
+                exited = False
+                while not exited:
+                    st = self.extractor.exec_result(pid, pkgbase)
+                    self.logger.debug(f"exec_result during loop for {pkgbase=} {pid=} {st=}")
+                    exited = st['exited']
+                    if not exited:
+                        time.sleep(0.010)
+                #local.dur = time.thread_time() - local.t1
+                #self.logger.info(f"duration: {local.dur=}")
+                if 'err-data' in st:
+                    st['err-data'] = base64.b64decode(st['err-data'])
+                    if len(st['err-data']):
+                        error_lines = st['err-data'].decode('utf-8').strip().splitlines()
+                        for err_line in error_lines:
+                            self.logger.debug(f"problems for pkg {pkgbase=} {err_line}")
+                if st['exitcode'] == 0:
+                    data = base64.b64decode(st['out-data'])
+                    files['.SRCINFO-ORIGINAL'] = files['.SRCINFO']
+                    files['.SRCINFO'] = data
+                    if data != files['.SRCINFO-ORIGINAL']:
+                        lines_original = [v.strip() for v in files['.SRCINFO'].decode('utf-8', 'backslashreplace') if v.strip()]
+                        lines_new = [v.strip() for v in data.decode('utf-8', 'backslashreplace') if v.strip()]
+                        diffs = difflib.unified_diff(lines_original, lines_new, fromfile=f'{pkgbase}/.SRCINFO-ORIGINAL', tofile=f'{pkgbase}/.SRCINFO', lineterm='', n=1)
+                        diffs = list(diffs)
+                        if diffs:
+                            self.logger.warning(f"{pkgbase=} has different .SRCINFO")
+                        else:
+                            self.logger.debug(f"{pkgbase=} has differences in indentation")
+                        for diffline in diffs:
+                            self.logger.error(diffline)
+
+            # TODO: further processing with a function
+            self.logger.debug(f"THREAD {self.name} before putting in output: {pkgbase}")
+            self.queue_out.put((pkgbase, files, diffs, error_lines))
+            self.logger.debug(f"THREAD {self.name} after putting in output: {pkgbase}")
+            self.queue_in.task_done()
+            self.logger.debug(f"THREAD {self.name} PROCESSED ITEM IN queue: {pkgbase}")
+
+class StorageThread(threading.Thread):
+    def __init__(self, queue_out, logger):
+        self.queue_out = queue_out
+        self.logger = logger.getChild(self.__class__.__name__)
+        self.items_stored = 0
+        self.do_store = threading.Event()
+        self.do_store.set()
+        super().__init__()
+
+    def run(self):
+        last_stored = None
+        first_stored = None
+        do_store = True
+        qsize_out = self.queue_out.qsize()
+        while self.do_store.is_set() or qsize_out > 0:
+            qsize_out = self.queue_out.qsize()
+            if qsize_out == 0:
+                time.sleep(0.100)
+                continue
+            (pkgbase, files, diffs, error_lines) = self.queue_out.get()
+            if not first_stored:
+                first_stored = time.time()
+            self.logger.info(f"STORING: {pkgbase=}")
+            self.queue_out.task_done()
+            qsize_out = self.queue_out.qsize()
+            self.items_stored += 1
+            last_stored = time.time()
+        storing_duration = last_stored - first_stored
+        avg_per_sec = self.items_stored / storing_duration
+        self.logger.info(f"Finished storing after {storing_duration=}s {self.items_stored=} {avg_per_sec=}")
+
+def upsert_aur_package(rawbatch, db, logger):
+    tags_to_ignore = set(['curl', 'empty', 'compilation_terminated', 'gpg_key_not_changed', ])
+    logger.info(f"storing pkgbase in db {len(rawbatch)}")
+    for (pkgbase, files, diffs, error_lines) in rawbatch:
+        srcinfo = files['.SRCINFO']
+        srcinfo_original = files['.SRCINFO']
+        if '.SRCINFO-ORIGINAL' in files:
+            srcinfo_original = files['.SRCINFO-ORIGINAL']
+        logger.debug(f"=========== {pkgbase} {len(srcinfo)=} {len(srcinfo_original)=}")
+        for line in error_lines:
+            ignore = False
+            (tags, meta) = aur_errorline_tags(line)
+            if tags_to_ignore.intersection(tags):
+                continue
+            if len(tags) != 0 or len(meta) != 0:
+                logger.info(f"PARSED ERROR: {pkgbase=} {tags=} {meta=} {line=}")
+            else:
+                logger.warning(f"{pkgbase=} unhandled line {line=}")
+
+        norm_pkgs_info = repobuilder.functions.parse_srcinfo(pkgbase, srcinfo, logger)
+        for pkg_info in norm_pkgs_info:
+            logger.info(f"{pkgbase=} {pkg_info=}")
+
+    return True
+
+    buffer = []
+    buffer_dependencies = []
+    for rawdata in rawbatch:
+        pkginfo = rawdata.pop('pkginfo')
+        dependencies = rawdata.pop('dependencies')
+        logger.info(f"{dependencies=}")
+        for deptype, depvals in dependencies.items():
+            logger.info(f"===========================================")
+            logger.info(f"{pkginfo['pkgname']}\t{deptype}\t{depvals=}")
+            depvals = list(filter(None, depvals))
+            try:
+                vals = cluster.functions.depend_parse(depvals)
+                logger.info(f"INITIAL {vals=}")
+            except AssertionError:
+                logger.error(f"{deptype=} {depvals=} {pkginfo=}")
+                raise
+            #logger.info(f"{vals=}")
+            for depdict in vals:
+                depdict['deptype'] = deptype
+                depdict['pkgname'] = pkginfo['pkgname']
+                buffer_dependencies.append(depdict)
+        #logger.info(f"{dependencies=}")
+        checksums = rawdata.pop('checksums')
+        noextract = rawdata.pop('noextract')
+        backups = rawdata.pop('backups')
+        assert len(rawdata) == 0, f"Unhandled keys in rawdata: {rawdata.keys()}"
+        values = {
+            'pkgid': pkginfo['pkgid'],
+            'reponame': 'aur',
+            'pkgname': pkginfo['pkgname'],
+            'pkgbase': pkginfo['pkgbase'],
+            'pkgver': pkginfo['pkgver'],
+            'pkgrel': float(pkginfo['pkgrel']),
+            'epoch': pkginfo.get('epoch', None),
+            'pkgdesc': pkginfo.get('pkgdesc', None),
+            'url': pkginfo.get('url', None),
+            'arch': json.dumps(pkginfo.get('arch', None)),
+            'license': json.dumps(pkginfo.get('license', None)),
+            'options': json.dumps(pkginfo.get('options', None)),
+            'source': json.dumps(pkginfo.get('source', None)),
+            'checksums': json.dumps(checksums),
+            'noextract': json.dumps(pkginfo.get('noextract', None)),
+        }
+        logger.info(f"{values=}")
+        buffer.append(values)
+    with db:
+        with contextlib.closing(db.cursor()) as cur:
+            sql = ("INSERT INTO pkginfo(pkgid, reponame, pkgname, pkgbase, pkgver, pkgrel, epoch, pkgdesc, url, arch, license, options, source, checksums, noextract)"
+            "VALUES(:pkgid, :reponame, :pkgname, :pkgbase, :pkgver, :pkgrel, :epoch, :pkgdesc, :url, :arch, :license, :options, :source, :checksums, :noextract)")
+            cur.executemany(sql, buffer)
+    with db:
+        with contextlib.closing(db.cursor()) as cur:
+            sql = ("INSERT INTO dependencies(pkgname, deptype, otherpkg, operator, version, reason)"
+            "VALUES(:pkgname, :deptype, :otherpkg, :operator, :version, :reason)")
+            cur.executemany(sql, buffer_dependencies)
