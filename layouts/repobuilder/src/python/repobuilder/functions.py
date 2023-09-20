@@ -243,71 +243,6 @@ def arch_parse_srcinfo(pkgbase, srcinfo, logger):
         v = groups['val']
         logger.info(f"{pkgbase=} {k=} {v=}")
 
-def parse_srcinfo(pkg, srcinfo, logger):
-    kv_r = re.compile(r'^\s*(?P<key>[^\s=]+)\s*=\s*(?P<val>.*)$')
-    meta_list = META_LIST
-    for arch in ARCHITECTURES:
-        for pref in _metalist_architecture_prefixes:
-            meta_list.append(f"{pref}{arch}")
-    meta_list = list(set(meta_list))
-    lines = srcinfo.decode('utf-8', 'backslashreplace').strip()
-    lines = lines.splitlines()
-    meta = {}
-    meta_global = []
-    for line in lines:
-        if "pkgname" in line and not line.startswith("pkgname"):
-            continue
-        m = kv_r.match(line)
-        if not m:
-            continue
-        groups = m.groupdict()
-        k = groups['key']
-        v = groups['val']
-        if k in ['pkgname', 'pkgbase'] and meta:
-            meta_global.append(meta)
-            meta = {}
-        if k in META_UNIQUE:
-            if k not in ['url']:
-                assert k not in meta, f"{k=} already exists in {meta=}, cannot set {v=}"
-            meta[k] = v
-        elif k in meta_list:
-            if k not in meta:
-                meta[k] = []
-            meta[k].append(v)
-        else:
-            #collected_unknown_keys.append(k)
-            #do_package = False
-            #break
-            raise Exception(f"Encountered unknown key for package {k=} {pkg=} with value {v=}")
-    meta_global.append(meta)
-    is_pkgbase = lambda meta: 'pkgname' not in meta and 'pkgbase' in meta
-    pkgbase_type = list(map(is_pkgbase, meta_global))
-    packages = []
-    i = -1
-    groups = []
-    for t in pkgbase_type:
-        if t:
-            i += 1
-        groups.append(i)
-    pkgbase_type = groups
-    #print(f"{meta_global=}")
-    #print(f"{pkgbase_type=}")
-    meta_grouped = []
-    for i, meta in enumerate(meta_global):
-        group_index = pkgbase_type[i]
-        if len(meta_grouped) == group_index:
-            meta_grouped.insert(group_index, [])
-        meta_grouped[group_index].append(meta)
-        #print(i, group_index, meta)
-    for group in meta_grouped:
-        if len(group) == 1:
-            group.append({'pkgname': group[0]['pkgbase']})
-        meta_base = group[0]
-        meta_tail = group[1:]
-        for meta in meta_tail:
-            data = {**meta_base, **meta}
-            packages.append(data)
-    return packages
 
 # TODO: deprecated function, remove
 def aur_repo_iterator(repo, extractor, errorlogger):
@@ -745,9 +680,9 @@ class StorageThread(threading.Thread):
 
     def acknowledge_package(self, pkgbase, files, error_lines):
         tags_to_ignore = set(['curl', 'empty', 'compilation_terminated', 'gpg_key_not_changed', ])
+        srcinfo = files['.SRCINFO'].decode('utf-8', 'backslashreplace').splitlines()
         if '.SRCINFO-ORIGINAL' in files:
             srcinfo_original = files['.SRCINFO-ORIGINAL'].decode('utf-8', 'backslashreplace').splitlines()
-            srcinfo = files['.SRCINFO'].decode('utf-8', 'backslashreplace').splitlines()
             lines_original = [v.strip() for v in srcinfo_original if v.strip()]
             lines_new = [v.strip() for v in srcinfo if v.strip()]
             diffs = difflib.unified_diff(lines_original, lines_new, fromfile=f'{pkgbase}/.SRCINFO-ORIGINAL', tofile=f'{pkgbase}/.SRCINFO', lineterm='', n=1)
@@ -765,6 +700,10 @@ class StorageThread(threading.Thread):
                 self.logger.info(f"PARSED ERROR: {pkgbase=} {tags=} {meta=} {line=}")
             else:
                 self.logger.warning(f"{pkgbase=} unhandled line {line=}")
+
+        norm_pkgs_info = self.parse_srcinfo(pkgbase, srcinfo)
+        for pkg_info in norm_pkgs_info:
+            self.logger.info(f"SRCINFO PARSED: {pkgbase=} {pkg_info=}")
 
     def aur_errorline_tags(self, line):
         tags = []
@@ -800,6 +739,67 @@ class StorageThread(threading.Thread):
             meta[tag] = m.groupdict()
             tags.append(tag)
         return (set(tags), meta)
+
+    def parse_srcinfo(self, pkg, srcinfo_lines):
+        kv_r = re.compile(r'^\s*(?P<key>[^\s=]+)\s*=\s*(?P<val>.*)$')
+        meta_list = META_LIST
+        for arch in ARCHITECTURES:
+            for pref in _metalist_architecture_prefixes:
+                meta_list.append(f"{pref}{arch}")
+        meta_list = list(set(meta_list))
+        meta = {}
+        meta_global = []
+        for line in srcinfo_lines:
+            if "pkgname" in line and not line.startswith("pkgname"):
+                continue
+            m = kv_r.match(line)
+            if not m:
+                continue
+            groups = m.groupdict()
+            k = groups['key']
+            v = groups['val']
+            if k in ['pkgname', 'pkgbase'] and meta:
+                meta_global.append(meta)
+                meta = {}
+            if k in META_UNIQUE:
+                if k not in ['url']:
+                    assert k not in meta, f"{k=} already exists in {meta=}, cannot set {v=}"
+                meta[k] = v
+            elif k in meta_list:
+                if k not in meta:
+                    meta[k] = []
+                meta[k].append(v)
+            else:
+                #collected_unknown_keys.append(k)
+                #do_package = False
+                #break
+                raise Exception(f"Encountered unknown key for package {k=} {pkg=} with value {v=}")
+        meta_global.append(meta)
+        is_pkgbase = lambda meta: 'pkgname' not in meta and 'pkgbase' in meta
+        pkgbase_type = list(map(is_pkgbase, meta_global))
+        packages = []
+        i = -1
+        groups = []
+        for t in pkgbase_type:
+            if t:
+                i += 1
+            groups.append(i)
+        pkgbase_type = groups
+        meta_grouped = []
+        for i, meta in enumerate(meta_global):
+            group_index = pkgbase_type[i]
+            if len(meta_grouped) == group_index:
+                meta_grouped.insert(group_index, [])
+            meta_grouped[group_index].append(meta)
+        for group in meta_grouped:
+            if len(group) == 1:
+                group.append({'pkgname': group[0]['pkgbase']})
+            meta_base = group[0]
+            meta_tail = group[1:]
+            for meta in meta_tail:
+                data = {**meta_base, **meta}
+                packages.append(data)
+        return packages
 
 
 def upsert_aur_package(rawbatch, db, logger):
