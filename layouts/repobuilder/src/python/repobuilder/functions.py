@@ -645,10 +645,16 @@ class ExtractorThread(threading.Thread):
             self.logger.debug(f"THREAD {self.name} PROCESSED ITEM IN queue: {pkgbase}")
 
 class StorageThread(threading.Thread):
-    def __init__(self, queue_out, logger):
+    buffer_pkginfo = {}
+    buffer_dependencies = {}
+    buffer_errors = {}
+    buffer_files = {}
+
+    def __init__(self, db, queue_out, logger):
         self.queue_out = queue_out
         self.logger = logger.getChild(self.__class__.__name__)
         self.items_stored = 0
+        self.db = db
         self.do_store = threading.Event()
         self.do_store.set()
         super().__init__()
@@ -676,7 +682,12 @@ class StorageThread(threading.Thread):
         if last_stored and first_stored:
             storing_duration = last_stored - first_stored
             avg_per_sec = self.items_stored / storing_duration
+        self.flush_db()
         self.logger.info(f"Finished storing after {storing_duration=}s {self.items_stored=} {avg_per_sec=}")
+        assert len(self.buffer_pkginfo) == 0
+        assert len(self.buffer_dependencies) == 0
+        assert len(self.buffer_errors) == 0
+        assert len(self.buffer_files) == 0
 
     def acknowledge_package(self, pkgbase, files, error_lines):
         tags_to_ignore = set(['curl', 'empty', 'compilation_terminated', 'gpg_key_not_changed', ])
@@ -703,7 +714,41 @@ class StorageThread(threading.Thread):
 
         norm_pkgs_info = self.parse_srcinfo(pkgbase, srcinfo)
         for pkg_info in norm_pkgs_info:
-            self.logger.info(f"SRCINFO PARSED: {pkgbase=} {pkg_info=}")
+            pkgname = pkg_info['pkgname']
+            dependencies =  self.normalize_deps(pkg_info)
+            for deptype, deps in dependencies.items():
+                for dep in deps:
+                    self.logger.info(f"SRCINFO PARSED: {pkgbase=} {pkgname=} {deptype=} {dep=}")
+            self.logger.info(f"{pkg_info=}")
+            self.buffer_pkginfo[pkgname] = pkg_info
+            self.buffer_dependencies[pkgname] = dependencies
+        self.buffer_errors[pkgbase] = error_lines
+        self.buffer_files[pkgbase] = files
+        if len(self.buffer_pkginfo) >= 200:
+            self.flush_db()
+
+    def flush_db(self):
+        if len(self.buffer_pkginfo):
+            self.logger.info(f"flushing to db")
+            self.buffer_pkginfo = {}
+            self.buffer_dependencies = {}
+            self.buffer_errors = {}
+            self.buffer_files = {}
+
+    def normalize_deps(self, pkg_info):
+        dependencies = {}
+        raw_deps = {
+            'provides': pkg_info.pop('provides', []),
+            'depends': pkg_info.pop('depends', []),
+            'makedepends': pkg_info.pop('makedepends', []),
+            'replaces': pkg_info.pop('replaces', []),
+            'conflicts': pkg_info.pop('conflicts', []),
+            'checkdepends': pkg_info.pop('checkdepends', []),
+            'optdepends': pkg_info.pop('optdepends', []),
+        }
+        for k, raw_dep in raw_deps.items():
+            dependencies[k] = cluster.functions.depend_parse(raw_dep)
+        return dependencies
 
     def aur_errorline_tags(self, line):
         tags = []

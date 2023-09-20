@@ -444,7 +444,7 @@ if __name__ == '__main__':
             git_processed_items = 0
             monitoring_thread = repobuilder.functions.MonitoringThread(queue_for_vm_input, queue_for_vm_output, logger)
             monitoring_thread.start()
-            storage_thread = repobuilder.functions.StorageThread(queue_for_vm_output, logger)
+            storage_thread = repobuilder.functions.StorageThread(db, queue_for_vm_output, logger)
             storage_thread.start()
             for th in threads:
                 #logger.info(f"STARTING THREAD {th.name}")
