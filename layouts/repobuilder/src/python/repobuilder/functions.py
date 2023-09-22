@@ -644,11 +644,16 @@ class ExtractorThread(threading.Thread):
             self.queue_in.task_done()
             self.logger.debug(f"THREAD {self.name} PROCESSED ITEM IN queue: {pkgbase}")
 
+
 class StorageThread(threading.Thread):
     buffer_pkginfo = {}
     buffer_dependencies = {}
     buffer_errors = {}
     buffer_files = {}
+    checksum_keys = ['md5sums', 'sha224sums', 'sha256sums', 'sha265sums', 'sha384sums', 'sha512sums', 'sha1sums', 'b2sums', 'cksums', ]
+    dependency_keys = ['requires', 'makedepends', 'depends', 'provides', 'conflicts', 'optdepends', 'checkdepends', 'replaces', 'depend', ]
+    dry_run = False
+    no_diff = True
 
     def __init__(self, db, queue_out, logger):
         self.queue_out = queue_out
@@ -657,16 +662,34 @@ class StorageThread(threading.Thread):
         self.db = db
         self.do_store = threading.Event()
         self.do_store.set()
+        for pref in METALIST_CHECKSUM_PREFIXES:
+            for arch in ARCHITECTURES:
+                self.checksum_keys.append(f"{pref}{arch}")
+        t = []
+        for arch in ARCHITECTURES:
+            for reltype in self.dependency_keys:
+                t.append(f"{reltype}_{arch}")
+        self.dependency_keys.extend(t)
+        self.kv_r = re.compile(r'^\s*(?P<key>[^\s=]+)\s*=\s*(?P<val>.*)$')
         super().__init__()
 
     def run(self):
+        import cProfile
+        profiler = cProfile.Profile()
+        try:
+            return profiler.runcall(StorageThread.profiled_run, self)
+        finally:
+            profiler.dump_stats('myprofile-%d.profile' % (self.ident,))
+
+    def profiled_run(self):
         last_stored = None
         first_stored = None
         qsize_out = self.queue_out.qsize()
         while self.do_store.is_set() or qsize_out > 0:
             qsize_out = self.queue_out.qsize()
             if qsize_out == 0:
-                time.sleep(0.100)
+                time.sleep(0.001)
+                qsize_out = self.queue_out.qsize()
                 continue
             (pkgbase, files, error_lines) = self.queue_out.get()
             if not first_stored:
@@ -690,9 +713,11 @@ class StorageThread(threading.Thread):
         assert len(self.buffer_files) == 0
 
     def acknowledge_package(self, pkgbase, files, error_lines):
+        if self.dry_run:
+            return True
         tags_to_ignore = set(['curl', 'empty', 'compilation_terminated', 'gpg_key_not_changed', ])
         srcinfo = files['.SRCINFO'].decode('utf-8', 'backslashreplace').splitlines()
-        if '.SRCINFO-ORIGINAL' in files:
+        if '.SRCINFO-ORIGINAL' in files and not self.no_diff:
             srcinfo_original = files['.SRCINFO-ORIGINAL'].decode('utf-8', 'backslashreplace').splitlines()
             lines_original = [v.strip() for v in srcinfo_original if v.strip()]
             lines_new = [v.strip() for v in srcinfo if v.strip()]
@@ -715,39 +740,84 @@ class StorageThread(threading.Thread):
         norm_pkgs_info = self.parse_srcinfo(pkgbase, srcinfo)
         for pkg_info in norm_pkgs_info:
             pkgname = pkg_info['pkgname']
-            dependencies =  self.normalize_deps(pkg_info)
-            for deptype, deps in dependencies.items():
-                for dep in deps:
-                    self.logger.info(f"SRCINFO PARSED: {pkgbase=} {pkgname=} {deptype=} {dep=}")
-            self.logger.info(f"{pkg_info=}")
+            try:
+                dependencies = self.normalize_deps(pkg_info)
+            except:
+                self.logger.error(f"exception for package {pkgbase}")
+                raise
+            #for deptype, deps in dependencies.items():
+            #    for dep in deps:
+            #        self.logger.info(f"SRCINFO PARSED: {pkgbase=} {pkgname=} {deptype=} {dep=}")
+            #self.logger.info(f"{pkg_info=}")
             self.buffer_pkginfo[pkgname] = pkg_info
             self.buffer_dependencies[pkgname] = dependencies
         self.buffer_errors[pkgbase] = error_lines
         self.buffer_files[pkgbase] = files
-        if len(self.buffer_pkginfo) >= 200:
+        if len(self.buffer_pkginfo) >= 1000:
             self.flush_db()
 
     def flush_db(self):
         if len(self.buffer_pkginfo):
-            self.logger.info(f"flushing to db")
+            to_flush = []
+            #self.logger.info(f"flushing to db")
+            #self.logger.info(f"===========================================================")
+            for pkgname, norm_meta in self.buffer_pkginfo.items():
+                db_meta = {
+                    'pkgbase': norm_meta.pop('pkgbase', None),
+                    'pkgname': norm_meta.pop('pkgname', None),
+                    'pkgdesc': norm_meta.pop('pkgdesc', None),
+                    'pkgver': norm_meta.pop('pkgver', None),
+                    'pkgrel': norm_meta.pop('pkgrel', None),
+                    'url': norm_meta.pop('url', None),
+                    'arch': norm_meta.pop('arch', None),
+                    'license': norm_meta.pop('license', None),
+                    'options': norm_meta.pop('options', None),
+                    'install': norm_meta.pop('install', None),
+                    'backup': norm_meta.pop('backup', None),
+                    'validpgpkeys': norm_meta.pop('validpgpkeys', None),
+                    'groups': norm_meta.pop('groups', None),
+                    'changelog': norm_meta.pop('changelog', None),
+                    'epoch': norm_meta.pop('epoch', None),
+                    'noextract': norm_meta.pop('noextract', None),
+                }
+                checksums = {}
+                for k, v in norm_meta.items():
+                    if k in self.checksum_keys:
+                        checksums[k] = v
+                for k, v in checksums.items():
+                    norm_meta.pop(k)
+                sources = {}
+                for k, v in norm_meta.items():
+                    if k == 'source' or k.startswith('source_'):
+                        sources[k] = v
+                for k, v in sources.items():
+                    norm_meta.pop(k)
+                if len(norm_meta) != 0:
+                    self.logger.error(f"{pkgname} {norm_meta=}")
             self.buffer_pkginfo = {}
+            to_flush = []
             self.buffer_dependencies = {}
             self.buffer_errors = {}
             self.buffer_files = {}
 
     def normalize_deps(self, pkg_info):
         dependencies = {}
-        raw_deps = {
-            'provides': pkg_info.pop('provides', []),
-            'depends': pkg_info.pop('depends', []),
-            'makedepends': pkg_info.pop('makedepends', []),
-            'replaces': pkg_info.pop('replaces', []),
-            'conflicts': pkg_info.pop('conflicts', []),
-            'checkdepends': pkg_info.pop('checkdepends', []),
-            'optdepends': pkg_info.pop('optdepends', []),
-        }
-        for k, raw_dep in raw_deps.items():
-            dependencies[k] = cluster.functions.depend_parse(raw_dep)
+        for k in self.dependency_keys:
+            if k in pkg_info:
+                raw_dep = list(filter(None, pkg_info.pop(k)))
+                if raw_dep:
+                    try:
+                        dependencies[k] = cluster.functions.depend_parse(raw_dep)
+                    except:
+                        do_raise = False
+                        if len(raw_dep) == 1 and ' ' in raw_dep:
+                            raw_dep = raw_dep.split()
+                            try:
+                                dependencies[k] = cluster.functions.depend_parse(raw_dep)
+                            except:
+                                do_raise = True
+                        if do_raise:
+                            raise
         return dependencies
 
     def aur_errorline_tags(self, line):
@@ -786,7 +856,6 @@ class StorageThread(threading.Thread):
         return (set(tags), meta)
 
     def parse_srcinfo(self, pkg, srcinfo_lines):
-        kv_r = re.compile(r'^\s*(?P<key>[^\s=]+)\s*=\s*(?P<val>.*)$')
         meta_list = META_LIST
         for arch in ARCHITECTURES:
             for pref in _metalist_architecture_prefixes:
@@ -797,7 +866,7 @@ class StorageThread(threading.Thread):
         for line in srcinfo_lines:
             if "pkgname" in line and not line.startswith("pkgname"):
                 continue
-            m = kv_r.match(line)
+            m = self.kv_r.match(line)
             if not m:
                 continue
             groups = m.groupdict()

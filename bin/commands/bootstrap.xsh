@@ -105,6 +105,15 @@ def _bootstrap():
 
     ######################################################
     logger = logging.getLogger(__name__)
+    def no_output(record):
+	if record.levelname != 'INFO':
+		return True
+	if record.name.endswith('.StorageThread'):
+		return True
+	return False
+    #for handler in logging.root.handlers:
+    #	handler.addFilter(no_output)
+
     @unthreadable
     def _source_command(args, stdin):
         for a in args:
