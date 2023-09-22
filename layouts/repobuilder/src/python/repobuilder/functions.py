@@ -544,7 +544,7 @@ class Extractor(object):
 
 
 class MonitoringThread(threading.Thread):
-    def __init__(self, queue_in, queue_out, logger):
+    def __init__(self, queue_in, queue_out, storage_thread, logger):
         self.queue_in = queue_in
         self.queue_out = queue_out
         self.logger = logger.getChild(self.__class__.__name__)
@@ -552,6 +552,7 @@ class MonitoringThread(threading.Thread):
         self.keep_monitoring.set()
         self.git_processed = None
         self.put_duration = None
+        self.storage_thread = storage_thread
         super().__init__()
 
     def run(self):
@@ -563,6 +564,7 @@ class MonitoringThread(threading.Thread):
         keep_monitoring = True
         monitor_delta_sec = 2
         last_git_processed = None
+        processing_speed_history = []
         while self.keep_monitoring.is_set():
             queue_in = self.queue_in.qsize()
             queue_out = self.queue_out.qsize()
@@ -572,6 +574,7 @@ class MonitoringThread(threading.Thread):
             if last_logged and time.time() - last_logged < monitor_delta_sec:
                 do_logging = False
             if do_logging:
+                hist_size = 5
                 mib = psutil.Process().memory_info().rss / 1024 ** 2
                 approx_git_processed = self.git_processed
                 processing_speed = None
@@ -582,6 +585,23 @@ class MonitoringThread(threading.Thread):
                 if last_git_processed:
                     delta_processed = approx_git_processed - last_git_processed
                     processing_speed = delta_processed / (time.time() - last_logged)
+                if processing_speed:
+                    processing_speed_history.append(processing_speed)
+                    processing_speed_history = processing_speed_history[-hist_size:]
+                if len(processing_speed_history) == hist_size:
+                    avg = sum(processing_speed_history)/len(processing_speed_history)
+                    sleep_dur = self.storage_thread.sleep_duration
+                    fact = queue_in / avg
+                    if avg - queue_in > 6:
+                        self.logger.info(f"avg speed {avg=} {avg-queue_in} {sleep_dur=} {fact=}")
+                        self.logger.info(f"speed too high")
+                    elif avg - queue_in < -6:
+                        self.logger.info(f"avg speed {avg=} {avg-queue_in} {sleep_dur=} {fact=}")
+                        self.logger.info(f"speed too low, increasing sleep time in storage thread (consumer)")
+                        sleep_dur *= fact
+                        sleep_dur = min(sleep_dur, 1.000)
+                        self.storage_thread.sleep_duration = sleep_dur
+                        self.logger.info(f"new sleep duration {sleep_dur=}")
                 self.logger.info(f"{queue_in=} {queue_out=} {mib=}MiB {approx_git_processed=} {processing_speed=} items/s {put_avg=}")
                 last_logged = time.time()
                 last_git_processed = approx_git_processed
@@ -654,6 +674,8 @@ class StorageThread(threading.Thread):
     dependency_keys = ['requires', 'makedepends', 'depends', 'provides', 'conflicts', 'optdepends', 'checkdepends', 'replaces', 'depend', ]
     dry_run = False
     no_diff = True
+    # adapted dynamically by the monitoring thread with a cap of 1s
+    sleep_duration = 0.010
 
     def __init__(self, db, queue_out, logger):
         self.queue_out = queue_out
@@ -684,17 +706,22 @@ class StorageThread(threading.Thread):
         last_stored = None
         first_stored = None
         qsize_out = self.queue_out.qsize()
+        meta_list = META_LIST
+        for arch in ARCHITECTURES:
+            for pref in _metalist_architecture_prefixes:
+                meta_list.append(f"{pref}{arch}")
+        meta_list = list(set(meta_list))
         while self.do_store.is_set() or qsize_out > 0:
             qsize_out = self.queue_out.qsize()
             if qsize_out == 0:
-                time.sleep(0.010)
+                time.sleep(self.sleep_duration)
                 qsize_out = self.queue_out.qsize()
                 continue
             (pkgbase, files, error_lines) = self.queue_out.get()
             if not first_stored:
                 first_stored = time.time()
             self.logger.info(f"STORING: {pkgbase=}")
-            self.acknowledge_package(pkgbase, files, error_lines)
+            self.acknowledge_package(pkgbase, files, error_lines, meta_list)
             self.queue_out.task_done()
             qsize_out = self.queue_out.qsize()
             self.items_stored += 1
@@ -711,7 +738,7 @@ class StorageThread(threading.Thread):
         assert len(self.buffer_errors) == 0
         assert len(self.buffer_files) == 0
 
-    def acknowledge_package(self, pkgbase, files, error_lines):
+    def acknowledge_package(self, pkgbase, files, error_lines, meta_list):
         if self.dry_run:
             return True
         tags_to_ignore = set(['curl', 'empty', 'compilation_terminated', 'gpg_key_not_changed', ])
@@ -736,7 +763,7 @@ class StorageThread(threading.Thread):
             else:
                 self.logger.warning(f"{pkgbase=} unhandled line {line=}")
 
-        srcinfo_parser = SrcinfoParser()
+        srcinfo_parser = SrcinfoParser(meta_list)
         norm_pkgs_info = srcinfo_parser.parse_srcinfo(pkgbase, srcinfo)
         for pkg_info in norm_pkgs_info:
             pkgname = pkg_info['pkgname']
@@ -857,13 +884,9 @@ class StorageThread(threading.Thread):
 
 
 class SrcinfoParser(object):
-    def __init__(self):
+    def __init__(self, meta_list):
         self.kv_r = re.compile(r'^\s*(?P<key>[^\s=]+)\s*=\s*(?P<val>.*)$')
-        meta_list = META_LIST
-        for arch in ARCHITECTURES:
-            for pref in _metalist_architecture_prefixes:
-                meta_list.append(f"{pref}{arch}")
-        self.meta_list = list(set(meta_list))
+        self.meta_list = meta_list
         super().__init__()
 
     def parse_srcinfo(self, pkg, srcinfo_lines):
