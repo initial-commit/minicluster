@@ -670,7 +670,6 @@ class StorageThread(threading.Thread):
             for reltype in self.dependency_keys:
                 t.append(f"{reltype}_{arch}")
         self.dependency_keys.extend(t)
-        self.kv_r = re.compile(r'^\s*(?P<key>[^\s=]+)\s*=\s*(?P<val>.*)$')
         super().__init__()
 
     def run(self):
@@ -688,7 +687,7 @@ class StorageThread(threading.Thread):
         while self.do_store.is_set() or qsize_out > 0:
             qsize_out = self.queue_out.qsize()
             if qsize_out == 0:
-                time.sleep(0.001)
+                time.sleep(0.010)
                 qsize_out = self.queue_out.qsize()
                 continue
             (pkgbase, files, error_lines) = self.queue_out.get()
@@ -737,7 +736,8 @@ class StorageThread(threading.Thread):
             else:
                 self.logger.warning(f"{pkgbase=} unhandled line {line=}")
 
-        norm_pkgs_info = self.parse_srcinfo(pkgbase, srcinfo)
+        srcinfo_parser = SrcinfoParser()
+        norm_pkgs_info = srcinfo_parser.parse_srcinfo(pkgbase, srcinfo)
         for pkg_info in norm_pkgs_info:
             pkgname = pkg_info['pkgname']
             try:
@@ -855,12 +855,18 @@ class StorageThread(threading.Thread):
             tags.append(tag)
         return (set(tags), meta)
 
-    def parse_srcinfo(self, pkg, srcinfo_lines):
+
+class SrcinfoParser(object):
+    def __init__(self):
+        self.kv_r = re.compile(r'^\s*(?P<key>[^\s=]+)\s*=\s*(?P<val>.*)$')
         meta_list = META_LIST
         for arch in ARCHITECTURES:
             for pref in _metalist_architecture_prefixes:
                 meta_list.append(f"{pref}{arch}")
-        meta_list = list(set(meta_list))
+        self.meta_list = list(set(meta_list))
+        super().__init__()
+
+    def parse_srcinfo(self, pkg, srcinfo_lines):
         meta = {}
         meta_global = []
         for line in srcinfo_lines:
@@ -879,7 +885,7 @@ class StorageThread(threading.Thread):
                 if k not in ['url']:
                     assert k not in meta, f"{k=} already exists in {meta=}, cannot set {v=}"
                 meta[k] = v
-            elif k in meta_list:
+            elif k in self.meta_list:
                 if k not in meta:
                     meta[k] = []
                 meta[k].append(v)
@@ -914,7 +920,6 @@ class StorageThread(threading.Thread):
                 data = {**meta_base, **meta}
                 packages.append(data)
         return packages
-
 
 def upsert_aur_package(rawbatch, db, logger):
     tags_to_ignore = set(['curl', 'empty', 'compilation_terminated', 'gpg_key_not_changed', ])
