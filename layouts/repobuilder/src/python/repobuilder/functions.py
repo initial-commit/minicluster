@@ -195,6 +195,10 @@ class DictWithMetaKeys(dict):
         return self.realkeys
 
 def aur_repo_iterator_simple(repo, include_only=set()):
+    # 'collabora-online-server-nodocker',
+    problematic = ['altogether', 'garu', 'freeswitch-core', 'darling-bin-prerel', 'gn-bin', '0ad-boongui', 'arm-linux-gnueabihf-ncurses', '0ad-git', 'jamomacore-git', 'pam_autologin', 'mediasort', 'linux-binder', 'python-pysdb', 'python-dmt', 'python-cebra', 'ps3-zstd', 'pidgin-xmpp-ignore-groups', 'pdf-xchange', 'olive-nightly-bin', 'oh-my-git-git', 'ogpf-git', 'cabal-install-git', 'cf-alias-bin', 'claws-mail-protectedheaders-git', 'compiz-core', 'compiz-core-git', 'drupal-l10n', 'dtvp-utils', 'faraday-bin', 'firefox-nightly-bin', 'firefox-nightly-en-gb', 'foo2zjs-nightly', 'garu', 'gcc8', 'ghidra-extension-ghidrathon', 'gimp-plugin-gmic-git', 'git-annex-stack', 'goi3bar-git', 'hotdog', 'kh-webstore', 'kodi-addon-pvr-mythtv-git', 'labtunnel-git', 'legion-fan-utils-linux-git', 'lightning-terminal-bin', 'loop-bin', 'minc-toolkit-v2', 'mons-git', 'nfauthenticationkey', 'pd-faustgen2-git', 'php-xapian', 'pool-bin', 'postgresql13', 'pylance-language-server', 'qt5-wayland-dev-backport-git', 'qt5-wayland-git', 'rtl8189es-git', 'rtl8821cu-git', 'starleaf-breeze', 'storm', 'sway-git-wlroots-git', 'tuib', 'v8', 'webos-tv-cli', 'xfce-simple-dark', 'altogether', 'pylance-language-server', 'altogether', 'storm', 'brother-mfc-l2680w', 'postgresql13', 'argobots-git', ]
+    problematic = []
+
     yielded = 0
     branches = repo.raw_listall_branches(pygit2.GIT_BRANCH_REMOTE)
     for br in branches:
@@ -204,8 +208,8 @@ def aur_repo_iterator_simple(repo, include_only=set()):
             continue
         if len(include_only) > 0 and pkg not in include_only:
             continue
-        #if pkg not in ['gn-bin', '0ad-boongui', 'arm-linux-gnueabihf-ncurses', '0ad-git', 'jamomacore-git', 'pam_autologin', 'mediasort', 'linux-binder']:
-        #   continue
+        if problematic and pkg not in problematic:
+            continue
         rev = repo.revparse_single(br)
         tree = rev.tree
         entries = DictWithMetaKeys({})
@@ -216,7 +220,7 @@ def aur_repo_iterator_simple(repo, include_only=set()):
             entries[(k, gitobj.filemode)] = gitobj.data
         yield (pkg, entries, False)
         yielded += 1
-        #if yielded == 1000:
+        #if yielded == 10000:
         #    break
     yield (None, None, True)
 
@@ -656,6 +660,9 @@ class ExtractorThread(threading.Thread):
                     data = base64.b64decode(st['out-data'])
                     files['.SRCINFO-ORIGINAL'] = files['.SRCINFO']
                     files['.SRCINFO'] = data
+                else:
+                    self.logger.error(f"makepkg --printsrcinfo {pkgbase} exit code: {st['exitcode']}")
+                    error_lines.append(f"makepkg --printsrcinfo {pkgbase} exit code: {st['exitcode']}")
 
             # TODO: further processing with a function
             self.logger.debug(f"THREAD {self.name} before putting in output: {pkgbase}")
@@ -754,14 +761,26 @@ class StorageThread(threading.Thread):
                 self.logger.debug(f".SRCINFO-ORIGINAL {pkgbase}: {line}")
             for line in srcinfo:
                 self.logger.debug(f".SRCINFO {pkgbase}: {line}")
+        parsed_errors = []
         for line in error_lines:
             (tags, meta) = self.aur_errorline_tags(line)
             if tags_to_ignore.intersection(tags):
                 continue
+            err_data = {
+                'pkgid': None,
+                'reponame': 'aur',
+                'pkgbase': pkgbase,
+                'loglevel': 'ERROR',
+                'logmessage': line,
+                'logextra': json.dumps(list(tags)),
+                'context': 'printsrcinfo_no_deps',
+                'meta': json.dumps(meta),
+            }
             if len(tags) != 0 or len(meta) != 0:
                 self.logger.info(f"PARSED ERROR: {pkgbase=} {tags=} {meta=} {line=}")
             else:
                 self.logger.warning(f"{pkgbase=} unhandled line {line=}")
+            parsed_errors.append(err_data)
 
         srcinfo_parser = SrcinfoParser(meta_list)
         norm_pkgs_info = srcinfo_parser.parse_srcinfo(pkgbase, srcinfo)
@@ -781,13 +800,28 @@ class StorageThread(threading.Thread):
             #self.logger.info(f"{pkg_info=}")
             self.buffer_pkginfo[pkgname] = pkg_info
             self.buffer_dependencies[pkgname] = dependencies
-        self.buffer_errors[pkgbase] = error_lines
+        self.buffer_errors[pkgbase] = parsed_errors
         self.buffer_files[pkgbase] = files
         if len(self.buffer_pkginfo) >= 500:
             self.flush_db()
 
+    def _flush_db_dependencies(self):
+        pass
+
+    def _flush_db_errors(self):
+        db_rows = []
+        for pkgname, pkg_db_rows in self.buffer_errors.items():
+            db_rows.extend(pkg_db_rows)
+        with self.db:
+            with contextlib.closing(self.db.cursor()) as cur:
+                placeholders = ('?,' * len(self.buffer_errors))[:-1]
+                sql = f"DELETE FROM logs WHERE context='printsrcinfo_no_deps' AND reponame='aur' AND pkgbase IN ({placeholders})"
+                cur.execute(sql, list(self.buffer_errors.keys()))
+                sql = ("INSERT INTO logs(pkgid, reponame, pkgbase, loglevel, logmessage, logextra, context, meta)"
+                    "VALUES(:pkgid, :reponame, :pkgbase, :loglevel, :logmessage, :logextra, :context, :meta)")
+                cur.executemany(sql, db_rows)
+
     def _flush_db_pkginfo(self):
-        to_flush = []
         #self.logger.info(f"flushing to db")
         #self.logger.info(f"===========================================================")
         buffer = []
@@ -856,7 +890,9 @@ class StorageThread(threading.Thread):
         if len(self.buffer_pkginfo):
             self._flush_db_pkginfo()
             self.buffer_pkginfo = {}
+            self._flush_db_dependencies()
             self.buffer_dependencies = {}
+            self._flush_db_errors()
             self.buffer_errors = {}
             self.buffer_files = {}
 
@@ -906,6 +942,7 @@ class StorageThread(threading.Thread):
             ('gpg_key_not_changed', r'^gpg: key (?P<key_id>[^:]+): "(?P<contact>[^"]+)" not changed$'),
             ('gpg_missing_key', r'gpg: key (?P<key_id>[^:]+): 1 signature not checked due to a missing key'),
             ('gpg_no_trusted_key_found', '^gpg: no ultimately trusted keys found$'),
+            ('printsrcinfo_exit_code', '^makepkg --printsrcinfo ([^ ]+) exit code: (?P<exit_code>[0-9]+)$'),
         ]
         for tag, reg in all_tags:
             m = re.match(reg, line)

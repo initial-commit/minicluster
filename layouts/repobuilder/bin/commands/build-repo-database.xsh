@@ -69,6 +69,9 @@ def create_pkg_sqlitedb(logger, db_file):
         cur.execute(('CREATE TABLE links'
             '(pkgid TEXT, reponame TEXT, link TEXT)'
         ))
+        cur.execute(('CREATE TABLE logs'
+            '(pkgid TEXT, reponame TEXT, pkgbase TEXT, loglevel TEXT, logmessage TEXT, logextra TEXT, context TEXT, meta TEXT)'
+        ))
     return db
 
 def normalize_meta(pkgid, meta, known_packages, logger):
