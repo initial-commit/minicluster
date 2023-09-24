@@ -767,6 +767,9 @@ class StorageThread(threading.Thread):
         norm_pkgs_info = srcinfo_parser.parse_srcinfo(pkgbase, srcinfo)
         for pkg_info in norm_pkgs_info:
             pkgname = pkg_info['pkgname']
+            if not pkg_info['pkgbase'] or pkg_info['pkgbase'] != pkgbase:
+                error_lines.append(f"pkgbase is out of sync in SRCINFO for {pkgbase=}")
+                pkg_info['pkgbase'] = pkgbase
             try:
                 dependencies = self.normalize_deps(pkg_info)
             except:
@@ -780,7 +783,7 @@ class StorageThread(threading.Thread):
             self.buffer_dependencies[pkgname] = dependencies
         self.buffer_errors[pkgbase] = error_lines
         self.buffer_files[pkgbase] = files
-        if len(self.buffer_pkginfo) >= 1000:
+        if len(self.buffer_pkginfo) >= 500:
             self.flush_db()
 
     def _flush_db_pkginfo(self):
@@ -836,6 +839,8 @@ class StorageThread(threading.Thread):
             db_row |= list_columns
             dict_columns = {k:json.dumps(v) for k,v in db_row.items() if isinstance(v, dict)}
             db_row |= dict_columns
+            if not db_row['pkgbase']:
+                self.logger.error(f"incomplete data for {db_row=}")
             buffer.append(db_row)
 
         with self.db:
