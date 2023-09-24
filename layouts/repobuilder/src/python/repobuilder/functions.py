@@ -553,7 +553,7 @@ class MonitoringThread(threading.Thread):
         self.git_processed = None
         self.put_duration = None
         self.storage_thread = storage_thread
-        super().__init__()
+        super().__init__(name=self.__class__.__name__)
 
     def run(self):
         has_data = True
@@ -613,13 +613,13 @@ class MonitoringThread(threading.Thread):
 
 
 class ExtractorThread(threading.Thread):
-    def __init__(self, queue_in, queue_out, extractor, logger, cond):
+    def __init__(self, name, queue_in, queue_out, extractor, logger, cond):
         self.queue_in = queue_in
         self.queue_out = queue_out
         self.extractor = extractor
         self.cond = cond
         self.logger = logger.getChild(self.__class__.__name__)
-        super().__init__()
+        super().__init__(name=name)
 
     def run(self):
         last = False
@@ -673,7 +673,7 @@ class StorageThread(threading.Thread):
     checksum_keys = ['md5sums', 'sha224sums', 'sha256sums', 'sha265sums', 'sha384sums', 'sha512sums', 'sha1sums', 'b2sums', 'cksums', ]
     dependency_keys = ['requires', 'makedepends', 'depends', 'provides', 'conflicts', 'optdepends', 'checkdepends', 'replaces', 'depend', ]
     dry_run = False
-    no_diff = True
+    no_diff = False
     # adapted dynamically by the monitoring thread with a cap of 1s
     sleep_duration = 0.010
 
@@ -692,9 +692,9 @@ class StorageThread(threading.Thread):
             for reltype in self.dependency_keys:
                 t.append(f"{reltype}_{arch}")
         self.dependency_keys.extend(t)
-        super().__init__()
+        super().__init__(name=self.__class__.__name__)
 
-    def run(self):
+    def run_profiled(self):
         import cProfile
         profiler = cProfile.Profile()
         try:
@@ -702,7 +702,7 @@ class StorageThread(threading.Thread):
         finally:
             profiler.dump_stats('myprofile-%d.profile' % (self.ident,))
 
-    def profiled_run(self):
+    def run(self):
         last_stored = None
         first_stored = None
         qsize_out = self.queue_out.qsize()
@@ -783,46 +783,74 @@ class StorageThread(threading.Thread):
         if len(self.buffer_pkginfo) >= 1000:
             self.flush_db()
 
+    def _flush_db_pkginfo(self):
+        to_flush = []
+        #self.logger.info(f"flushing to db")
+        #self.logger.info(f"===========================================================")
+        buffer = []
+        pkg_bases = set()
+        for pkgname, norm_meta in self.buffer_pkginfo.items():
+            db_row = {
+                'pkgbase': norm_meta.pop('pkgbase', None),
+                'pkgname': norm_meta.pop('pkgname', None),
+                'pkgdesc': norm_meta.pop('pkgdesc', None),
+                'pkgver': norm_meta.pop('pkgver', None),
+                'pkgrel': norm_meta.pop('pkgrel', None),
+                'url': norm_meta.pop('url', None),
+                'arch': norm_meta.pop('arch', None),
+                'license': norm_meta.pop('license', None),
+                'options': norm_meta.pop('options', None),
+                'backup': norm_meta.pop('backup', None),
+                'pgpsig': norm_meta.pop('validpgpkeys', None),
+                'group': norm_meta.pop('groups', None),
+                'epoch': norm_meta.pop('epoch', None),
+                'noextract': norm_meta.pop('noextract', None),
+                'reponame': 'aur',
+            }
+            pkg_bases.add(db_row['pkgbase'])
+            # TODO: store this in the database
+            install = norm_meta.pop('install', None)
+            changelog = norm_meta.pop('changelog', None)
+            if db_row['epoch']:
+                pkgid = f"{db_row['pkgname']}-{db_row['epoch']}:{db_row['pkgver']}-{db_row['pkgrel']}"
+            else:
+                pkgid = f"{db_row['pkgname']}-{db_row['pkgver']}-{db_row['pkgrel']}"
+                db_row['epoch'] = None
+            db_row['pkgid'] = pkgid
+            checksums = {}
+            for k, v in norm_meta.items():
+                if k in self.checksum_keys:
+                    checksums[k] = v
+            for k, v in checksums.items():
+                norm_meta.pop(k)
+            sources = {}
+            for k, v in norm_meta.items():
+                if k == 'source' or k.startswith('source_'):
+                    sources[k] = v
+            for k, v in sources.items():
+                norm_meta.pop(k)
+            db_row['sources'] = sources
+            if len(norm_meta) != 0:
+                self.logger.error(f"{pkgname} {norm_meta=}")
+            list_columns = {k:json.dumps(v) for k,v in db_row.items() if isinstance(v, list)}
+            db_row |= list_columns
+            dict_columns = {k:json.dumps(v) for k,v in db_row.items() if isinstance(v, dict)}
+            db_row |= dict_columns
+            buffer.append(db_row)
+
+        with self.db:
+            with contextlib.closing(self.db.cursor()) as cur:
+                placeholders = ('?,' * len(pkg_bases))[:-1]
+                sql = f"DELETE FROM pkginfo where reponame='aur' AND pkgbase IN ({placeholders})"
+                cur.execute(sql, list(pkg_bases))
+                sql = ("INSERT INTO pkginfo(pkgid, reponame, pkgbase, pkgname, pkgdesc, pkgver, pkgrel, url, arch, license, options, pgpsig, \"group\", sources, epoch, noextract)"
+                    "VALUES(:pkgid, :reponame, :pkgbase, :pkgname, :pkgdesc, :pkgver, :pkgrel, :url, :arch, :license, :options, :pgpsig, :group, :sources, :epoch, :noextract)")
+                cur.executemany(sql, buffer)
+
     def flush_db(self):
         if len(self.buffer_pkginfo):
-            to_flush = []
-            #self.logger.info(f"flushing to db")
-            #self.logger.info(f"===========================================================")
-            for pkgname, norm_meta in self.buffer_pkginfo.items():
-                db_meta = {
-                    'pkgbase': norm_meta.pop('pkgbase', None),
-                    'pkgname': norm_meta.pop('pkgname', None),
-                    'pkgdesc': norm_meta.pop('pkgdesc', None),
-                    'pkgver': norm_meta.pop('pkgver', None),
-                    'pkgrel': norm_meta.pop('pkgrel', None),
-                    'url': norm_meta.pop('url', None),
-                    'arch': norm_meta.pop('arch', None),
-                    'license': norm_meta.pop('license', None),
-                    'options': norm_meta.pop('options', None),
-                    'install': norm_meta.pop('install', None),
-                    'backup': norm_meta.pop('backup', None),
-                    'validpgpkeys': norm_meta.pop('validpgpkeys', None),
-                    'groups': norm_meta.pop('groups', None),
-                    'changelog': norm_meta.pop('changelog', None),
-                    'epoch': norm_meta.pop('epoch', None),
-                    'noextract': norm_meta.pop('noextract', None),
-                }
-                checksums = {}
-                for k, v in norm_meta.items():
-                    if k in self.checksum_keys:
-                        checksums[k] = v
-                for k, v in checksums.items():
-                    norm_meta.pop(k)
-                sources = {}
-                for k, v in norm_meta.items():
-                    if k == 'source' or k.startswith('source_'):
-                        sources[k] = v
-                for k, v in sources.items():
-                    norm_meta.pop(k)
-                if len(norm_meta) != 0:
-                    self.logger.error(f"{pkgname} {norm_meta=}")
+            self._flush_db_pkginfo()
             self.buffer_pkginfo = {}
-            to_flush = []
             self.buffer_dependencies = {}
             self.buffer_errors = {}
             self.buffer_files = {}

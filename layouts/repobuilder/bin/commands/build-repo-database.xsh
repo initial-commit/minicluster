@@ -43,7 +43,7 @@ def create_pkg_sqlitedb(logger, db_file):
     logger.info(f"creating sqlite db for repository: {db_file=}")
     if db_file.exists():
         db_file.unlink()
-    db = sqlite3.connect(db_file)
+    db = sqlite3.connect(db_file, check_same_thread=False)
     with contextlib.closing(db.cursor()) as cur:
         cur.execute(('CREATE TABLE pkginfo '
         '(pkgid TEXT, reponame TEXT, pkgname TEXT, pkgbase TEXT, pkgver TEXT, pkgrel REAL, epoch INTEGER, '
@@ -204,7 +204,7 @@ if __name__ == '__main__':
     if not existing_db:
         db = create_pkg_sqlitedb(logger, db_file)
     else:
-        db = sqlite3.connect(db_file)
+        db = sqlite3.connect(db_file, check_same_thread=False)
 
     if image:
         image = pathlib.Path(image).resolve()
@@ -439,7 +439,7 @@ if __name__ == '__main__':
             i = 0
             buffer = []
             cond = threading.Condition()
-            threads = [repobuilder.functions.ExtractorThread(queue_for_vm_input, queue_for_vm_output, extractor, logger, cond) for i in range(WORKER_THREADS)]
+            threads = [repobuilder.functions.ExtractorThread(f"extractor-{i}", queue_for_vm_input, queue_for_vm_output, extractor, logger, cond) for i in range(WORKER_THREADS)]
             stored_items = 0
             git_processed_items = 0
             storage_thread = repobuilder.functions.StorageThread(db, queue_for_vm_output, logger)
