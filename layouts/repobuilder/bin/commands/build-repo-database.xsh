@@ -397,6 +397,7 @@ if __name__ == '__main__':
                 res = cur.execute("SELECT pkgbase FROM pkginfo WHERE reponame='aurweb'")
                 known_packages = [v[0] for v in res.fetchall()]
     known_packages = set(known_packages)
+    logger.info(f"aurweb known packages: {len(known_packages)}")
 
     if aur_clone:
         if pf"{aur_clone}/.git".exists():

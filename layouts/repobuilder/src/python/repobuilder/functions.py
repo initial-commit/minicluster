@@ -783,7 +783,21 @@ class StorageThread(threading.Thread):
             parsed_errors.append(err_data)
 
         srcinfo_parser = SrcinfoParser(meta_list)
-        norm_pkgs_info = srcinfo_parser.parse_srcinfo(pkgbase, srcinfo)
+        norm_pkgs_info = []
+        try:
+            norm_pkgs_info = srcinfo_parser.parse_srcinfo(pkgbase, srcinfo)
+        except Exception as e:
+            err_data = {
+                'pkgid': None,
+                'reponame': 'aur',
+                'pkgbase': pkgbase,
+                'loglevel': 'ERROR',
+                'logmessage': repr(e),
+                'logextra': json.dumps(['parse_srcinfo_exception']),
+                'context': 'printsrcinfo_no_deps',
+                'meta': None,
+            }
+            parsed_errors.append(err_data)
         for pkg_info in norm_pkgs_info:
             pkgname = pkg_info['pkgname']
             if not pkg_info['pkgbase'] or pkg_info['pkgbase'] != pkgbase:
@@ -892,8 +906,10 @@ class StorageThread(threading.Thread):
             self.buffer_pkginfo = {}
             self._flush_db_dependencies()
             self.buffer_dependencies = {}
+        if len(self.buffer_errors):
             self._flush_db_errors()
             self.buffer_errors = {}
+        if len(self.buffer_files):
             self.buffer_files = {}
 
     def normalize_deps(self, pkg_info):
