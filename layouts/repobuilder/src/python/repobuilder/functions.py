@@ -195,8 +195,25 @@ class DictWithMetaKeys(dict):
         return self.realkeys
 
 def aur_repo_iterator_simple(repo, include_only=set()):
-    # 'collabora-online-server-nodocker',
-    problematic = ['altogether', 'garu', 'freeswitch-core', 'darling-bin-prerel', 'gn-bin', '0ad-boongui', 'arm-linux-gnueabihf-ncurses', '0ad-git', 'jamomacore-git', 'pam_autologin', 'mediasort', 'linux-binder', 'python-pysdb', 'python-dmt', 'python-cebra', 'ps3-zstd', 'pidgin-xmpp-ignore-groups', 'pdf-xchange', 'olive-nightly-bin', 'oh-my-git-git', 'ogpf-git', 'cabal-install-git', 'cf-alias-bin', 'claws-mail-protectedheaders-git', 'compiz-core', 'compiz-core-git', 'drupal-l10n', 'dtvp-utils', 'faraday-bin', 'firefox-nightly-bin', 'firefox-nightly-en-gb', 'foo2zjs-nightly', 'garu', 'gcc8', 'ghidra-extension-ghidrathon', 'gimp-plugin-gmic-git', 'git-annex-stack', 'goi3bar-git', 'hotdog', 'kh-webstore', 'kodi-addon-pvr-mythtv-git', 'labtunnel-git', 'legion-fan-utils-linux-git', 'lightning-terminal-bin', 'loop-bin', 'minc-toolkit-v2', 'mons-git', 'nfauthenticationkey', 'pd-faustgen2-git', 'php-xapian', 'pool-bin', 'postgresql13', 'pylance-language-server', 'qt5-wayland-dev-backport-git', 'qt5-wayland-git', 'rtl8189es-git', 'rtl8821cu-git', 'starleaf-breeze', 'storm', 'sway-git-wlroots-git', 'tuib', 'v8', 'webos-tv-cli', 'xfce-simple-dark', 'altogether', 'pylance-language-server', 'altogether', 'storm', 'brother-mfc-l2680w', 'postgresql13', 'argobots-git', ]
+
+    problematic = ['collabora-online-server-nodocker', 'altogether', 'garu', 'freeswitch-core', 'darling-bin-prerel',
+                   'gn-bin', '0ad-boongui', 'arm-linux-gnueabihf-ncurses', '0ad-git', 'jamomacore-git', 'pam_autologin',
+                   'mediasort', 'linux-binder', 'python-pysdb', 'python-dmt', 'python-cebra', 'ps3-zstd',
+                   'pidgin-xmpp-ignore-groups', 'pdf-xchange', 'olive-nightly-bin', 'oh-my-git-git', 'ogpf-git',
+                   'cabal-install-git', 'cf-alias-bin', 'claws-mail-protectedheaders-git', 'compiz-core',
+                   'compiz-core-git', 'drupal-l10n', 'dtvp-utils', 'faraday-bin', 'firefox-nightly-bin',
+                   'firefox-nightly-en-gb', 'foo2zjs-nightly', 'garu', 'gcc8', 'ghidra-extension-ghidrathon',
+                   'gimp-plugin-gmic-git', 'git-annex-stack', 'goi3bar-git', 'hotdog', 'kh-webstore',
+                   'kodi-addon-pvr-mythtv-git', 'labtunnel-git', 'legion-fan-utils-linux-git', 'lightning-terminal-bin',
+                   'loop-bin', 'minc-toolkit-v2', 'mons-git', 'nfauthenticationkey', 'pd-faustgen2-git', 'php-xapian',
+                   'pool-bin', 'postgresql13', 'pylance-language-server', 'qt5-wayland-dev-backport-git',
+                   'qt5-wayland-git', 'rtl8189es-git', 'rtl8821cu-git', 'starleaf-breeze', 'storm', 'sway-git-wlroots-git',
+                   'tuib', 'v8', 'webos-tv-cli', 'xfce-simple-dark', 'altogether', 'pylance-language-server', 'altogether',
+                   'storm', 'brother-mfc-l2680w', 'postgresql13', 'argobots-git', 'oracle-instantclient-basic11',
+                   'batch_resolve',
+                   ]
+
+
     problematic = []
 
     yielded = 0
@@ -881,6 +898,7 @@ class StorageThread(threading.Thread):
             for k, v in sources.items():
                 norm_meta.pop(k)
             db_row['sources'] = sources
+            db_row['checksums'] = checksums
             if len(norm_meta) != 0:
                 self.logger.error(f"{pkgname} {norm_meta=}")
             list_columns = {k:json.dumps(v) for k,v in db_row.items() if isinstance(v, list)}
@@ -896,8 +914,8 @@ class StorageThread(threading.Thread):
                 placeholders = ('?,' * len(pkg_bases))[:-1]
                 sql = f"DELETE FROM pkginfo where reponame='aur' AND pkgbase IN ({placeholders})"
                 cur.execute(sql, list(pkg_bases))
-                sql = ("INSERT INTO pkginfo(pkgid, reponame, pkgbase, pkgname, pkgdesc, pkgver, pkgrel, url, arch, license, options, pgpsig, \"group\", sources, epoch, noextract)"
-                    "VALUES(:pkgid, :reponame, :pkgbase, :pkgname, :pkgdesc, :pkgver, :pkgrel, :url, :arch, :license, :options, :pgpsig, :group, :sources, :epoch, :noextract)")
+                sql = ("INSERT INTO pkginfo(pkgid, reponame, pkgbase, pkgname, pkgdesc, pkgver, pkgrel, url, arch, license, checksums, options, pgpsig, \"group\", sources, epoch, noextract)"
+                    "VALUES(:pkgid, :reponame, :pkgbase, :pkgname, :pkgdesc, :pkgver, :pkgrel, :url, :arch, :license, :checksums, :options, :pgpsig, :group, :sources, :epoch, :noextract)")
                 cur.executemany(sql, buffer)
 
     def flush_db(self):
@@ -1044,7 +1062,7 @@ def upsert_aur_package(rawbatch, db, logger):
             if tags_to_ignore.intersection(tags):
                 continue
             if len(tags) != 0 or len(meta) != 0:
-                logger.info(f"PARSED ERROR: {pkgbase=} {tags=} {meta=} {line=}")
+                logger.debug(f"PARSED ERROR: {pkgbase=} {tags=} {meta=} {line=}")
             else:
                 logger.warning(f"{pkgbase=} unhandled line {line=}")
 
