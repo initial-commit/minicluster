@@ -16,6 +16,7 @@ import io
 import cluster.functions
 import contextlib
 import json
+import collections
 
 
 META_REQUIRED = [
@@ -210,9 +211,9 @@ def aur_repo_iterator_simple(repo, include_only=set()):
                    'qt5-wayland-git', 'rtl8189es-git', 'rtl8821cu-git', 'starleaf-breeze', 'storm', 'sway-git-wlroots-git',
                    'tuib', 'v8', 'webos-tv-cli', 'xfce-simple-dark', 'altogether', 'pylance-language-server', 'altogether',
                    'storm', 'brother-mfc-l2680w', 'postgresql13', 'argobots-git', 'oracle-instantclient-basic11',
-                   'batch_resolve',
+                   'batch_resolve', 'ttf-macedonian-church', 'arpfox-bin', 'zulu-19-bin', 'zulu-embedded-jdk11',
+                   'backintime', 'unity-language-pack', 'zxfer',
                    ]
-
 
     problematic = []
 
@@ -1127,3 +1128,23 @@ def upsert_aur_package(rawbatch, db, logger):
             sql = ("INSERT INTO dependencies(pkgname, deptype, otherpkg, operator, version, reason)"
             "VALUES(:pkgname, :deptype, :otherpkg, :operator, :version, :reason)")
             cur.executemany(sql, buffer_dependencies)
+
+def get_package_checksum_algos():
+    d = collections.OrderedDict()
+    checksum_keys = ['b2sums', 'sha512sums', 'sha384sums', 'sha256sums', 'sha224sums', 'sha1sums', 'md5sums', 'cksums', ]
+
+    d['b2sums'] = None
+    d['sha512sums'] = None
+    d['sha384sums'] = None
+    d['sha256sums'] = None
+    d['sha224sums'] = None
+    d['sha1sums'] = None
+    d['md5sums'] = None
+    d['cksums'] = None
+
+    for arch in ARCHITECTURES:
+        for algo in checksum_keys:
+            k = f"{algo}_{arch}"
+            d[k] = d[algo]
+
+    return d
